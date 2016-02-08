@@ -2,22 +2,22 @@ use secret_service::{EncryptionType, SecretService};
 
 use ::KeyringError;
 
-pub struct Keychain<'a> {
+pub struct Keyring<'a> {
     attributes: Vec<(&'a str, &'a str)>,
     service: &'a str,
     username: &'a str,
 }
 
-// Eventually try to get collection into the Keychain struct?
-impl<'a> Keychain<'a> {
+// Eventually try to get collection into the Keyring struct?
+impl<'a> Keyring<'a> {
 
-    pub fn new(service: &'a str, username: &'a str) -> Keychain<'a> {
+    pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         let attributes = vec![
             ("application", "rust-keyring"),
             ("service", service),
             ("username", username),
         ];
-        Keychain {
+        Keyring {
             attributes: attributes,
             service: service,
             username: username,

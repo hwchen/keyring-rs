@@ -1,11 +1,11 @@
 extern crate keyring;
 
-use keyring::Keychain;
+use keyring::Keyring;
 
 fn main() {
-    let keychain = Keychain::new("example-service", "example-username");
-    keychain.set_password("example-pass").unwrap();
-    let pass = keychain.get_password().unwrap();
-    keychain.delete_password().unwrap();
+    let keyring = Keyring::new("example-service", "example-username");
+    keyring.set_password("example-pass").unwrap();
+    let pass = keyring.get_password().unwrap();
+    keyring.delete_password().unwrap();
     println!("Retrieved Password {}", pass);
 }

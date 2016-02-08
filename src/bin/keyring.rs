@@ -3,7 +3,7 @@ extern crate keyring;
 extern crate rpassword;
 
 use clap::{Arg, App, SubCommand};
-use keyring::Keychain;
+use keyring::Keyring;
 use rpassword::read_password;
 
 fn main() {
@@ -35,12 +35,12 @@ fn main() {
 
     if let Some(set) = matches.subcommand_matches("set") {
         let username = set.value_of("username").unwrap();
-        let keychain = Keychain::new(service, username);
+        let keyring = Keyring::new(service, username);
 
         println!("Enter Password");
         let password = read_password().unwrap();
 
-        match keychain.set_password(&password[..]) {
+        match keyring.set_password(&password[..]) {
             Ok(_) => println!("Password set for user {:?}", username),
             _ => println!("Could not find password for user {:?}", username),
         }
@@ -48,9 +48,9 @@ fn main() {
 
     if let Some(get) = matches.subcommand_matches("get") {
         let username = get.value_of("username").unwrap();
-        let keychain = Keychain::new(service, username);
+        let keyring = Keyring::new(service, username);
 
-        match keychain.get_password() {
+        match keyring.get_password() {
             Ok(password) => println!("The password for user {:?} is {:?}", username, password),
             _ => println!("Could not find password for user {:?}", username),
         }
@@ -58,9 +58,9 @@ fn main() {
 
     if let Some(delete) = matches.subcommand_matches("delete") {
         let username = delete.value_of("username").unwrap();
-        let keychain = Keychain::new(service, username);
+        let keyring = Keyring::new(service, username);
 
-        match keychain.delete_password() {
+        match keyring.delete_password() {
             Ok(_) => println!("Password deleted for user {:?}", username),
             _ => println!("Could not delete password for user {:?}", username),
         }
