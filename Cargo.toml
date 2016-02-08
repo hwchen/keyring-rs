@@ -1,0 +1,11 @@
+[package]
+authors = ["Walther Chen <walther.chen@gmail.com>"]
+name = "keyring"
+version = "0.1.0"
+
+[dependencies]
+clap = "2.0.5"
+rpassword = "0.1.3"
+
+[dependencies.secret-service]
+git = "https://github.com/hwchen/secret-service-rs.git"
