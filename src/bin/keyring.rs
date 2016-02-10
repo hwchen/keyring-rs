@@ -8,7 +8,7 @@ use rpassword::read_password;
 
 fn main() {
     let matches = App::new("keyring")
-        .version("0.1")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Walther Chen <walther.chen@gmail.com>")
         .about("Cross-platform utility to get and set passwords from system vault")
         .subcommand(SubCommand::with_name("set")
