@@ -1,11 +1,14 @@
 [package]
 authors = ["Walther Chen <walther.chen@gmail.com>"]
+description = "Cross-platform library for managing passwords"
+homepage = "https://github.com/hwchen/keyring-rs.git"
+keywords = ["password", "linux", "keychain", "keyring"]
+license = "MIT OR Apache-2.0"
 name = "keyring"
+repository = "https://github.com/hwchen/keyring-rs.git"
 version = "0.1.0"
 
 [dependencies]
 clap = "2.0.5"
 rpassword = "0.1.3"
-
-[dependencies.secret-service]
-git = "https://github.com/hwchen/secret-service-rs.git"
+secret-service = "0.2.0"
