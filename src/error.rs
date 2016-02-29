@@ -9,7 +9,7 @@ pub type Result<T> = ::std::result::Result<T, KeyringError>;
 
 #[derive(Debug)]
 pub enum KeyringError {
-    #[cfg(target_os = "macos")]
+//TODO    #[cfg(target_os = "macos")]
     MacOsKeychainError,
     #[cfg(target_os = "linux")]
     SecretServiceError(SsError),
@@ -23,7 +23,7 @@ pub enum KeyringError {
 impl fmt::Display for KeyringError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            #[cfg(target_os = "macos")]
+ //TODO           #[cfg(target_os = "macos")]
             KeyringError::MacOsKeychainError => write!(f, "Mac Os Keychain Error"),
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
@@ -39,7 +39,7 @@ impl fmt::Display for KeyringError {
 impl error::Error for KeyringError {
     fn description(&self) -> &str {
         match *self {
-            #[cfg(target_os = "macos")]
+//TODO            #[cfg(target_os = "macos")]
             KeyringError::MacOsKeychainError => "Mac Os Keychain Error",
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => err.description(),
