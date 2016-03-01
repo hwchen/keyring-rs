@@ -21,8 +21,12 @@ impl<'a> Keyring<'a> {
         }
     }
 
-    //TODO: set through cli for special characters? (escapes, newlines?)
     pub fn set_password(&self, password: &str) -> ::Result<()> {
+        self.interactive_set(password)
+            .or_else(|_| self.direct_set(password))
+    }
+
+    fn interactive_set(&self, password: &str) -> ::Result<()> {
         let security_command = &format!("{} -a {} -s {} -p {} -U\n",
                                      "add-generic-password",
                                      self.username,
@@ -35,8 +39,8 @@ impl<'a> Keyring<'a> {
             .unwrap(); // Handle error
 
         process.stdin
-            .as_mut() // for reaching into Option
-            .unwrap() // Option must be Some(_)
+            .as_mut() // for getting mut ref from Option
+            .unwrap() // Option must be Some(_), so safe to unwrap
             .by_ref() // for providing ref for Write
             .write_all(security_command.as_bytes())
             .unwrap();
@@ -45,6 +49,30 @@ impl<'a> Keyring<'a> {
             Ok(())
         } else {
             Err(KeyringError::MacOsKeychainError)
+        }
+    }
+
+    fn direct_set(&self, password: &str) -> ::Result<()> {
+        let output = Command::new("security")
+            .arg("add_generic-password")
+            .arg("-a")
+            .arg(self.username)
+            .arg("-s")
+            .arg(self.service)
+            .arg("-p")
+            .arg(password)
+            .arg("-U")
+            .output();
+
+        match output {
+            Ok(output) => {
+                if output.status.success() {
+                    Ok(())
+                } else {
+                    Err(KeyringError::MacOsKeychainError)
+                }
+            },
+            _ => Err(KeyringError::MacOsKeychainError)
         }
     }
 
