@@ -9,11 +9,11 @@ pub type Result<T> = ::std::result::Result<T, KeyringError>;
 
 #[derive(Debug)]
 pub enum KeyringError {
-//TODO    #[cfg(target_os = "macos")]
+    #[cfg(target_os = "macos")]
     MacOsKeychainError,
     #[cfg(target_os = "linux")]
     SecretServiceError(SsError),
-    #[cfg(target_os = "windows")]
+//TODO    #[cfg(target_os = "windows")]
     WindowsVaultError,
     NoBackendFound,
     NoPasswordFound,
@@ -23,11 +23,11 @@ pub enum KeyringError {
 impl fmt::Display for KeyringError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
- //TODO           #[cfg(target_os = "macos")]
+            #[cfg(target_os = "macos")]
             KeyringError::MacOsKeychainError => write!(f, "Mac Os Keychain Error"),
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
-            #[cfg(target_os = "windows")]
+//TODO            #[cfg(target_os = "windows")]
             KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
             KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
             KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
@@ -39,11 +39,11 @@ impl fmt::Display for KeyringError {
 impl error::Error for KeyringError {
     fn description(&self) -> &str {
         match *self {
-//TODO            #[cfg(target_os = "macos")]
+            #[cfg(target_os = "macos")]
             KeyringError::MacOsKeychainError => "Mac Os Keychain Error",
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => err.description(),
-            #[cfg(target_os = "windows")]
+//TODO            #[cfg(target_os = "windows")]
             KeyringError::WindowsVaultError => "Windows Vault Error",
             KeyringError::NoBackendFound => "No Backend Found",
             KeyringError::NoPasswordFound => "No Password Found",
