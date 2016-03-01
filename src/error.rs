@@ -13,7 +13,7 @@ pub enum KeyringError {
     MacOsKeychainError,
     #[cfg(target_os = "linux")]
     SecretServiceError(SsError),
-//TODO    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "windows")]
     WindowsVaultError,
     NoBackendFound,
     NoPasswordFound,
@@ -27,7 +27,7 @@ impl fmt::Display for KeyringError {
             KeyringError::MacOsKeychainError => write!(f, "Mac Os Keychain Error"),
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
-//TODO            #[cfg(target_os = "windows")]
+            #[cfg(target_os = "windows")]
             KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
             KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
             KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
@@ -43,7 +43,7 @@ impl error::Error for KeyringError {
             KeyringError::MacOsKeychainError => "Mac Os Keychain Error",
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => err.description(),
-//TODO            #[cfg(target_os = "windows")]
+            #[cfg(target_os = "windows")]
             KeyringError::WindowsVaultError => "Windows Vault Error",
             KeyringError::NoBackendFound => "No Backend Found",
             KeyringError::NoPasswordFound => "No Password Found",
