@@ -39,7 +39,7 @@ fn main() {
 
         println!("Enter Password");
         let password = read_password().unwrap();
-        println!("Password is: {:?}", password);
+        //println!("Password is: {:?}", password);
 
         match keyring.set_password(&password[..]) {
             Ok(_) => println!("Password set for user \"{}\"", username),
