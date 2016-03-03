@@ -53,12 +53,14 @@ impl error::Error for KeyringError {
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
+            #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => Some(err),
             _ => None,
         }
     }
 }
 
+#[cfg(target_os = "linux")]
 impl From<SsError> for KeyringError {
     fn from(err: SsError) -> KeyringError {
         KeyringError::SecretServiceError(err)

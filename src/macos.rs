@@ -27,20 +27,23 @@ impl<'a> Keyring<'a> {
     }
 
     fn interactive_set(&self, password: &str) -> ::Result<()> {
-        let security_command = &format!("{} -a {} -s {} -p {} -U\n",
+        let security_command = &format!("{} -a '{}' -s '{}' -p '{}' -U\n",
                                      "add-generic-password",
                                      self.username,
                                      self.service,
                                      password)[..];
 
         let mut process = Command::new("security")
+            .arg("-i")
             .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
-            .unwrap(); // Handle error
+            .expect("error spawning command process"); // Handle error
 
         process.stdin
             .as_mut() // for getting mut ref from Option
-            .unwrap() // Option must be Some(_), so safe to unwrap
+            .expect("stdin") // Option must be Some(_), so safe to unwrap
             .by_ref() // for providing ref for Write
             .write_all(security_command.as_bytes())
             .unwrap();
@@ -54,7 +57,7 @@ impl<'a> Keyring<'a> {
 
     fn direct_set(&self, password: &str) -> ::Result<()> {
         let output = Command::new("security")
-            .arg("add_generic-password")
+            .arg("add-generic-password")
             .arg("-a")
             .arg(self.username)
             .arg("-s")
@@ -62,7 +65,7 @@ impl<'a> Keyring<'a> {
             .arg("-p")
             .arg(password)
             .arg("-U")
-            .output();
+           .output();
 
         match output {
             Ok(output) => {
@@ -78,7 +81,7 @@ impl<'a> Keyring<'a> {
 
     pub fn get_password(&self) -> ::Result<String> {
         let output = Command::new("security")
-            .arg("find_generic-password")
+            .arg("find-generic-password")
             .arg("-w") // why not w? instead of g
             .arg("-a")
             .arg(self.username)
@@ -89,7 +92,8 @@ impl<'a> Keyring<'a> {
         match output {
             Ok(output) => {
                 if output.status.success() {
-                    let output_string = String::from_utf8(output.stderr).unwrap();
+                    let output_string = String::from_utf8(output.stdout)
+                        .unwrap().trim().to_owned();
 
                     // How do I know if it's hex? What if output happens to look
                     // like hex?
@@ -111,7 +115,7 @@ impl<'a> Keyring<'a> {
 
     pub fn delete_password(&self) -> ::Result<()> {
         let output = Command::new("security")
-            .arg("find_generic-password")
+            .arg("delete-generic-password")
             .arg("-a")
             .arg(self.username)
             .arg("-s")
