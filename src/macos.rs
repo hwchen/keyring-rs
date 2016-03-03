@@ -92,19 +92,17 @@ impl<'a> Keyring<'a> {
         match output {
             Ok(output) => {
                 if output.status.success() {
-                    let output_string = String::from_utf8(output.stdout)
-                        .unwrap().trim().to_owned();
-
-                    // How do I know if it's hex? What if output happens to look
-                    // like hex?
-                    // I assume it uses \0x syntax. I can assume for now that the
-                    // serialize library simply won't serialize a non-hex output.
-                    // This should be as good as running a regex anyways.
+                    let output_string = String::from_utf8(output.stdout).unwrap().trim().to_owned();
+                    // padded with extra 'ffffff' before each octet?
+                    //println!("{:?}", output_string);
                     match output_string.from_hex() {
-                        Ok(from_hex_vec) => Ok(String::from_utf8(from_hex_vec).unwrap()),
-                        Err(_) => Ok(output_string),
+                        Ok(bytes) => {
+                            // filter out extra 255?
+                            let bytes: Vec<_> = bytes.into_iter().filter(|&b| b != 255).collect();
+                            Ok(String::from_utf8(bytes).expect("error converting hex to utf8"))
+                        },
+                        _ => Ok(output_string),
                     }
-
                 } else {
                     Err(KeyringError::MacOsKeychainError)
                 }

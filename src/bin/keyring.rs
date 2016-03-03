@@ -42,8 +42,8 @@ fn main() {
         println!("Password is: {:?}", password);
 
         match keyring.set_password(&password[..]) {
-            Ok(_) => println!("Password set for user {:?}", username),
-            _ => println!("Could not find password for user {:?}", username),
+            Ok(_) => println!("Password set for user \"{}\"", username),
+            _ => println!("Could not find password for user \"{}\"", username),
         }
     }
 
@@ -52,8 +52,8 @@ fn main() {
         let keyring = Keyring::new(service, username);
 
         match keyring.get_password() {
-            Ok(password) => println!("The password for user {:?} is {:?}", username, password),
-            _ => println!("Could not find password for user {:?}", username),
+            Ok(password) => println!("The password for user \"{}\" is \"{}\"", username, password),
+            _ => println!("Could not find password for user \"{}\"", username),
         }
     }
 
@@ -62,8 +62,8 @@ fn main() {
         let keyring = Keyring::new(service, username);
 
         match keyring.delete_password() {
-            Ok(_) => println!("Password deleted for user {:?}", username),
-            _ => println!("Could not delete password for user {:?}", username),
+            Ok(_) => println!("Password deleted for user \"{}\"", username),
+            _ => println!("Could not delete password for user \"{}\"", username),
         }
     }
 }

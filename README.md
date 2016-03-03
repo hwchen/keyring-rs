@@ -2,7 +2,9 @@
 
 A cross-platorm library and utility to manage passwords.
 
-Currently only supports Linux
+Currently supports Linux and OSX.
 
-Windows and OSX support soon.
+Caveat for OSX support: special characters support is experimental. Please file and issue if this gives you trouble.
+
+Windows support soon.
 
