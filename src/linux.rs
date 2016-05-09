@@ -27,6 +27,9 @@ impl<'a> Keyring<'a> {
     pub fn set_password(&self, password: &str) -> ::Result<()> {
         let ss = try!(SecretService::new(EncryptionType::Dh));
         let collection = try!(ss.get_default_collection());
+        if collection.is_locked().unwrap() {
+            try!(collection.unlock());
+        }
         let label = &format!("Password for {} on {}", self.username, self.service)[..];
         try!(collection.create_item(
             label,
@@ -41,6 +44,9 @@ impl<'a> Keyring<'a> {
     pub fn get_password(&self) -> ::Result<String> {
         let ss = try!(SecretService::new(EncryptionType::Dh));
         let collection = try!(ss.get_default_collection());
+        if collection.is_locked().unwrap() {
+            try!(collection.unlock());
+        }
         let search = try!(collection.search_items(self.attributes.clone()));
         let item = try!(search.get(0).ok_or(KeyringError::NoPasswordFound));
         let secret_bytes = try!(item.get_secret());
@@ -51,6 +57,9 @@ impl<'a> Keyring<'a> {
     pub fn delete_password(&self) -> ::Result<()> {
         let ss = try!(SecretService::new(EncryptionType::Dh));
         let collection = try!(ss.get_default_collection());
+        if collection.is_locked().unwrap() {
+            try!(collection.unlock());
+        }
         let search = try!(collection.search_items(self.attributes.clone()));
         let item = try!(search.get(0).ok_or(KeyringError::NoPasswordFound));
         Ok(try!(item.delete()))

@@ -6,7 +6,7 @@ keywords = ["password", "linux", "keychain", "keyring"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "0.1.0"
+version = "0.1.1"
 
 [dependencies]
 advapi32-sys = "0.2.0"
