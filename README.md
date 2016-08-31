@@ -46,7 +46,7 @@ fn main() {
   let keyring = keyring::Keyring::new(&service, &username)
 
   let password = "topS3cr3tP4$$w0rd";
-  keyring.set_password(&password);
+  keyring.set_password(&password).unwrap();
 
   let password = keyring.get_password().unwrap()
   println!("The password is '{}'", password);
@@ -64,11 +64,20 @@ fn main() {
 
   let keyring = keyring::Keyring::new(&service, &username)
 
-  keyring.delete_password();
+  keyring.delete_password().unwrap();
 
   println!("The password s been deleted");
 }
 ```
+
+## Errors
+
+The `get_password`, `set_password` and `delete_password` functions return a
+`Result` which, if the operation was unsuccessful, can yield a `KeyringError`.
+
+The `KeyringError` struct implements the `error::Error` and `fmt::Display`
+traits, so it can be queried for a cause and an description using methods of
+the same name.
 
 ## Caveats
 
