@@ -79,6 +79,13 @@ impl<'a> Keyring<'a> {
         }
     }
 
+    pub fn get_binary_password(&self) -> ::Result<String> {
+        let output_string = try!(self.get_password());
+        let bytes = output_string.from_hex().expect("Couldn't decode hex password");
+        let bytes: Vec<_> = bytes.into_iter().filter(|&b| b != 255).collect();
+        Ok(String::from_utf8(bytes).expect("error converting hex to utf8"))
+    }
+
     pub fn get_password(&self) -> ::Result<String> {
         let output = Command::new("security")
             .arg("find-generic-password")
@@ -92,17 +99,8 @@ impl<'a> Keyring<'a> {
         match output {
             Ok(output) => {
                 if output.status.success() {
-                    let output_string = String::from_utf8(output.stdout).unwrap().trim().to_owned();
-                    // padded with extra 'ffffff' before each octet?
-                    //println!("{:?}", output_string);
-                    match output_string.from_hex() {
-                        Ok(bytes) => {
-                            // filter out extra 255?
-                            let bytes: Vec<_> = bytes.into_iter().filter(|&b| b != 255).collect();
-                            Ok(String::from_utf8(bytes).expect("error converting hex to utf8"))
-                        },
-                        _ => Ok(output_string),
-                    }
+                    let output_string = try!(String::from_utf8(output.stdout)).trim().to_owned();
+                    Ok(output_string)
                 } else {
                     Err(KeyringError::MacOsKeychainError)
                 }
