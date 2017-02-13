@@ -2,11 +2,11 @@
 authors = ["Walther Chen <walther.chen@gmail.com>"]
 description = "Cross-platform library for managing passwords"
 homepage = "https://github.com/hwchen/keyring-rs.git"
-keywords = ["password", "linux", "keychain", "keyring"]
+keywords = ["password", "linux", "osx", "keychain", "keyring"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "0.1.1"
+version = "0.2.0"
 
 [dependencies]
 advapi32-sys = "0.2.0"
