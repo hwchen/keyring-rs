@@ -4,13 +4,13 @@ A cross-platorm library and utility to manage passwords.
 
 ## Usage
 
-__Currently supports Linux and macOS.__ Windows support is coming soon.
+__Currently supports Linux, macOS, and Windows.__ Please file issues if you have any problems or bugs!
 
 To use this library in your project add the following to your `Cargo.toml` file:
 
 ```Rust
 [dependencies]
-keyring = "0.1.1"
+keyring = "0.3.0"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
