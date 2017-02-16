@@ -9,9 +9,14 @@ repository = "https://github.com/hwchen/keyring-rs.git"
 version = "0.2.0"
 
 [dependencies]
-advapi32-sys = "0.2.0"
+
 clap = "2.0.5"
 rpassword = "0.1.3"
 rustc-serialize = "0.3.18"
+
+[target.'cfg(unix)'.dependencies]
 secret-service = "0.2.0"
+
+[target.'cfg(windows)'.dependencies]
+advapi32-sys = "0.2.0"
 winapi = "0.2.5"
