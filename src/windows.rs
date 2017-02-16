@@ -21,6 +21,10 @@ use winapi::wincred::{
 // BOOL is i32 (false = 0, true = 1)
 // PCREDENTIALW = *mut CREDENTIALW
 
+// Note: decision to concatenate user and service name
+// to create target is because Windows assumes one user
+// per service. See issue here: https://github.com/jaraco/keyring/issues/47
+
 pub struct Keyring<'a> {
     service: &'a str,
     username: &'a str,
