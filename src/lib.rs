@@ -31,3 +31,20 @@ pub use macos::Keyring;
 mod error;
 pub use error::{KeyringError, Result};
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn test_empty_password_input() {
+        let pass = "";
+        let keyring = Keyring::new("test", "test");
+        match keyring.set_password(pass) {
+            Ok(_) => (),
+            Err(_) => {
+                keyring.get_password().unwrap();
+            },
+        }
+    }
+}
