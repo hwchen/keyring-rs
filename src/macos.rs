@@ -90,19 +90,24 @@ impl<'a> Keyring<'a> {
             Ok(output) => {
                 if output.status.success() {
                     let output_string = String::from_utf8(output.stderr).unwrap().trim().to_owned();
-                    if is_not_hex_output(&output_string) {
-                        // slice "password: " off the front and " off back
-                        Ok(output_string[11..output_string.len()-1].to_string())
+                    if output_string.len() <= 10 {
+                        // It's an empty string
+                        Ok("".to_owned())
                     } else {
-                        // slice "password: " off the front
-                        let bytes = output_string[12..]
-                            .from_hex()
-                            .expect("error reading hex output");
+                        if is_not_hex_output(&output_string) {
+                            // slice "password: \"" off the front and " off back
+                            Ok(output_string[11..output_string.len()-1].to_string())
+                        } else {
+                            // slice "password: 0x" off the front
+                            let bytes = output_string[12..]
+                                .from_hex()
+                                .expect("error reading hex output");
 
-                        Ok(
-                            String::from_utf8(bytes)
-                                .expect("error converting hex to utf8")
-                        )
+                            Ok(
+                                String::from_utf8(bytes)
+                                    .expect("error converting hex to utf8")
+                            )
+                        }
                     }
                 } else {
                     Err(KeyringError::MacOsKeychainError)
@@ -135,6 +140,7 @@ impl<'a> Keyring<'a> {
 }
 
 fn is_not_hex_output(s: &str) -> bool {
+    assert!(s.len() >= 11);
     const MATCH_START: &'static str = "password: \"";
     const MATCH_END: char = '\"';
 

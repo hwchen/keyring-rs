@@ -36,15 +36,12 @@ mod tests {
     use super::*;
 
     #[test]
-    #[should_panic]
     fn test_empty_password_input() {
         let pass = "";
         let keyring = Keyring::new("test", "test");
-        match keyring.set_password(pass) {
-            Ok(_) => (),
-            Err(_) => {
-                keyring.get_password().unwrap();
-            },
-        }
+        keyring.set_password(pass).unwrap();
+        let out = keyring.get_password().unwrap();
+        keyring.delete_password().unwrap();
+        assert_eq!(pass, out);
     }
 }
