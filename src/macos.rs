@@ -38,24 +38,9 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn delete_password(&self) -> ::Result<()> {
-        let output = Command::new("security")
-            .arg("delete-generic-password")
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .output();
+        try!(delete_generic_password(None, self.service, self.username));
 
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    Ok(())
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        Ok(())
     }
 }
 
