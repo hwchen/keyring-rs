@@ -44,14 +44,6 @@ impl<'a> Keyring<'a> {
     }
 }
 
-fn is_not_hex_output(s: &str) -> bool {
-    assert!(s.len() >= 11);
-    const MATCH_START: &'static str = "password: \"";
-    const MATCH_END: char = '\"';
-
-    s.starts_with(MATCH_START) && s.ends_with(MATCH_END)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
