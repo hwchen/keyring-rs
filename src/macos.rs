@@ -2,6 +2,7 @@ use ::KeyringError;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use rustc_serialize::hex::FromHex;
+use security_framework::os::macos::passwords::{find_generic_password, set_generic_password, delete_generic_password};
 
 pub struct Keyring<'a> {
     service: &'a str,
@@ -19,61 +20,9 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> ::Result<()> {
-        self.interactive_set(password)
-            .or_else(|_| self.direct_set(password))
-    }
+        try!(set_generic_password(None, self.service, self.username, password.as_bytes()));
 
-    fn interactive_set(&self, password: &str) -> ::Result<()> {
-        let security_command = &format!("{} -a '{}' -s '{}' -p '{}' -U\n",
-                                     "add-generic-password",
-                                     self.username,
-                                     self.service,
-                                     password)[..];
-
-        let mut process = Command::new("security")
-            .arg("-i")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("error spawning command process"); // Handle error
-
-        process.stdin
-            .as_mut() // for getting mut ref from Option
-            .expect("stdin") // Option must be Some(_), so safe to unwrap
-            .by_ref() // for providing ref for Write
-            .write_all(security_command.as_bytes())
-            .unwrap();
-
-        if process.wait().unwrap().success() {
-            Ok(())
-        } else {
-            Err(KeyringError::MacOsKeychainError)
-        }
-    }
-
-    fn direct_set(&self, password: &str) -> ::Result<()> {
-        let output = Command::new("security")
-            .arg("add-generic-password")
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .arg("-p")
-            .arg(password)
-            .arg("-U")
-           .output();
-
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    Ok(())
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        Ok(())
     }
 
     pub fn get_password(&self) -> ::Result<String> {

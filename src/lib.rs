@@ -24,6 +24,8 @@ pub use windows::Keyring;
 #[cfg(target_os = "macos")]
 extern crate rustc_serialize;
 #[cfg(target_os = "macos")]
+extern crate security_framework;
+#[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::Keyring;
