@@ -1,5 +1,7 @@
 #[cfg(target_os = "linux")]
 use secret_service::SsError;
+#[cfg(target_os = "macos")]
+use security_framework::base::Error as SfError;
 use std::error;
 use std::fmt;
 use std::string::FromUtf8Error;
@@ -64,6 +66,13 @@ impl error::Error for KeyringError {
 impl From<SsError> for KeyringError {
     fn from(err: SsError) -> KeyringError {
         KeyringError::SecretServiceError(err)
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<SfError> for KeyringError {
+    fn from(err: SfError) -> KeyringError {
+        KeyringError::MacOsKeychainError(err)
     }
 }
 
