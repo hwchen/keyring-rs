@@ -26,44 +26,15 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn get_password(&self) -> ::Result<String> {
-        let output = Command::new("security")
-            .arg("find-generic-password")
-            .arg("-g") // g instead of g gets string with " and hex without "
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .output();
+        let (password_bytes, _) = try!(find_generic_password(None, self.service, self.username));
 
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    let output_string = String::from_utf8(output.stderr).unwrap().trim().to_owned();
-                    if output_string.len() <= 10 {
-                        // It's an empty string
-                        Ok("".to_owned())
-                    } else {
-                        if is_not_hex_output(&output_string) {
-                            // slice "password: \"" off the front and " off back
-                            Ok(output_string[11..output_string.len()-1].to_string())
-                        } else {
-                            // slice "password: 0x" off the front
-                            let bytes = output_string[12..]
-                                .from_hex()
-                                .expect("error reading hex output");
+        // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
+        // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
+        // password that was added to the keychain by another library
 
-                            Ok(
-                                String::from_utf8(bytes)
-                                    .expect("error converting hex to utf8")
-                            )
-                        }
-                    }
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        let password = try!(String::from_utf8(password_bytes));
+
+        Ok(password)
     }
 
     pub fn delete_password(&self) -> ::Result<()> {
