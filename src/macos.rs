@@ -1,7 +1,3 @@
-use ::KeyringError;
-use std::io::Write;
-use std::process::{Command, Stdio};
-use rustc_serialize::hex::FromHex;
 use security_framework::os::macos::passwords::{find_generic_password, set_generic_password, delete_generic_password};
 
 pub struct Keyring<'a> {
