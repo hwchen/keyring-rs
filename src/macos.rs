@@ -56,30 +56,51 @@ fn is_not_hex_output(s: &str) -> bool {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_password_output_is_not_hex() {
-        let output_1 = r#"password: "0xE5A4A7E6A0B9""#;
-        let output_2 = r#"password: 0xE5A4A7E6A0B9"#;
+    static TEST_SERVICE: &'static str = "test.keychain-rs.io";
+    static TEST_USER: &'static str = "user@keychain-rs.io";
+    static TEST_ASCII_PASSWORD: &'static str = "my_password";
+    static TEST_NON_ASCII_PASSWORD: &'static str = "大根";
 
-        assert_eq!(is_not_hex_output(output_1), true);
-        assert_eq!(is_not_hex_output(output_2), false);
+    #[test]
+    fn test_add_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
+
+        keyring.delete_password().unwrap();
     }
 
     #[test]
-    fn test_special_char_passwords() {
-        // need to worry about unlocking keychain?
+    fn test_round_trip_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
 
-        let password_1 = "大根";
-        let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
+        keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
 
-        let keyring = Keyring::new("testuser", "testservice");
-        keyring.set_password(password_1).unwrap();
-        let res_1 = keyring.get_password().unwrap();
-        assert_eq!(res_1, password_1);
+        let stored_password = keyring.get_password().unwrap();
 
-        keyring.set_password(password_2).unwrap();
-        let res_2 = keyring.get_password().unwrap();
-        assert_eq!(res_2, password_2);
+        assert_eq!(stored_password, TEST_ASCII_PASSWORD);
+
+        keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_add_non_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
+
+        keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_round_trip_non_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
+
+        let stored_password = keyring.get_password().unwrap();
+
+        assert_eq!(stored_password, TEST_NON_ASCII_PASSWORD);
 
         keyring.delete_password().unwrap();
     }
