@@ -10,7 +10,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 
 ```Rust
 [dependencies]
-keyring = "0.3.0"
+keyring = "0.5.0"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
@@ -85,10 +85,13 @@ the same name.
 
 * Special characters support is experimental.
 Please file an issue if this gives you trouble.
+* Handles empty string input appropriately (encrypts and decrypts)
 
 ### Linux
 
 * The application name is hardcoded to be `rust-keyring`.
+* Does not handle empty string input appropriately (decrypts but does not
+encrypt. This is a limitation of the current implementation of rust-crypto)
 
 ## License
 
