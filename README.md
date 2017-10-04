@@ -10,7 +10,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 
 ```Rust
 [dependencies]
-keyring = "0.5.0"
+keyring = "0.5.1"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
