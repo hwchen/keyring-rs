@@ -102,6 +102,16 @@ Licensed under either of
 
 at your option.
 
+## Contributors
+Thanks to the following for helping make this library better, whether through contributing code, discussion, or bug reports!
+
+- @dario23
+- @dten
+- @jonathanmorley
+- @lexxvir
+- @stankec
+- @steveatinfincia
+
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
