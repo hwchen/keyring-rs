@@ -12,6 +12,8 @@ pub use linux::Keyring;
 
 // Configure for Windows
 #[cfg(target_os = "windows")]
+extern crate byteorder;
+#[cfg(target_os = "windows")]
 extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate advapi32;
