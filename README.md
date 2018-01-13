@@ -2,6 +2,9 @@
 
 A cross-platorm library and utility to manage passwords.
 
+Very basic [docs](https://docs.rs/keyring/0.6.0/keyring/).
+[Crates.io](https://crates.io/crates/keyring)
+
 ## Usage
 
 __Currently supports Linux, macOS, and Windows.__ Please file issues if you have any problems or bugs!
@@ -10,7 +13,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 
 ```Rust
 [dependencies]
-keyring = "0.5.1"
+keyring = "0.6.0"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
