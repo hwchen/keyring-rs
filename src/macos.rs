@@ -1,7 +1,7 @@
 use ::KeyringError;
 use std::io::Write;
 use std::process::{Command, Stdio};
-use rustc_serialize::hex::FromHex;
+use hex;
 
 pub struct Keyring<'a> {
     service: &'a str,
@@ -99,8 +99,7 @@ impl<'a> Keyring<'a> {
                             Ok(output_string[11..output_string.len()-1].to_string())
                         } else {
                             // slice "password: 0x" off the front
-                            let bytes = output_string[12..]
-                                .from_hex()
+                            let bytes = hex::decode(&output_string[12..])
                                 .expect("error reading hex output");
 
                             Ok(
