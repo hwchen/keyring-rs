@@ -3,6 +3,7 @@
 A cross-platorm library and utility to manage passwords.
 
 Very basic [docs](https://docs.rs/keyring/0.6.0/keyring/).
+
 [Crates.io](https://crates.io/crates/keyring)
 
 ## Usage
