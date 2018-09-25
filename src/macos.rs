@@ -89,7 +89,9 @@ impl<'a> Keyring<'a> {
         match output {
             Ok(output) => {
                 if output.status.success() {
-                    let output_string = String::from_utf8(output.stderr).unwrap().trim().to_owned();
+                    let output_string = String::from_utf8(output.stderr);
+                    let output_string = output_string.unwrap().trim().to_owned();
+
                     if output_string.len() <= 10 {
                         // It's an empty string
                         Ok("".to_owned())
@@ -99,7 +101,16 @@ impl<'a> Keyring<'a> {
                             Ok(output_string[11..output_string.len()-1].to_string())
                         } else {
                             // slice "password: 0x" off the front
-                            let bytes = hex::decode(&output_string[12..])
+                            // also slice off non-hex section from the end.
+                            //
+                            // Not sure why the keychain returns both a hex version and
+                            // another encoded version for when there's special chars.
+                            let hex_str = &output_string[12..];
+                            let hex_str = hex_str.split(" ")
+                                .nth(0)
+                                .expect("first section of split must contain hex str password");
+
+                            let bytes = hex::decode(hex_str)
                                 .expect("error reading hex output");
 
                             Ok(
@@ -165,6 +176,7 @@ mod test {
 
         let password_1 = "大根";
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
+        let password_3 = r#"+s+'G#\"#; // this triggers hex fn
 
         let keyring = Keyring::new("testuser", "testservice");
         keyring.set_password(password_1).unwrap();
@@ -174,6 +186,10 @@ mod test {
         keyring.set_password(password_2).unwrap();
         let res_2 = keyring.get_password().unwrap();
         assert_eq!(res_2, password_2);
+
+        keyring.set_password(password_3).unwrap();
+        let res_3 = keyring.get_password().unwrap();
+        assert_eq!(res_3, password_3);
 
         keyring.delete_password().unwrap();
     }
