@@ -1,7 +1,4 @@
-use ::KeyringError;
-use std::io::Write;
-use std::process::{Command, Stdio};
-use hex;
+use security_framework::os::macos::passwords::{find_generic_password, set_generic_password, delete_generic_password};
 
 pub struct Keyring<'a> {
     service: &'a str,
@@ -19,177 +16,79 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> ::Result<()> {
-        self.interactive_set(password)
-            .or_else(|_| self.direct_set(password))
-    }
+        try!(set_generic_password(None, self.service, self.username, password.as_bytes()));
 
-    fn interactive_set(&self, password: &str) -> ::Result<()> {
-        let security_command = &format!("{} -a '{}' -s '{}' -p '{}' -U\n",
-                                     "add-generic-password",
-                                     self.username,
-                                     self.service,
-                                     password)[..];
-
-        let mut process = Command::new("security")
-            .arg("-i")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("error spawning command process"); // Handle error
-
-        process.stdin
-            .as_mut() // for getting mut ref from Option
-            .expect("stdin") // Option must be Some(_), so safe to unwrap
-            .by_ref() // for providing ref for Write
-            .write_all(security_command.as_bytes())
-            .unwrap();
-
-        if process.wait().unwrap().success() {
-            Ok(())
-        } else {
-            Err(KeyringError::MacOsKeychainError)
-        }
-    }
-
-    fn direct_set(&self, password: &str) -> ::Result<()> {
-        let output = Command::new("security")
-            .arg("add-generic-password")
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .arg("-p")
-            .arg(password)
-            .arg("-U")
-           .output();
-
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    Ok(())
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        Ok(())
     }
 
     pub fn get_password(&self) -> ::Result<String> {
-        let output = Command::new("security")
-            .arg("find-generic-password")
-            .arg("-g") // g instead of g gets string with " and hex without "
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .output();
+        let (password_bytes, _) = try!(find_generic_password(None, self.service, self.username));
 
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    let output_string = String::from_utf8(output.stderr);
-                    let output_string = output_string.unwrap().trim().to_owned();
+        // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
+        // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
+        // password that was added to the keychain by another library
 
-                    if output_string.len() <= 10 {
-                        // It's an empty string
-                        Ok("".to_owned())
-                    } else {
-                        if is_not_hex_output(&output_string) {
-                            // slice "password: \"" off the front and " off back
-                            Ok(output_string[11..output_string.len()-1].to_string())
-                        } else {
-                            // slice "password: 0x" off the front
-                            // also slice off non-hex section from the end.
-                            //
-                            // Not sure why the keychain returns both a hex version and
-                            // another encoded version for when there's special chars.
-                            let hex_str = &output_string[12..];
-                            let hex_str = hex_str.split(" ")
-                                .nth(0)
-                                .expect("first section of split must contain hex str password");
+        let password = try!(String::from_utf8(password_bytes));
 
-                            let bytes = hex::decode(hex_str)
-                                .expect("error reading hex output");
-
-                            Ok(
-                                String::from_utf8(bytes)
-                                    .expect("error converting hex to utf8")
-                            )
-                        }
-                    }
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        Ok(password)
     }
 
     pub fn delete_password(&self) -> ::Result<()> {
-        let output = Command::new("security")
-            .arg("delete-generic-password")
-            .arg("-a")
-            .arg(self.username)
-            .arg("-s")
-            .arg(self.service)
-            .output();
+        try!(delete_generic_password(None, self.service, self.username));
 
-        match output {
-            Ok(output) => {
-                if output.status.success() {
-                    Ok(())
-                } else {
-                    Err(KeyringError::MacOsKeychainError)
-                }
-            },
-            _ => Err(KeyringError::MacOsKeychainError)
-        }
+        Ok(())
     }
-}
-
-fn is_not_hex_output(s: &str) -> bool {
-    assert!(s.len() >= 11);
-    const MATCH_START: &'static str = "password: \"";
-    const MATCH_END: char = '\"';
-
-    s.starts_with(MATCH_START) && s.ends_with(MATCH_END)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
 
-    #[test]
-    fn test_password_output_is_not_hex() {
-        let output_1 = r#"password: "0xE5A4A7E6A0B9""#;
-        let output_2 = r#"password: 0xE5A4A7E6A0B9"#;
+    static TEST_SERVICE: &'static str = "test.keychain-rs.io";
+    static TEST_USER: &'static str = "user@keychain-rs.io";
+    static TEST_ASCII_PASSWORD: &'static str = "my_password";
+    static TEST_NON_ASCII_PASSWORD: &'static str = "大根";
 
-        assert_eq!(is_not_hex_output(output_1), true);
-        assert_eq!(is_not_hex_output(output_2), false);
+    #[test]
+    fn test_add_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
+
+        keyring.delete_password().unwrap();
     }
 
     #[test]
-    fn test_special_char_passwords() {
-        // need to worry about unlocking keychain?
+    fn test_round_trip_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
 
-        let password_1 = "大根";
-        let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
-        let password_3 = r#"+s+'G#\"#; // this triggers hex fn
+        keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
 
-        let keyring = Keyring::new("testuser", "testservice");
-        keyring.set_password(password_1).unwrap();
-        let res_1 = keyring.get_password().unwrap();
-        assert_eq!(res_1, password_1);
+        let stored_password = keyring.get_password().unwrap();
 
-        keyring.set_password(password_2).unwrap();
-        let res_2 = keyring.get_password().unwrap();
-        assert_eq!(res_2, password_2);
+        assert_eq!(stored_password, TEST_ASCII_PASSWORD);
 
-        keyring.set_password(password_3).unwrap();
-        let res_3 = keyring.get_password().unwrap();
-        assert_eq!(res_3, password_3);
+        keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_add_non_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
+
+        keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_round_trip_non_ascii_password() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+
+        keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
+
+        let stored_password = keyring.get_password().unwrap();
+
+        assert_eq!(stored_password, TEST_NON_ASCII_PASSWORD);
 
         keyring.delete_password().unwrap();
     }
