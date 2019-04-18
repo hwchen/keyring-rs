@@ -12,6 +12,8 @@ pub use linux::Keyring;
 
 // Configure for Windows
 #[cfg(target_os = "windows")]
+extern crate byteorder;
+#[cfg(target_os = "windows")]
 extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate advapi32;
@@ -22,7 +24,7 @@ pub use windows::Keyring;
 
 // Configure for OSX
 #[cfg(target_os = "macos")]
-extern crate rustc_serialize;
+extern crate hex;
 #[cfg(target_os = "macos")]
 extern crate security_framework;
 #[cfg(target_os = "macos")]

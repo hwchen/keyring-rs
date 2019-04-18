@@ -6,18 +6,20 @@ keywords = ["password", "cross-platform", "keychain", "keyring"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "0.4.0"
+version = "0.6.1"
 
 [dependencies]
-
 clap = "2.0.5"
-rpassword = "0.1.3"
-rustc-serialize = "0.3.18"
+rpassword = "2.0.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hex = "0.3.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = "0.3.0"
+secret-service = "0.4.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+byteorder = "1.2.1"
 advapi32-sys = "0.2.0"
 winapi = "0.2.5"
 

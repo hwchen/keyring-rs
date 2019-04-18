@@ -1,5 +1,6 @@
 use ::KeyringError;
 use advapi32::{CredFree, CredDeleteW, CredReadW, CredWriteW};
+use byteorder::{ByteOrder, LittleEndian};
 use std::ffi::OsStr;
 use std::iter::once;
 use std::mem;
@@ -60,7 +61,15 @@ impl<'a> Keyring<'a> {
         dwHighDateTime: 0,
         };
 
-        let mut blob = password.as_bytes().to_vec();
+        // In order to allow editing of the password
+        // from within Windows, the password must be
+        // transformed into utf16. (but because it's a
+        // blob, it then needs to be passed to windows
+        // as an array of bytes).
+        let blob_u16 = to_wstr_no_null(password);
+        let mut blob = vec![0; blob_u16.len()*2];
+        LittleEndian::write_u16_into(&blob_u16, &mut blob);
+
         let blob_len = blob.len() as u32;
         let persist = CRED_PERSIST_ENTERPRISE;
         let attribute_count = 0;
@@ -113,17 +122,25 @@ impl<'a> Keyring<'a> {
             _ => {
                 // Dereferencing pointer to credential
                 let credential: CREDENTIALW = unsafe { *pcredential };
-                
+
                 // get blob by creating an array from the pointer
                 // and the length reported back from the credential
                 let blob_pointer: *const u8 = credential.CredentialBlob;
                 let blob_len: usize = credential.CredentialBlobSize as usize;
+
+                // blob needs to be transformed from bytes to an
+                // array of u16, which will then be transformed into
+                // a utf8 string. As noted above, this is to allow
+                // editing of the password from within the vault order
+                // or other windows programs, which operate in utf16
                 let blob: &[u8] = unsafe {
                     slice::from_raw_parts(blob_pointer, blob_len)
                 };
+                let mut blob_u16 = vec![0; blob_len / 2];
+                LittleEndian::read_u16_into(&blob, &mut blob_u16);
 
                 // Now can get utf8 string from the array
-                let password = str::from_utf8(blob)
+                let password = String::from_utf16(&blob_u16)
                     .map(|pass| {
                         pass.to_string()
                     })
@@ -133,7 +150,7 @@ impl<'a> Keyring<'a> {
 
                 // Free the credential
                 unsafe { CredFree(pcredential as *mut c_void); }
-                
+
                 password
             },
         }
@@ -162,6 +179,12 @@ fn to_wstr(s: &str) -> Vec<u16> {
     OsStr::new(s)
         .encode_wide()
         .chain(once(0))
+        .collect()
+}
+
+fn to_wstr_no_null(s: &str) -> Vec<u16> {
+    OsStr::new(s)
+        .encode_wide()
         .collect()
 }
 

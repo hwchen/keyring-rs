@@ -1,3 +1,18 @@
+## Version 0.6.0
+- fix behavior in windows where third-party editing of password would result in malformed retrieved password. The solution was to convert all strings to and from Windows utf16, where before I was passing the secret as a blob from utf8.
+- remove dependency on rustcserialize, use hex.
+- update rpassword to 2.0, removing dependency on termios
+- fix some mistakes in syntax for targeting dependencies to an os.
+
+## Version 0.5.1
+- remove some unwraps which were causing a problem in linux
+
+## Version 0.5
+- bumped secret-service to 0.4.0, which improved error-handling around emptyr passwords a bit more (in 0.3.1), and made gmp dependency optional in 0.4.0
+
+## Version 0.4
+- yanked. But originally was trying to handle secret-service empty password better. But there was an error in secret-service 0.3
+
 ## Version 0.3
 - Windows support!
 

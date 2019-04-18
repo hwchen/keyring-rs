@@ -90,6 +90,10 @@ mod test {
 
         assert_eq!(stored_password, TEST_NON_ASCII_PASSWORD);
 
+        keyring.set_password(password_3).unwrap();
+        let res_3 = keyring.get_password().unwrap();
+        assert_eq!(res_3, password_3);
+
         keyring.delete_password().unwrap();
     }
 }
