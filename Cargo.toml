@@ -14,6 +14,8 @@ rpassword = "2.0.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 hex = "0.3.1"
+security-framework = { version = "*", git = "https://github.com/infincia/rust-security-framework.git", branch = "add-password-support" }
+#security-framework = "*"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = "0.4.0"
@@ -22,7 +24,3 @@ secret-service = "0.4.0"
 byteorder = "1.2.1"
 advapi32-sys = "0.2.0"
 winapi = "0.2.5"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = { version = "*", git = "https://github.com/infincia/rust-security-framework.git", branch = "add-password-support" }
-#security-framework = "*"
