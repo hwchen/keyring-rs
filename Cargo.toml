@@ -8,10 +8,6 @@ name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
 version = "0.6.1"
 
-[dependencies]
-clap = "2.0.5"
-rpassword = "2.0.0"
-
 [target.'cfg(target_os = "macos")'.dependencies]
 hex = "0.3.1"
 security-framework = "0.3.0"
@@ -23,3 +19,7 @@ secret-service = "0.4.0"
 byteorder = "1.2.1"
 advapi32-sys = "0.2.0"
 winapi = "0.2.5"
+
+[dev-dependencies]
+clap = "2.0.5"
+rpassword = "2.0.0"
