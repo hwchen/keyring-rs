@@ -97,6 +97,10 @@ Please file an issue if this gives you trouble.
 * Does not handle empty string input appropriately (decrypts but does not
 encrypt. This is a limitation of the current implementation of rust-crypto)
 
+## Dev Notes
+
+* If you're running tests, please use `RUST_TEST_THREADS=1 cargo test`
+
 ## License
 
 Licensed under either of
