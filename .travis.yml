@@ -46,10 +46,8 @@ before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
 
-before_script:
-    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- sh; fi
-
-script: cargo build --verbose; RUST_TEST_THREADS=1 cargo test --verbose
+script:
+    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; dbus-run-session -- cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
 
 branches:
   only:
