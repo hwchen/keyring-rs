@@ -14,7 +14,7 @@ __Currently supports Linux, macOS, and Windows.__ Please file issues if you have
 
 To use this library in your project add the following to your `Cargo.toml` file:
 
-```Rust
+```
 [dependencies]
 keyring = "0.6.1"
 ```
@@ -26,7 +26,7 @@ the password.
 
 You can get a password from the OS keyring with the `get_password` function.
 
-```Rust
+```rust,no_run
 extern crate keyring;
 
 use std::error::Error;
@@ -35,16 +35,18 @@ fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
-  let keyring = keyring::Keyring::new(&service, &username)
+  let keyring = keyring::Keyring::new(&service, &username);
 
   let password = keyring.get_password()?;
   println!("The password is '{}'", password);
+
+  Ok(())
 }
 ```
 
 Passwords can also be added to the keyring using the `set_password` function.
 
-```Rust
+```rust,no_run
 extern crate keyring;
 
 use std::error::Error;
@@ -53,19 +55,21 @@ fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
-  let keyring = keyring::Keyring::new(&service, &username)
+  let keyring = keyring::Keyring::new(&service, &username);
 
   let password = "topS3cr3tP4$$w0rd";
-  keyring.set_password(&password).unwrap();
+  keyring.set_password(&password)?;
 
   let password = keyring.get_password()?;
   println!("The password is '{}'", password);
+
+  Ok(())
 }
 ```
 
 And they can be deleted with the `delete_password` function.
 
-```Rust
+```rust,no_run
 extern crate keyring;
 
 use std::error::Error;
@@ -74,11 +78,13 @@ fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
-  let keyring = keyring::Keyring::new(&service, &username)
+  let keyring = keyring::Keyring::new(&service, &username);
 
   keyring.delete_password()?;
 
   println!("The password has been deleted");
+
+  Ok(())
 }
 ```
 

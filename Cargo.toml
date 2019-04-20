@@ -4,6 +4,7 @@ description = "Cross-platform library for managing passwords"
 homepage = "https://github.com/hwchen/keyring-rs.git"
 keywords = ["password", "cross-platform", "keychain", "keyring"]
 license = "MIT OR Apache-2.0"
+build = "build.rs"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
 version = "0.7.0"
@@ -22,3 +23,7 @@ winapi = "0.2.5"
 [dev-dependencies]
 clap = "2.0.5"
 rpassword = "2.0.0"
+skeptic = "0.13"
+
+[build-dependencies]
+skeptic = "0.13"
