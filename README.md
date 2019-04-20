@@ -27,13 +27,15 @@ You can get a password from the OS keyring with the `get_password` function.
 ```Rust
 extern crate keyring;
 
-fn main() {
+use std::error::Error;
+
+fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
   let keyring = keyring::Keyring::new(&service, &username)
 
-  let password = keyring.get_password().unwrap()
+  let password = keyring.get_password()?;
   println!("The password is '{}'", password);
 }
 ```
@@ -43,7 +45,9 @@ Passwords can also be added to the keyring using the `set_password` function.
 ```Rust
 extern crate keyring;
 
-fn main() {
+use std::error::Error;
+
+fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
@@ -52,7 +56,7 @@ fn main() {
   let password = "topS3cr3tP4$$w0rd";
   keyring.set_password(&password).unwrap();
 
-  let password = keyring.get_password().unwrap()
+  let password = keyring.get_password()?;
   println!("The password is '{}'", password);
 }
 ```
@@ -62,15 +66,17 @@ And they can be deleted with the `delete_password` function.
 ```Rust
 extern crate keyring;
 
-fn main() {
+use std::error::Error;
+
+fn main() -> Result<(), Box<Error>> {
   let service = "my_application_name";
   let username = "username";
 
   let keyring = keyring::Keyring::new(&service, &username)
 
-  keyring.delete_password().unwrap();
+  keyring.delete_password()?;
 
-  println!("The password s been deleted");
+  println!("The password has been deleted");
 }
 ```
 
