@@ -40,6 +40,7 @@ addons:
     packages:
       - libdbus-1-dev
       - gnome-keyring
+      - python3
 
 cache: cargo
 before_cache:
@@ -50,7 +51,7 @@ before_script:
   - git clone https://gitlab.gnome.org/GNOME/libsecret.git
 
 script:
-    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- python libsecret/libsecret/mock-service-normal.py & cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
+    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- python3 libsecret/libsecret/mock-service-normal.py & cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
 
 branches:
   only:
