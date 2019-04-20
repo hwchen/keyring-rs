@@ -3,7 +3,7 @@
 
 dist: xenial
 language: rust
-#services: docker
+services: xvfb
 sudo: required
 
 # TODO Rust builds on stable by default, this can be
