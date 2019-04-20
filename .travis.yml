@@ -27,6 +27,7 @@ matrix:
 
     # Windows
     - env: TARGET=x86_64-pc-windows-gnu
+    - env: TARGET=x86_64-pc-windows-msvc
 
     # Testing other channels
     - env: TARGET=x86_64-unknown-linux-gnu
