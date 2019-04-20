@@ -35,8 +35,11 @@ matrix:
       os: osx
       rust: beta
 
-before_install:
-    - sudo apt-get install libdbus-1-dev
+addons:
+  apt:
+    sources:
+      - libdbus-1-dev
+      - gnome-keyring
 
 cache: cargo
 before_cache:
