@@ -1,4 +1,5 @@
-use security_framework::os::macos::passwords::{find_generic_password, set_generic_password, delete_generic_password};
+use security_framework::os::macos::passwords::find_generic_password;
+use security_framework::os::macos::keychain::SecKeychain;
 
 pub struct Keyring<'a> {
     service: &'a str,
@@ -16,25 +17,28 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> ::Result<()> {
-        try!(set_generic_password(None, self.service, self.username, password.as_bytes()));
+        SecKeychain::default()?
+            .set_generic_password(self.service, self.username, password.as_bytes())?;
 
         Ok(())
     }
 
     pub fn get_password(&self) -> ::Result<String> {
-        let (password_bytes, _) = try!(find_generic_password(None, self.service, self.username));
+        let (password_bytes, _) = find_generic_password(None, self.service, self.username)?;
 
         // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
         // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
         // password that was added to the keychain by another library
 
-        let password = try!(String::from_utf8(password_bytes));
+        let password = try!(String::from_utf8(password_bytes.to_vec()));
 
         Ok(password)
     }
 
     pub fn delete_password(&self) -> ::Result<()> {
-        try!(delete_generic_password(None, self.service, self.username));
+        let (_, item) = find_generic_password(None, self.service, self.username)?;
+
+        item.delete();
 
         Ok(())
     }
