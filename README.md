@@ -114,6 +114,7 @@ encrypt. This is a limitation of the current implementation of rust-crypto)
 ## Dev Notes
 
 * If you're running tests, please use `RUST_TEST_THREADS=1 cargo test`
+* for TravisCI, osx builds and tests, but linux only builds. Need to figure out how to mock secret service.
 
 ## License
 
