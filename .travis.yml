@@ -46,6 +46,9 @@ before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
 
+before_script:
+    if [ "$TRAVIS_OS_NAME" = "linux" ]; then gnome-keyring-daemon -r -d; fi
+
 script: cargo build --verbose; RUST_TEST_THREADS=1 cargo test --verbose
 
 branches:
