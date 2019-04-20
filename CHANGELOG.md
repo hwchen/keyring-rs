@@ -1,3 +1,18 @@
+## Version 0.7.0
+- cli binary moved to examples.
+- osx now uses `security-framework` library instead of cli.
+- hex dependency removed on osx.
+- update to `secret-service` for linux, which
+  - removes gmp as a dependency
+  - updates rust-crypto to RustCrypto
+  - correctly encrypts/decrypts blank input
+- tests moved to `lib.rs`
+
+Plan to move to 1.0 if this version is stable.
+
+## Version 0.6.1
+- bug fix for special characters on osx.
+
 ## Version 0.6.0
 - fix behavior in windows where third-party editing of password would result in malformed retrieved password. The solution was to convert all strings to and from Windows utf16, where before I was passing the secret as a blob from utf8.
 - remove dependency on rustcserialize, use hex.
