@@ -3,7 +3,7 @@
 
 dist: xenial
 language: rust
-services: docker
+#services: docker
 sudo: required
 
 # TODO Rust builds on stable by default, this can be
@@ -39,6 +39,8 @@ cache: cargo
 before_cache:
   # Travis can't cache files that are not readable by "others"
   - chmod -R a+r $HOME/.cargo
+
+script: cargo build --verbose; RUST_TEST_THREADS=1 cargo test --verbose
 
 branches:
   only:
