@@ -14,8 +14,7 @@ rpassword = "2.0.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 hex = "0.3.1"
-security-framework = { version = "*", git = "https://github.com/infincia/rust-security-framework.git", branch = "add-password-support" }
-#security-framework = "*"
+security-framework = "0.3.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = "0.4.0"
