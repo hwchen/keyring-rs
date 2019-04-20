@@ -4,7 +4,7 @@
 dist: xenial
 language: rust
 services: xvfb
-sudo: false
+sudo: required
 
 # TODO Rust builds on stable by default, this can be
 # overridden on a case by case basis down below.
@@ -50,7 +50,7 @@ before_script:
   - git clone https://gitlab.gnome.org/GNOME/libsecret.git
 
 script:
-    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- libsecret/libsecret/mock-service-normal.py & cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
+    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- sudo libsecret/libsecret/mock-service-normal.py & cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
 
 branches:
   only:
