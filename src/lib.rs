@@ -24,8 +24,6 @@ pub use windows::Keyring;
 
 // Configure for OSX
 #[cfg(target_os = "macos")]
-extern crate hex;
-#[cfg(target_os = "macos")]
 extern crate security_framework;
 #[cfg(target_os = "macos")]
 mod macos;
