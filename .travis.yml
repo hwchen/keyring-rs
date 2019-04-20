@@ -35,6 +35,9 @@ matrix:
       os: osx
       rust: beta
 
+before_install:
+    - sudo apt-get install libdbus-1-dev
+
 cache: cargo
 before_cache:
   # Travis can't cache files that are not readable by "others"
