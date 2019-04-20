@@ -2,10 +2,14 @@ extern crate keyring;
 
 use keyring::Keyring;
 
-fn main() {
+use std::error::Error;
+
+fn main() -> Result<(), Box<Error>> {
     let keyring = Keyring::new("example-service", "example-username");
-    keyring.set_password("example-pass").unwrap();
-    let pass = keyring.get_password().unwrap();
-    keyring.delete_password().unwrap();
+    keyring.set_password("example-pass")?;
+    let pass = keyring.get_password()?;
+    keyring.delete_password()?;
     println!("Retrieved Password {}", pass);
+
+    Ok(())
 }
