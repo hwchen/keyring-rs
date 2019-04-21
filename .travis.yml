@@ -52,7 +52,7 @@ before_script:
   - git clone https://gitlab.gnome.org/GNOME/libsecret.git
 
 script:
-    if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then dbus-run-session -- python3 ci/run_mock.py libsecret/libsecret/mock-service-normal.py & cargo build --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
+    if [ "$TRAVIS_OS_NAME" = "linux" ]; then dbus-run-session -- python3 ci/run_mock.py libsecret/libsecret/mock-service-normal.py & cargo build --verbose; else cargo build --verbose && RUST_TEST_THREADS=1 cargo test --verbose; fi
 
 branches:
   only:
