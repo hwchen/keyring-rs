@@ -26,10 +26,10 @@ matrix:
       os: osx
 
     # Windows
-    - env: TARGET=x86_64-pc-windows-gnu
-      os: windows
-    - env: TARGET=x86_64-pc-windows-msvc
-      os: windows
+    #- env: TARGET=x86_64-pc-windows-gnu
+    #  os: windows
+    #- env: TARGET=x86_64-pc-windows-msvc
+    #  os: windows
 
     # Testing other channels
     - env: TARGET=x86_64-unknown-linux-gnu
