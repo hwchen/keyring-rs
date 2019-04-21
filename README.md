@@ -1,6 +1,6 @@
 ## Keyring-rs
 [![Linux and Mac Build Status](https://img.shields.io/travis/hwchen/keyring/master.svg?style=flat-square)](https://travis-ci.org/hwchen/keyring)
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/github/hwchen/keyringbranch=master&svg=true)](https://ci.appveyor.com/project/hwchen/keyring/branch/master)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/github/hwchen/keyring/branch=master&svg=true)](https://ci.appveyor.com/project/hwchen/keyring/branch/master)
 [![Crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
 [![API Documentation on docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
 
