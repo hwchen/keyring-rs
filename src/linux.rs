@@ -13,7 +13,6 @@ impl<'a> Keyring<'a> {
 
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         let attributes = vec![
-            ("application", "rust-keyring"),
             ("service", service),
             ("username", username),
         ];
@@ -30,10 +29,12 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             try!(collection.unlock());
         }
+        let mut attrs = self.attributes.clone();
+        attrs.push(("application", "rust-keyring"));
         let label = &format!("Password for {} on {}", self.username, self.service)[..];
         try!(collection.create_item(
             label,
-            self.attributes.clone(),
+            attrs,
             password.as_bytes(),
             true, // replace
             "text/plain",
