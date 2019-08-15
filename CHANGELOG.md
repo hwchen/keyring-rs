@@ -1,3 +1,6 @@
+## Version 0.7.1
+- only include application name on create password, not on get password
+
 ## Version 0.7.0
 - cli binary moved to examples.
 - osx now uses `security-framework` library instead of cli.
