@@ -1,4 +1,3 @@
-use ::KeyringError;
 use advapi32::{CredFree, CredDeleteW, CredReadW, CredWriteW};
 use byteorder::{ByteOrder, LittleEndian};
 use std::ffi::OsStr;
@@ -16,6 +15,9 @@ use winapi::wincred::{
     PCREDENTIAL_ATTRIBUTEW,
     PCREDENTIALW,
 };
+
+use crate::KeyringError;
+use crate::Result as Result;
 
 // DWORD is u32
 // LPCWSTR is *const u16
@@ -35,12 +37,12 @@ impl<'a> Keyring<'a> {
 
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         Keyring {
-            service: service,
-            username: username,
+            service,
+            username,
         }
     }
 
-    pub fn set_password(&self, password: &str) -> ::Result<()> {
+    pub fn set_password(&self, password: &str) -> Result<()> {
         // Setting values of credential
 
         let flags = 0;
@@ -100,7 +102,7 @@ impl<'a> Keyring<'a> {
         }
     }
 
-    pub fn get_password(&self) -> ::Result<String> {
+    pub fn get_password(&self) -> Result<String> {
         // passing uninitialized pcredential.
         // Should be ok; it's freed by a windows api
         // call CredFree.
@@ -157,7 +159,7 @@ impl<'a> Keyring<'a> {
 
     }
 
-    pub fn delete_password(&self) -> ::Result<()> {
+    pub fn delete_password(&self) -> Result<()> {
         let target_name: String = [
             self.username,
             self.service
