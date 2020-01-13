@@ -1,8 +1,8 @@
+use crate::error::{KeyringError, Result};
 use byteorder::{ByteOrder, LittleEndian};
 use std::ffi::OsStr;
 use std::iter::once;
 use std::mem;
-use std::os::raw::c_void;
 use std::os::windows::ffi::OsStrExt;
 use std::slice;
 use std::str;
@@ -11,7 +11,6 @@ use winapi::um::wincred::{
     CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_ENTERPRISE,
     CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
-use KeyringError;
 
 // DWORD is u32
 // LPCWSTR is *const u16
@@ -29,13 +28,10 @@ pub struct Keyring<'a> {
 
 impl<'a> Keyring<'a> {
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        Keyring {
-            service: service,
-            username: username,
-        }
+        Keyring { service, username }
     }
 
-    pub fn set_password(&self, password: &str) -> ::Result<()> {
+    pub fn set_password(&self, password: &str) -> Result<()> {
         // Setting values of credential
 
         let flags = 0;
@@ -92,7 +88,7 @@ impl<'a> Keyring<'a> {
         }
     }
 
-    pub fn get_password(&self) -> ::Result<String> {
+    pub fn get_password(&self) -> Result<String> {
         // passing uninitialized pcredential.
         // Should be ok; it's freed by a windows api
         // call CredFree.
@@ -139,7 +135,7 @@ impl<'a> Keyring<'a> {
         }
     }
 
-    pub fn delete_password(&self) -> ::Result<()> {
+    pub fn delete_password(&self) -> Result<()> {
         let target_name: String = [self.username, self.service].join(".");
 
         let cred_type = CRED_TYPE_GENERIC;
