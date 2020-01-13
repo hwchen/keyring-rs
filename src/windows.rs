@@ -1,5 +1,3 @@
-use ::KeyringError;
-use advapi32::{CredFree, CredDeleteW, CredReadW, CredWriteW};
 use byteorder::{ByteOrder, LittleEndian};
 use std::ffi::OsStr;
 use std::iter::once;
@@ -8,14 +6,12 @@ use std::os::raw::c_void;
 use std::os::windows::ffi::OsStrExt;
 use std::slice;
 use std::str;
-use winapi::minwindef::FILETIME;
-use winapi::wincred::{
-    CRED_PERSIST_ENTERPRISE,
-    CRED_TYPE_GENERIC,
-    CREDENTIALW,
-    PCREDENTIAL_ATTRIBUTEW,
-    PCREDENTIALW,
+use winapi::shared::minwindef::FILETIME;
+use winapi::um::wincred::{
+    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_ENTERPRISE,
+    CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
+use KeyringError;
 
 // DWORD is u32
 // LPCWSTR is *const u16
@@ -32,7 +28,6 @@ pub struct Keyring<'a> {
 }
 
 impl<'a> Keyring<'a> {
-
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         Keyring {
             service: service,
@@ -45,10 +40,7 @@ impl<'a> Keyring<'a> {
 
         let flags = 0;
         let cred_type = CRED_TYPE_GENERIC;
-        let target_name: String = [
-            self.username,
-            self.service
-        ].join(".");
+        let target_name: String = [self.username, self.service].join(".");
         let mut target_name = to_wstr(&target_name);
 
         // empty string for comments, and target alias,
@@ -57,8 +49,8 @@ impl<'a> Keyring<'a> {
 
         // Ignored by CredWriteW
         let last_written = FILETIME {
-        dwLowDateTime: 0,
-        dwHighDateTime: 0,
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
         };
 
         // In order to allow editing of the password
@@ -67,7 +59,7 @@ impl<'a> Keyring<'a> {
         // blob, it then needs to be passed to windows
         // as an array of bytes).
         let blob_u16 = to_wstr_no_null(password);
-        let mut blob = vec![0; blob_u16.len()*2];
+        let mut blob = vec![0; blob_u16.len() * 2];
         LittleEndian::write_u16_into(&blob_u16, &mut blob);
 
         let blob_len = blob.len() as u32;
@@ -90,13 +82,13 @@ impl<'a> Keyring<'a> {
             TargetAlias: empty_str.as_mut_ptr(),
             UserName: username.as_mut_ptr(),
         };
-        // raw pointer to credential, is coerced from &mut 
+        // raw pointer to credential, is coerced from &mut
         let pcredential: PCREDENTIALW = &mut credential;
 
         // Call windows API
-        match unsafe{ CredWriteW(pcredential, 0) } {
+        match unsafe { CredWriteW(pcredential, 0) } {
             0 => Err(KeyringError::WindowsVaultError),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 
@@ -104,14 +96,9 @@ impl<'a> Keyring<'a> {
         // passing uninitialized pcredential.
         // Should be ok; it's freed by a windows api
         // call CredFree.
-        let mut pcredential: PCREDENTIALW = unsafe {
-            mem::uninitialized()
-        };
+        let mut pcredential: PCREDENTIALW = unsafe { mem::uninitialized() };
 
-        let target_name: String = [
-            self.username,
-            self.service
-        ].join(".");
+        let target_name: String = [self.username, self.service].join(".");
         let target_name = to_wstr(&target_name);
 
         let cred_type = CRED_TYPE_GENERIC;
@@ -133,35 +120,27 @@ impl<'a> Keyring<'a> {
                 // a utf8 string. As noted above, this is to allow
                 // editing of the password from within the vault order
                 // or other windows programs, which operate in utf16
-                let blob: &[u8] = unsafe {
-                    slice::from_raw_parts(blob_pointer, blob_len)
-                };
+                let blob: &[u8] = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
                 let mut blob_u16 = vec![0; blob_len / 2];
                 LittleEndian::read_u16_into(&blob, &mut blob_u16);
 
                 // Now can get utf8 string from the array
                 let password = String::from_utf16(&blob_u16)
-                    .map(|pass| {
-                        pass.to_string()
-                    })
-                    .map_err(|_| {
-                        KeyringError::WindowsVaultError
-                    });
+                    .map(|pass| pass.to_string())
+                    .map_err(|_| KeyringError::WindowsVaultError);
 
                 // Free the credential
-                unsafe { CredFree(pcredential as *mut c_void); }
+                unsafe {
+                    CredFree(pcredential as *mut _);
+                }
 
                 password
-            },
+            }
         }
-
     }
 
     pub fn delete_password(&self) -> ::Result<()> {
-        let target_name: String = [
-            self.username,
-            self.service
-        ].join(".");
+        let target_name: String = [self.username, self.service].join(".");
 
         let cred_type = CRED_TYPE_GENERIC;
         let target_name = to_wstr(&target_name);
@@ -174,18 +153,13 @@ impl<'a> Keyring<'a> {
 }
 
 // helper function for turning utf8 strings to windows
-// utf16 
+// utf16
 fn to_wstr(s: &str) -> Vec<u16> {
-    OsStr::new(s)
-        .encode_wide()
-        .chain(once(0))
-        .collect()
+    OsStr::new(s).encode_wide().chain(once(0)).collect()
 }
 
 fn to_wstr_no_null(s: &str) -> Vec<u16> {
-    OsStr::new(s)
-        .encode_wide()
-        .collect()
+    OsStr::new(s).encode_wide().collect()
 }
 
 #[cfg(test)]
