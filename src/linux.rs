@@ -1,6 +1,6 @@
 use secret_service::{EncryptionType, SecretService};
 
-use ::KeyringError;
+use KeyringError;
 
 pub struct Keyring<'a> {
     attributes: Vec<(&'a str, &'a str)>,
@@ -10,12 +10,8 @@ pub struct Keyring<'a> {
 
 // Eventually try to get collection into the Keyring struct?
 impl<'a> Keyring<'a> {
-
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        let attributes = vec![
-            ("service", service),
-            ("username", username),
-        ];
+        let attributes = vec![("service", service), ("username", username)];
         Keyring {
             attributes: attributes,
             service: service,
@@ -66,4 +62,3 @@ impl<'a> Keyring<'a> {
         Ok(try!(item.delete()))
     }
 }
-

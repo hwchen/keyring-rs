@@ -2,7 +2,7 @@ extern crate clap;
 extern crate keyring;
 extern crate rpassword;
 
-use clap::{Arg, App, SubCommand};
+use clap::{App, Arg, SubCommand};
 use keyring::Keyring;
 use rpassword::read_password;
 
@@ -13,32 +13,42 @@ fn main() -> Result<(), Box<Error>> {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Walther Chen <walther.chen@gmail.com>")
         .about("Cross-platform utility to get and set passwords from system vault")
-        .subcommand(SubCommand::with_name("set")
-            .about("For username, set password")
-            .arg(Arg::with_name("username")
-                 .help("Username")
-                 .required(true)
-                 .index(1)))
-        .subcommand(SubCommand::with_name("get")
-            .about("For username, get password")
-            .arg(Arg::with_name("username")
-                 .help("Username")
-                 .required(true)
-                 .index(1)))
-        .subcommand(SubCommand::with_name("delete")
-            .about("For username, delete password")
-            .arg(Arg::with_name("username")
-                 .help("Username")
-                 .required(true)
-                 .index(1)))
+        .subcommand(
+            SubCommand::with_name("set")
+                .about("For username, set password")
+                .arg(
+                    Arg::with_name("username")
+                        .help("Username")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("get")
+                .about("For username, get password")
+                .arg(
+                    Arg::with_name("username")
+                        .help("Username")
+                        .required(true)
+                        .index(1),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("delete")
+                .about("For username, delete password")
+                .arg(
+                    Arg::with_name("username")
+                        .help("Username")
+                        .required(true)
+                        .index(1),
+                ),
+        )
         .get_matches();
 
     let service = "keyring-rs";
 
     if let Some(set) = matches.subcommand_matches("set") {
-        let username = set
-            .value_of("username")
-            .ok_or("No username found to set")?;
+        let username = set.value_of("username").ok_or("No username found to set")?;
         let keyring = Keyring::new(service, username);
 
         println!("Enter Password");
@@ -52,9 +62,7 @@ fn main() -> Result<(), Box<Error>> {
     }
 
     if let Some(get) = matches.subcommand_matches("get") {
-        let username = get
-           .value_of("username")
-           .ok_or("No username found to get")?;
+        let username = get.value_of("username").ok_or("No username found to get")?;
         let keyring = Keyring::new(service, username);
 
         match keyring.get_password() {
@@ -77,4 +85,3 @@ fn main() -> Result<(), Box<Error>> {
 
     Ok(())
 }
-

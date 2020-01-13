@@ -1,5 +1,5 @@
-use security_framework::os::macos::passwords::find_generic_password;
 use security_framework::os::macos::keychain::SecKeychain;
+use security_framework::os::macos::passwords::find_generic_password;
 
 pub struct Keyring<'a> {
     service: &'a str,
@@ -8,7 +8,6 @@ pub struct Keyring<'a> {
 
 // Eventually try to get collection into the Keyring struct?
 impl<'a> Keyring<'a> {
-
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         Keyring {
             service: service,
@@ -17,8 +16,11 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> ::Result<()> {
-        SecKeychain::default()?
-            .set_generic_password(self.service, self.username, password.as_bytes())?;
+        SecKeychain::default()?.set_generic_password(
+            self.service,
+            self.username,
+            password.as_bytes(),
+        )?;
 
         Ok(())
     }
@@ -43,4 +45,3 @@ impl<'a> Keyring<'a> {
         Ok(())
     }
 }
-
