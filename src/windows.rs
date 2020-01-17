@@ -2,7 +2,7 @@ use crate::error::{KeyringError, Result};
 use byteorder::{ByteOrder, LittleEndian};
 use std::ffi::OsStr;
 use std::iter::once;
-use std::mem;
+use std::mem::MaybeUninit;
 use std::os::windows::ffi::OsStrExt;
 use std::slice;
 use std::str;
@@ -61,7 +61,7 @@ impl<'a> Keyring<'a> {
         let blob_len = blob.len() as u32;
         let persist = CRED_PERSIST_ENTERPRISE;
         let attribute_count = 0;
-        let attributes: PCREDENTIAL_ATTRIBUTEW = unsafe { mem::uninitialized() };
+        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
         let mut username = to_wstr(self.username);
 
         let mut credential = CREDENTIALW {
@@ -92,7 +92,7 @@ impl<'a> Keyring<'a> {
         // passing uninitialized pcredential.
         // Should be ok; it's freed by a windows api
         // call CredFree.
-        let mut pcredential: PCREDENTIALW = unsafe { mem::uninitialized() };
+        let mut pcredential = MaybeUninit::uninit();
 
         let target_name: String = [self.username, self.service].join(".");
         let target_name = to_wstr(&target_name);
@@ -100,9 +100,10 @@ impl<'a> Keyring<'a> {
         let cred_type = CRED_TYPE_GENERIC;
 
         // Windows api call
-        match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, &mut pcredential) } {
+        match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) } {
             0 => Err(KeyringError::WindowsVaultError),
             _ => {
+                let pcredential = unsafe { pcredential.assume_init() };
                 // Dereferencing pointer to credential
                 let credential: CREDENTIALW = unsafe { *pcredential };
 
