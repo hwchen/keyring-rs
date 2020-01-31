@@ -133,6 +133,7 @@ Thanks to the following for helping make this library better, whether through co
 - @stankec
 - @steveatinfincia
 - @bhkaminski
+- @MaikKlein
 
 ### Contribution
 
