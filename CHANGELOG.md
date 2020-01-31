@@ -1,3 +1,9 @@
+## Version 0.8.0
+- Upgrade to winapi 0.3 and removes advapi32-sys from windows.
+- Upgrades to edition 2018
+- Formats everything to 1.40
+- Removes mem::uninitialized from windows.
+
 ## Version 0.7.1
 - only include application name on create password, not on get password
 
