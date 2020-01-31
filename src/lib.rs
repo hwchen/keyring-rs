@@ -4,27 +4,17 @@
 
 // Configure for Linux
 #[cfg(target_os = "linux")]
-extern crate secret_service;
-#[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::Keyring;
 
 // Configure for Windows
 #[cfg(target_os = "windows")]
-extern crate byteorder;
-#[cfg(target_os = "windows")]
-extern crate winapi;
-#[cfg(target_os = "windows")]
-extern crate advapi32;
-#[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::Keyring;
 
 // Configure for OSX
-#[cfg(target_os = "macos")]
-extern crate security_framework;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]

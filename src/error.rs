@@ -6,7 +6,6 @@ use std::error;
 use std::fmt;
 use std::string::FromUtf8Error;
 
-
 pub type Result<T> = ::std::result::Result<T, KeyringError>;
 
 #[derive(Debug)]
@@ -26,7 +25,9 @@ impl fmt::Display for KeyringError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => write!(f, "Mac Os Keychain Error: {}", err),
+            KeyringError::MacOsKeychainError(ref err) => {
+                write!(f, "Mac Os Keychain Error: {}", err)
+            }
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
             #[cfg(target_os = "windows")]
@@ -53,7 +54,7 @@ impl error::Error for KeyringError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             #[cfg(target_os = "linux")]
             KeyringError::SecretServiceError(ref err) => Some(err),
