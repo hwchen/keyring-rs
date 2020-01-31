@@ -8,7 +8,7 @@ use rpassword::read_password;
 
 use std::error::Error;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("keyring")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Walther Chen <walther.chen@gmail.com>")

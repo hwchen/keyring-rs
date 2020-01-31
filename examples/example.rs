@@ -4,7 +4,7 @@ use keyring::Keyring;
 
 use std::error::Error;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     let keyring = Keyring::new("example-service", "example-username");
     keyring.set_password("example-pass")?;
     let pass = keyring.get_password()?;
