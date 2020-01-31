@@ -33,7 +33,7 @@ extern crate keyring;
 
 use std::error::Error;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
   let service = "my_application_name";
   let username = "username";
 
@@ -53,7 +53,7 @@ extern crate keyring;
 
 use std::error::Error;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
   let service = "my_application_name";
   let username = "username";
 
@@ -76,7 +76,7 @@ extern crate keyring;
 
 use std::error::Error;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
   let service = "my_application_name";
   let username = "username";
 
