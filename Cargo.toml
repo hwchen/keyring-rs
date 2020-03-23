@@ -13,7 +13,7 @@ edition = "2018"
 security-framework = "0.3.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = "1.0.0"
+secret-service = "1.1.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1.2.1"
