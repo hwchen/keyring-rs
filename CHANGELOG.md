@@ -1,3 +1,7 @@
+## Verion 0.9.0
+- upgrade security-framework 0.3.0 -> 0.4.2
+- upgrade secret-service 1.0.0 -> 1.1.0 (updates hkdf dep, fixes error handling related to missing collection)
+
 ## Version 0.8.0
 - Upgrade to winapi 0.3 and removes advapi32-sys from windows.
 - Upgrades to edition 2018
