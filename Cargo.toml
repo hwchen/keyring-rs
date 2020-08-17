@@ -9,6 +9,9 @@ repository = "https://github.com/hwchen/keyring-rs.git"
 version = "0.9.0"
 edition = "2018"
 
+[features]
+macos-specify-keychain = []
+
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "0.4.2"
 

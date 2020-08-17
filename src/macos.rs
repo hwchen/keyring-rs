@@ -15,7 +15,8 @@ impl<'a> Keyring<'a> {
         Keyring { service, username, path: None }
     }
 
-    pub fn use_keychain(path: &'a Path, service: &'a str, username: &'a str) -> Keyring<'a> {
+    #[cfg(feature = "macos-specify-keychain")]
+    pub fn use_keychain(service: &'a str, username: &'a str, path: &'a Path) -> Keyring<'a> {
         Keyring { service, username, path: Some(path) }
     }
 
@@ -67,7 +68,12 @@ mod test {
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
 
         // run as root to access system keychain
-        let keyring = Keyring::use_keychain(Path::new("/Library/Keychains/System.keychain"), "testservice", "testuser");
+        let mut keyring =  if cfg!(feature = "macos-specify-keychain") {
+            Keyring::use_keychain("testservice", "testuser", Path::new("/Library/Keychains/System.keychain"))
+        } else {
+            Keyring::new("testservice", "testuser")
+        };
+
         keyring.set_password(password_1).unwrap();
         let res_1 = keyring.get_password().unwrap();
         println!("{}:{}", res_1, password_1);
