@@ -92,6 +92,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 On macOS, keychain object from specific path can be opened using `Keyring::use_keychain` which gives the flexibility to open non-default keychains.
 
+In Cargo.toml, you need to turn the feature on:
+```toml
+keyring = { version = "0.10.0", features = ["macos-specify-keychain"] }
+```
+
 ```rust,no_run
 extern crate keyring;
 
