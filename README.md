@@ -90,6 +90,29 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
+On macOS, keychain object from specific path can be opened using `Keyring::use_keychain` which gives the flexibility to open non-default keychains.
+
+```rust,no_run
+extern crate keyring;
+
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+  let service = "my_application_name";
+  let username = "username";
+
+  let keyring = keyring::Keyring::use_keychain(Path::new("/Library/Keychains/System.keychain"), &service, &username);
+
+  let password = "topS3cr3tP4$$w0rd";
+  keyring.set_password(&password)?;
+
+  let password = keyring.get_password()?;
+  println!("The password is '{}'", password);
+
+  Ok(())
+}
+```
+
 ## Errors
 
 The `get_password`, `set_password` and `delete_password` functions return a
