@@ -68,11 +68,10 @@ mod test {
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
 
         // run as root to access system keychain
-        let mut keyring =  if cfg!(feature = "macos-specify-keychain") {
-            Keyring::use_keychain("testservice", "testuser", Path::new("/Library/Keychains/System.keychain"))
-        } else {
-            Keyring::new("testservice", "testuser")
-        };
+        #[cfg(feature = "macos-specify-keychain")]
+        let keyring = Keyring::use_keychain("testservice", "testuser", Path::new("/Library/Keychains/System.keychain"));
+        #[cfg(not(feature = "macos-specify-keychain"))]
+        let keyring = Keyring::new("testservice", "testuser");
 
         keyring.set_password(password_1).unwrap();
         let res_1 = keyring.get_password().unwrap();

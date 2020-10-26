@@ -10,6 +10,7 @@ version = "0.10.0"
 edition = "2018"
 
 [features]
+default = []
 macos-specify-keychain = []
 
 [target.'cfg(target_os = "macos")'.dependencies]
