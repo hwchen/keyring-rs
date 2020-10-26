@@ -69,7 +69,17 @@ mod test {
 
         // run as root to access system keychain
         #[cfg(feature = "macos-specify-keychain")]
-        let keyring = Keyring::use_keychain("testservice", "testuser", Path::new("/Library/Keychains/System.keychain"));
+        let keyring = {
+            use security_framework::os::macos::keychain;
+            use tempfile::tempdir;
+
+            let dir = tempdir().unwrap();
+            let temp_keychain_path = dir.path().join("Temporary.keychain");
+            let create_temp_keychain = keychain::CreateOptions::new();
+            let temp_keychain = create_temp_keychain.create(&temp_keychain_path).unwrap();
+
+            Keyring::use_keychain("testservice", "testuser", &temp_keychain_path)
+        };
         #[cfg(not(feature = "macos-specify-keychain"))]
         let keyring = Keyring::new("testservice", "testuser");
 
