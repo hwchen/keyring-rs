@@ -87,6 +87,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     #[cfg(feature = "macos-specify-keychain")]
     fn test_basic_with_features() {
         let password_1 = "大根";
@@ -97,18 +98,18 @@ mod test {
         dbg!(&temp_keychain_path);
         let temp_keychain = keychain::CreateOptions::new();
         temp_keychain.create(&temp_keychain_path).expect("Could not create temp keychain");
-        //let keyring = Keyring::use_keychain("testservice", "testuser", &temp_keychain_path);
+        let keyring = Keyring::use_keychain("testservice", "testuser", &temp_keychain_path);
 
-        //keyring.set_password(password_1).unwrap();
-        //let res_1 = keyring.get_password().unwrap();
-        //println!("{}:{}", res_1, password_1);
-        //assert_eq!(res_1, password_1);
+        keyring.set_password(password_1).unwrap();
+        let res_1 = keyring.get_password().unwrap();
+        println!("{}:{}", res_1, password_1);
+        assert_eq!(res_1, password_1);
 
-        //keyring.set_password(password_2).unwrap();
-        //let res_2 = keyring.get_password().unwrap();
-        //println!("{}:{}", res_2, password_2);
-        //assert_eq!(res_2, password_2);
+        keyring.set_password(password_2).unwrap();
+        let res_2 = keyring.get_password().unwrap();
+        println!("{}:{}", res_2, password_2);
+        assert_eq!(res_2, password_2);
 
-        //keyring.delete_password().unwrap();
+        keyring.delete_password().unwrap();
     }
 }
