@@ -17,7 +17,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 
 ```
 [dependencies]
-keyring = "0.10.0"
+keyring = "0.10.1"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
