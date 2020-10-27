@@ -62,17 +62,43 @@ impl<'a> Keyring<'a> {
 mod test {
     use super::*;
 
+    use keychain_services::keychain::Keychain;
+    use security_framework::os::macos::keychain;
+    use tempfile::{tempdir, TempDir};
+
     #[test]
     fn test_basic() {
         let password_1 = "大根";
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
 
-        // run as root to access system keychain
-        let mut keyring =  if cfg!(feature = "macos-specify-keychain") {
-            Keyring::use_keychain("testservice", "testuser", Path::new("/Library/Keychains/System.keychain"))
-        } else {
-            Keyring::new("testservice", "testuser")
-        };
+        let keyring = Keyring::new("testservice", "testuser");
+
+        keyring.set_password(password_1).unwrap();
+        let res_1 = keyring.get_password().unwrap();
+        println!("{}:{}", res_1, password_1);
+        assert_eq!(res_1, password_1);
+
+        keyring.set_password(password_2).unwrap();
+        let res_2 = keyring.get_password().unwrap();
+        println!("{}:{}", res_2, password_2);
+        assert_eq!(res_2, password_2);
+
+        keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    #[cfg(feature = "macos-specify-keychain")]
+    fn test_basic_with_features() {
+        let password_1 = "大根";
+        let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
+
+        let dir = tempdir().unwrap();
+        let temp_keychain_path = dir.path().join("Temporary.keychain");
+        dbg!(&temp_keychain_path);
+        let temp_keychain = keychain::CreateOptions::new();
+        temp_keychain.create(&temp_keychain_path).expect("Could not create temp keychain");
+        let keyring = Keyring::use_keychain("testservice", "testuser", &temp_keychain_path);
 
         keyring.set_password(password_1).unwrap();
         let res_1 = keyring.get_password().unwrap();

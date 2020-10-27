@@ -1,6 +1,5 @@
 ## Keyring-rs
-[![Linux and Mac Build Status](https://img.shields.io/travis/hwchen/keyring-rs/master.svg?style=flat-square)](https://travis-ci.org/hwchen/keyring-rs)
-[![Windows Build status](https://ci.appveyor.com/api/projects/status/veq4iro1kyhjk26e/branch/master?svg=true)](https://ci.appveyor.com/project/hwchen/keyring-rs/branch/master)
+[![CI](https://github.com/hwchen/keyring-rs/workflows/ci/badge.svg)](https://github.com/hwchen/keyring-rs/actions?query=workflow%3Aci)
 [![Crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
 [![API Documentation on docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
 
@@ -90,7 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-On macOS, keychain object from specific path can be opened using `Keyring::use_keychain` which gives the flexibility to open non-default keychains.
+On macOS, keychain object from specific path can be opened using `Keyring::use_keychain` which gives the flexibility to open non-default keychains. Note that this is currently feature-gated, and is considered unstable, and is subject to change without a semver major version change.
 
 In Cargo.toml, you need to turn the feature on:
 ```toml
