@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{KeyringError, Result};
 use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::os::macos::passwords::find_generic_password;
 
@@ -8,6 +8,8 @@ pub struct Keyring<'a> {
     username: &'a str,
     path: Option<&'a Path>
 }
+
+pub const errSecItemNotFound: i32 = -25300;
 
 // Eventually try to get collection into the Keyring struct?
 impl<'a> Keyring<'a> {
@@ -38,7 +40,13 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn get_password(&self) -> Result<String> {
-        let (password_bytes, _) = find_generic_password(Some(&[self.get_keychain()?]), self.service, self.username)?;
+        let (password_bytes, _) = find_generic_password(Some(&[self.get_keychain()?]), self.service, self.username).map_err(|err| {
+            if err.code() == errSecItemNotFound {
+                KeyringError::NoPasswordFound
+            } else {
+                err.into()
+            }
+        })?;
 
         // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
         // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8

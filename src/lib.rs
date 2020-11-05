@@ -85,4 +85,11 @@ mod tests {
 
         keyring.delete_password().unwrap();
     }
+
+    #[test]
+    fn test_error_for_no_password_found() {
+        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+        let result = keyring.get_password();
+        assert!(matches!(result, Err(KeyringError::NoPasswordFound)));
+    }
 }
