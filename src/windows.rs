@@ -7,6 +7,8 @@ use std::os::windows::ffi::OsStrExt;
 use std::slice;
 use std::str;
 use winapi::shared::minwindef::FILETIME;
+use winapi::shared::winerror::{ERROR_NOT_FOUND, ERROR_NO_SUCH_LOGON_SESSION};
+use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::wincred::{
     CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_PERSIST_ENTERPRISE,
     CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
@@ -101,7 +103,13 @@ impl<'a> Keyring<'a> {
 
         // Windows api call
         match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) } {
-            0 => Err(KeyringError::WindowsVaultError),
+            0 => unsafe {
+                match GetLastError() {
+                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
+                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
+                    _ => Err(KeyringError::WindowsVaultError),
+                }
+            },
             _ => {
                 let pcredential = unsafe { pcredential.assume_init() };
                 // Dereferencing pointer to credential
@@ -143,7 +151,13 @@ impl<'a> Keyring<'a> {
         let target_name = to_wstr(&target_name);
 
         match unsafe { CredDeleteW(target_name.as_ptr(), cred_type, 0) } {
-            0 => Err(KeyringError::WindowsVaultError),
+            0 => unsafe {
+                match GetLastError() {
+                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
+                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
+                    _ => Err(KeyringError::WindowsVaultError),
+                }
+            },
             _ => Ok(()),
         }
     }
@@ -180,5 +194,23 @@ mod test {
         assert_eq!(res_2, password_2);
 
         keyring.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_no_password() {
+        let keyring = Keyring::new("testservice", "test-no-password");
+        let result = keyring.get_password();
+        match result {
+            Ok(_) => panic!("expected KeyringError::NoPassword, got Ok"),
+            Err(KeyringError::NoPasswordFound) => (),
+            Err(e) => panic!("expected KeyringError::NoPassword, got {:}", e),
+        }
+
+        let result = keyring.delete_password();
+        match result {
+            Ok(_) => panic!("expected Err(KeyringError::NoPassword), got Ok()"),
+            Err(KeyringError::NoPasswordFound) => (),
+            Err(e) => panic!("expected KeyringError::NoPassword, got {:}", e),
+        }
     }
 }
