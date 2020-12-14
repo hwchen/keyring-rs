@@ -130,15 +130,14 @@ impl<'a> Keyring<'a> {
                 LittleEndian::read_u16_into(blob, &mut blob_u16);
 
                 // Now can get utf8 string from the array
-                let password =
-                    String::from_utf16(&blob_u16).map_err(|_| KeyringError::WindowsVaultError);
+                let password = String::from_utf16(&blob_u16);
 
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
                 }
 
-                password
+                Ok(password?)
             }
         }
     }
