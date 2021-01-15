@@ -131,15 +131,14 @@ impl<'a> Keyring<'a> {
 
                 // Now can get utf8 string from the array
                 let password = String::from_utf16(&blob_u16)
-                    .map(|pass| pass.to_string())
-                    .map_err(|_| KeyringError::WindowsVaultError);
+                    .map(|pass| pass.to_string());
 
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
                 }
 
-                password
+                Ok(password?)
             }
         }
     }

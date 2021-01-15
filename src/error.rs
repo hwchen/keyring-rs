@@ -2,7 +2,7 @@
 use secret_service::SsError;
 #[cfg(target_os = "macos")]
 use security_framework::base::Error as SfError;
-use std::error;
+use std::{error, string::FromUtf16Error};
 use std::fmt;
 use std::string::FromUtf8Error;
 
@@ -18,7 +18,9 @@ pub enum KeyringError {
     WindowsVaultError,
     NoBackendFound,
     NoPasswordFound,
-    Parse(FromUtf8Error),
+    /// Parse errors are errors that occur when trying to parse the password
+    /// from the credential storage.
+    Parse(ParseError),
 }
 
 impl fmt::Display for KeyringError {
@@ -81,6 +83,46 @@ impl From<SfError> for KeyringError {
 
 impl From<FromUtf8Error> for KeyringError {
     fn from(err: FromUtf8Error) -> KeyringError {
-        KeyringError::Parse(err)
+        KeyringError::Parse(ParseError::FromUtf8(err))
+    }
+}
+
+impl From<FromUtf16Error> for KeyringError {
+    fn from(err: FromUtf16Error) -> KeyringError {
+        KeyringError::Parse(ParseError::FromUtf16(err))
+    }
+}
+
+/// ParseError is the enumeration of errors that can occur when parsing
+/// a password from credential storage.
+#[derive(Debug)]
+pub enum ParseError {
+    /// FromUtf8 is an error that occured when trying to parse the password
+    /// as a UTF-8 string
+    FromUtf8(FromUtf8Error),
+    /// FromUtf16 is an error that occured when trying to parse the password
+    /// as a UTF-16 string
+    FromUtf16(FromUtf16Error),
+}
+
+impl  error::Error for ParseError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            ParseError::FromUtf8(e) => Some(e),
+            ParseError::FromUtf16(e) => Some(e),
+        }
+    }
+
+    fn cause(&self) -> Option<&dyn error::Error> {
+        self.source()
+    }
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseError::FromUtf8(e) => write!(f, "UTF-8 Error: {}", e),
+            ParseError::FromUtf16(e) => write!(f, "UTF-16 Error: {}", e),
+        }
     }
 }
