@@ -29,7 +29,7 @@ impl<'a> Keyring<'a> {
         let label = &format!("Password for {} on {}", self.username, self.service)[..];
         collection.create_item(
             label,
-            attrs,
+            attrs.into_iter().collect(),
             password.as_bytes(),
             true, // replace
             "text/plain",
@@ -43,7 +43,7 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             collection.unlock()?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection.search_items(self.attributes.iter().cloned().collect())?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         let secret_bytes = item.get_secret()?;
         let secret = String::from_utf8(secret_bytes)?;
@@ -56,7 +56,7 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             collection.unlock()?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection.search_items(self.attributes.iter().cloned().collect())?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         Ok(item.delete()?)
     }

@@ -1,5 +1,5 @@
 #[cfg(target_os = "linux")]
-use secret_service::SsError;
+use secret_service::Error as SsError;
 #[cfg(target_os = "macos")]
 use security_framework::base::Error as SfError;
 use std::error;
