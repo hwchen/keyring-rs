@@ -2,20 +2,14 @@ use crate::error::{KeyringError, Result};
 use secret_service::{EncryptionType, SecretService};
 
 pub struct Keyring<'a> {
-    attributes: Vec<(&'a str, &'a str)>,
     service: &'a str,
     username: &'a str,
 }
 
 // Eventually try to get collection into the Keyring struct?
 impl<'a> Keyring<'a> {
-    pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        let attributes = vec![("service", service), ("username", username)];
-        Keyring {
-            attributes,
-            service,
-            username,
-        }
+    pub const fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
+        Keyring { service, username }
     }
 
     pub fn set_password(&self, password: &str) -> Result<()> {
@@ -24,7 +18,7 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             collection.unlock()?;
         }
-        let mut attrs = self.attributes.clone();
+        let mut attrs = self.default_attributes();
         attrs.push(("application", "rust-keyring"));
         let label = &format!("Password for {} on {}", self.username, self.service)[..];
         collection.create_item(
@@ -43,7 +37,7 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             collection.unlock()?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection.search_items(self.default_attributes())?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         let secret_bytes = item.get_secret()?;
         let secret = String::from_utf8(secret_bytes)?;
@@ -56,8 +50,12 @@ impl<'a> Keyring<'a> {
         if collection.is_locked()? {
             collection.unlock()?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection.search_items(self.default_attributes())?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         Ok(item.delete()?)
+    }
+
+    fn default_attributes(&self) -> Vec<(&'a str, &'a str)> {
+        vec![("service", self.service), ("username", self.username)]
     }
 }

@@ -29,7 +29,7 @@ pub struct Keyring<'a> {
 }
 
 impl<'a> Keyring<'a> {
-    pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
+    pub const fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         Keyring { service, username }
     }
 
