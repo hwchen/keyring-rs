@@ -1,86 +1,48 @@
+use std::string::{FromUtf16Error, FromUtf8Error};
+
+use thiserror::Error;
+
 #[cfg(target_os = "linux")]
-use secret_service::SsError;
+use secret_service::SsError as OsError;
 #[cfg(target_os = "macos")]
-use security_framework::base::Error as SfError;
-use std::error;
-use std::fmt;
-use std::string::FromUtf8Error;
+use security_framework::base::Error as OsError;
+#[cfg(target_os = "windows")]
+use windows::Error as OsError;
 
 pub type Result<T> = ::std::result::Result<T, KeyringError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum KeyringError {
-    #[cfg(target_os = "macos")]
-    MacOsKeychainError(SfError),
-    #[cfg(target_os = "linux")]
-    SecretServiceError(SsError),
-    #[cfg(target_os = "windows")]
-    WindowsVaultError,
+    #[error("OS Error message {:?}", os_error(.0))]
+    OsError(#[from] OsError),
+    #[error("No Backend found")]
     NoBackendFound,
+    #[error("No Password found")]
     NoPasswordFound,
-    Parse(FromUtf8Error),
+    #[error("Parsing error")]
+    Parse(#[from] ParseError),
 }
 
-impl fmt::Display for KeyringError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => {
-                write!(f, "Mac Os Keychain Error: {}", err)
-            }
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
-            KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
-            KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
-            KeyringError::Parse(ref err) => write!(f, "Keyring Parse Error: {}", err),
-        }
-    }
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("from utf8")]
+    Utf8(#[from] FromUtf8Error),
+    #[error("from utf16")]
+    Utf16(#[from] FromUtf16Error),
 }
 
-impl error::Error for KeyringError {
-    fn description(&self) -> &str {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => err.description(),
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => err.description(),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => "Windows Vault Error",
-            KeyringError::NoBackendFound => "No Backend Found",
-            KeyringError::NoPasswordFound => "No Password Found",
-            KeyringError::Parse(ref err) => err.description(),
-        }
+fn os_error(e: &OsError) -> String {
+    #[cfg(target_os = "macos")]
+    {
+        e.message().unwrap_or_else(|| "no message".to_string())
     }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => Some(err),
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => Some(err),
-            _ => None,
-        }
+    #[cfg(target_os = "linux")]
+    {
+        let _e = e;
+        "no message".to_string()
     }
-}
-
-#[cfg(target_os = "linux")]
-impl From<SsError> for KeyringError {
-    fn from(err: SsError) -> KeyringError {
-        KeyringError::SecretServiceError(err)
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl From<SfError> for KeyringError {
-    fn from(err: SfError) -> KeyringError {
-        KeyringError::MacOsKeychainError(err)
-    }
-}
-
-impl From<FromUtf8Error> for KeyringError {
-    fn from(err: FromUtf8Error) -> KeyringError {
-        KeyringError::Parse(err)
+    #[cfg(target_os = "windows")]
+    {
+        e.message()
     }
 }
