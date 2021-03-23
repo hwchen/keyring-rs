@@ -12,7 +12,7 @@ pub use linux::Keyring;
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-pub use windows::Keyring;
+pub use crate::windows::Keyring;
 
 // Configure for OSX
 #[cfg(target_os = "macos")]
