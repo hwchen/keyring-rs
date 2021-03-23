@@ -17,7 +17,7 @@ macos-specify-keychain = []
 security-framework = "0.4.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = "1.1.1"
+secret-service = "2.0.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1.2.1"

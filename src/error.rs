@@ -3,7 +3,7 @@ use std::string::{FromUtf16Error, FromUtf8Error};
 use thiserror::Error;
 
 #[cfg(target_os = "linux")]
-use secret_service::SsError as OsError;
+use secret_service::Error as OsError;
 #[cfg(target_os = "macos")]
 use security_framework::base::Error as OsError;
 #[cfg(target_os = "windows")]
