@@ -1,8 +1,11 @@
-use crate::error::{KeyringError, Result};
+use std::collections::HashMap;
+
 use secret_service::{EncryptionType, SecretService};
 
+use crate::error::{KeyringError, ParseError, Result};
+
 pub struct Keyring<'a> {
-    attributes: Vec<(&'a str, &'a str)>,
+    attributes: HashMap<&'a str, &'a str>,
     service: &'a str,
     username: &'a str,
 }
@@ -10,7 +13,9 @@ pub struct Keyring<'a> {
 // Eventually try to get collection into the Keyring struct?
 impl<'a> Keyring<'a> {
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        let attributes = vec![("service", service), ("username", username)];
+        let mut attributes = HashMap::new();
+        attributes.insert("service", service);
+        attributes.insert("username", username);
         Keyring {
             attributes,
             service,
@@ -25,7 +30,7 @@ impl<'a> Keyring<'a> {
             collection.unlock()?;
         }
         let mut attrs = self.attributes.clone();
-        attrs.push(("application", "rust-keyring"));
+        attrs.insert("application", "rust-keyring");
         let label = &format!("Password for {} on {}", self.username, self.service)[..];
         collection.create_item(
             label,
@@ -46,7 +51,7 @@ impl<'a> Keyring<'a> {
         let search = collection.search_items(self.attributes.clone())?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         let secret_bytes = item.get_secret()?;
-        let secret = String::from_utf8(secret_bytes)?;
+        let secret = String::from_utf8(secret_bytes).map_err(ParseError::Utf8)?;
         Ok(secret)
     }
 
