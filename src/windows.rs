@@ -28,6 +28,11 @@ pub struct Keyring<'a> {
     username: &'a str,
 }
 
+pub struct TargetCredential {
+    pub username: String,
+    pub password: String,
+}
+
 impl<'a> Keyring<'a> {
     pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
         Keyring { service, username }
@@ -38,7 +43,11 @@ impl<'a> Keyring<'a> {
 
         let flags = 0;
         let cred_type = CRED_TYPE_GENERIC;
-        let target_name: String = [self.username, self.service].join(".");
+        let target_name: String = if self.username.is_empty() {
+            String::from(self.service)
+        } else {
+            [self.username, self.service].join(".")
+        };
         let mut target_name = to_wstr(&target_name);
 
         // empty string for comments, and target alias,
@@ -65,6 +74,63 @@ impl<'a> Keyring<'a> {
         let attribute_count = 0;
         let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
         let mut username = to_wstr(self.username);
+
+        let mut credential = CREDENTIALW {
+            Flags: flags,
+            Type: cred_type,
+            TargetName: target_name.as_mut_ptr(),
+            Comment: empty_str.as_mut_ptr(),
+            LastWritten: last_written,
+            CredentialBlobSize: blob_len,
+            CredentialBlob: blob.as_mut_ptr(),
+            Persist: persist,
+            AttributeCount: attribute_count,
+            Attributes: attributes,
+            TargetAlias: empty_str.as_mut_ptr(),
+            UserName: username.as_mut_ptr(),
+        };
+        // raw pointer to credential, is coerced from &mut
+        let pcredential: PCREDENTIALW = &mut credential;
+
+        // Call windows API
+        match unsafe { CredWriteW(pcredential, 0) } {
+            0 => Err(KeyringError::WindowsVaultError),
+            _ => Ok(()),
+        }
+    }
+
+    pub fn set_credential(&self, password: &str, username: &str) -> Result<()> {
+        // Setting values of credential
+
+        let flags = 0;
+        let cred_type = CRED_TYPE_GENERIC;
+        let target_name = String::from(self.service);
+        let mut target_name = to_wstr(&target_name);
+
+        // empty string for comments, and target alias,
+        // I don't use here
+        let mut empty_str = to_wstr("");
+
+        // Ignored by CredWriteW
+        let last_written = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+
+        // In order to allow editing of the password
+        // from within Windows, the password must be
+        // transformed into utf16. (but because it's a
+        // blob, it then needs to be passed to windows
+        // as an array of bytes).
+        let blob_u16 = to_wstr_no_null(password);
+        let mut blob = vec![0; blob_u16.len() * 2];
+        LittleEndian::write_u16_into(&blob_u16, &mut blob);
+
+        let blob_len = blob.len() as u32;
+        let persist = CRED_PERSIST_ENTERPRISE;
+        let attribute_count = 0;
+        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+        let mut username = to_wstr(username);
 
         let mut credential = CREDENTIALW {
             Flags: flags,
@@ -140,6 +206,77 @@ impl<'a> Keyring<'a> {
                 }
 
                 password
+            }
+        }
+    }
+
+    pub fn get_credential(&self) -> Result<TargetCredential> {
+        // passing uninitialized pcredential.
+        // Should be ok; it's freed by a windows api
+        // call CredFree.
+        let mut pcredential = MaybeUninit::uninit();
+
+        let target_name: String = String::from(self.service);
+        let target_name = to_wstr(&target_name);
+
+        let cred_type = CRED_TYPE_GENERIC;
+
+        // Windows api call
+        match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) } {
+            0 => unsafe {
+                match GetLastError() {
+                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
+                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
+                    _ => Err(KeyringError::WindowsVaultError),
+                }
+            },
+            _ => {
+                let pcredential = unsafe { pcredential.assume_init() };
+                // Dereferencing pointer to credential
+                let credential: CREDENTIALW = unsafe { *pcredential };
+
+                // get blob by creating an array from the pointer
+                // and the length reported back from the credential
+                let blob_pointer: *const u8 = credential.CredentialBlob;
+                let blob_len: usize = credential.CredentialBlobSize as usize;
+
+                // blob needs to be transformed from bytes to an
+                // array of u16, which will then be transformed into
+                // a utf8 string. As noted above, this is to allow
+                // editing of the password from within the vault order
+                // or other windows programs, which operate in utf16
+                let blob: &[u8] = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
+                let mut blob_u16 = vec![0; blob_len / 2];
+                LittleEndian::read_u16_into(&blob, &mut blob_u16);
+
+                // Now can get utf8 string from the array
+                let password = String::from_utf16(&blob_u16)
+                    .map(|pass| pass.to_string());
+
+                // get the username by converting credential.UserName
+                // into a fat pointer, then convert from utf16 to a
+                // regular utf8 string
+                let user_lpwstr = credential.UserName;
+                let user_slice = unsafe {
+                    let len = (0..).take_while(|&i| *user_lpwstr.offset(i) != 0).count();
+                    std::slice::from_raw_parts(user_lpwstr, len)
+                };
+                let username = String::from_utf16(&user_slice)
+                    .map(|user| user.to_string());
+
+                // Free the credential
+                unsafe {
+                    CredFree(pcredential as *mut _);
+                }
+
+                if username.is_err() || password.is_err() {
+                    Err(KeyringError::WindowsVaultError)
+                } else {
+                    Ok(TargetCredential {
+                        username: username.unwrap(),
+                        password: password.unwrap(),
+                    })
+                }
             }
         }
     }
