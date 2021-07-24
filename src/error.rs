@@ -40,20 +40,6 @@ impl fmt::Display for KeyringError {
 }
 
 impl error::Error for KeyringError {
-    fn description(&self) -> &str {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => err.description(),
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => err.description(),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => "Windows Vault Error",
-            KeyringError::NoBackendFound => "No Backend Found",
-            KeyringError::NoPasswordFound => "No Password Found",
-            KeyringError::Parse(ref err) => err.description(),
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             #[cfg(target_os = "linux")]

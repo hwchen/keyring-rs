@@ -39,10 +39,10 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> Result<()> {
-        self.set_credential(password, self.username)
+        self.set_credential(self.username, password)
     }
 
-    pub fn set_credential(&self, password: &str, username: &str) -> Result<()> {
+    pub fn set_credential(&self, username: &str, password: &str) -> Result<()> {
         // Setting values of credential
 
         let flags = 0;
@@ -152,7 +152,8 @@ impl<'a> Keyring<'a> {
 
                 // Now can get utf8 string from the array
                 let password = String::from_utf16(&blob_u16)
-                    .map(|pass| pass.to_string());
+                    .map(|pass| pass.to_string())
+                    .map_err(|_| KeyringError::WindowsVaultError)?;
 
                 // get the username by converting credential.UserName
                 // into a fat pointer, then convert from utf16 to a
@@ -163,21 +164,18 @@ impl<'a> Keyring<'a> {
                     std::slice::from_raw_parts(user_lpwstr, len)
                 };
                 let username = String::from_utf16(&user_slice)
-                    .map(|user| user.to_string());
+                    .map(|user| user.to_string())
+                    .map_err(|_| KeyringError::WindowsVaultError)?;
 
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
                 }
 
-                if username.is_err() || password.is_err() {
-                    Err(KeyringError::WindowsVaultError)
-                } else {
-                    Ok(TargetCredential {
-                        username: username.unwrap(),
-                        password: password.unwrap(),
-                    })
-                }
+                Ok(TargetCredential {
+                    username,
+                    password,
+                })
             }
         }
     }
