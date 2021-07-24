@@ -39,6 +39,10 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn set_password(&self, password: &str) -> Result<()> {
+        self.set_credential(password, self.username)
+    }
+
+    pub fn set_credential(&self, password: &str, username: &str) -> Result<()> {
         // Setting values of credential
 
         let flags = 0;
@@ -48,63 +52,6 @@ impl<'a> Keyring<'a> {
         } else {
             [self.username, self.service].join(".")
         };
-        let mut target_name = to_wstr(&target_name);
-
-        // empty string for comments, and target alias,
-        // I don't use here
-        let mut empty_str = to_wstr("");
-
-        // Ignored by CredWriteW
-        let last_written = FILETIME {
-            dwLowDateTime: 0,
-            dwHighDateTime: 0,
-        };
-
-        // In order to allow editing of the password
-        // from within Windows, the password must be
-        // transformed into utf16. (but because it's a
-        // blob, it then needs to be passed to windows
-        // as an array of bytes).
-        let blob_u16 = to_wstr_no_null(password);
-        let mut blob = vec![0; blob_u16.len() * 2];
-        LittleEndian::write_u16_into(&blob_u16, &mut blob);
-
-        let blob_len = blob.len() as u32;
-        let persist = CRED_PERSIST_ENTERPRISE;
-        let attribute_count = 0;
-        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
-        let mut username = to_wstr(self.username);
-
-        let mut credential = CREDENTIALW {
-            Flags: flags,
-            Type: cred_type,
-            TargetName: target_name.as_mut_ptr(),
-            Comment: empty_str.as_mut_ptr(),
-            LastWritten: last_written,
-            CredentialBlobSize: blob_len,
-            CredentialBlob: blob.as_mut_ptr(),
-            Persist: persist,
-            AttributeCount: attribute_count,
-            Attributes: attributes,
-            TargetAlias: empty_str.as_mut_ptr(),
-            UserName: username.as_mut_ptr(),
-        };
-        // raw pointer to credential, is coerced from &mut
-        let pcredential: PCREDENTIALW = &mut credential;
-
-        // Call windows API
-        match unsafe { CredWriteW(pcredential, 0) } {
-            0 => Err(KeyringError::WindowsVaultError),
-            _ => Ok(()),
-        }
-    }
-
-    pub fn set_credential(&self, password: &str, username: &str) -> Result<()> {
-        // Setting values of credential
-
-        let flags = 0;
-        let cred_type = CRED_TYPE_GENERIC;
-        let target_name = String::from(self.service);
         let mut target_name = to_wstr(&target_name);
 
         // empty string for comments, and target alias,
@@ -157,57 +104,7 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn get_password(&self) -> Result<String> {
-        // passing uninitialized pcredential.
-        // Should be ok; it's freed by a windows api
-        // call CredFree.
-        let mut pcredential = MaybeUninit::uninit();
-
-        let target_name: String = [self.username, self.service].join(".");
-        let target_name = to_wstr(&target_name);
-
-        let cred_type = CRED_TYPE_GENERIC;
-
-        // Windows api call
-        match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) } {
-            0 => unsafe {
-                match GetLastError() {
-                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
-                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
-                    _ => Err(KeyringError::WindowsVaultError),
-                }
-            },
-            _ => {
-                let pcredential = unsafe { pcredential.assume_init() };
-                // Dereferencing pointer to credential
-                let credential: CREDENTIALW = unsafe { *pcredential };
-
-                // get blob by creating an array from the pointer
-                // and the length reported back from the credential
-                let blob_pointer: *const u8 = credential.CredentialBlob;
-                let blob_len: usize = credential.CredentialBlobSize as usize;
-
-                // blob needs to be transformed from bytes to an
-                // array of u16, which will then be transformed into
-                // a utf8 string. As noted above, this is to allow
-                // editing of the password from within the vault order
-                // or other windows programs, which operate in utf16
-                let blob: &[u8] = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
-                let mut blob_u16 = vec![0; blob_len / 2];
-                LittleEndian::read_u16_into(&blob, &mut blob_u16);
-
-                // Now can get utf8 string from the array
-                let password = String::from_utf16(&blob_u16)
-                    .map(|pass| pass.to_string())
-                    .map_err(|_| KeyringError::WindowsVaultError);
-
-                // Free the credential
-                unsafe {
-                    CredFree(pcredential as *mut _);
-                }
-
-                password
-            }
-        }
+        self.get_credential().map(|cred| cred.password)
     }
 
     pub fn get_credential(&self) -> Result<TargetCredential> {
@@ -216,7 +113,11 @@ impl<'a> Keyring<'a> {
         // call CredFree.
         let mut pcredential = MaybeUninit::uninit();
 
-        let target_name: String = String::from(self.service);
+        let target_name: String = if self.username.is_empty() {
+            String::from(self.service)
+        } else {
+            [self.username, self.service].join(".")
+        };
         let target_name = to_wstr(&target_name);
 
         let cred_type = CRED_TYPE_GENERIC;
