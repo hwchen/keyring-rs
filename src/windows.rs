@@ -282,7 +282,11 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn delete_password(&self) -> Result<()> {
-        let target_name: String = [self.username, self.service].join(".");
+        let target_name: String = if self.username.is_empty() {
+            String::from(self.service)
+        } else {
+            [self.username, self.service].join(".")
+        };
 
         let cred_type = CRED_TYPE_GENERIC;
         let target_name = to_wstr(&target_name);
