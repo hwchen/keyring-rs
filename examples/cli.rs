@@ -4,7 +4,7 @@ extern crate rpassword;
 
 use clap::{App, Arg, SubCommand};
 use keyring::Keyring;
-use rpassword::read_password;
+use rpassword::read_password_from_tty;
 
 use std::error::Error;
 
@@ -45,41 +45,42 @@ fn main() -> Result<(), Box<dyn Error>> {
         )
         .get_matches();
 
-    let service = "keyring-rs";
+    let service = "keyring-cli";
 
     if let Some(set) = matches.subcommand_matches("set") {
-        let username = set.value_of("username").ok_or("No username found to set")?;
+        let username = set
+            .value_of("username")
+            .ok_or("You must specify a Username to set")?;
         let keyring = Keyring::new(service, username);
 
-        println!("Enter Password");
-        let password = read_password()?;
-        //println!("Password is: {:?}", password);
-
+        let password = read_password_from_tty(Some("Password: "))?;
         match keyring.set_password(&password[..]) {
             Ok(_) => println!("Password set for user \"{}\"", username),
-            _ => println!("Could not find password for user \"{}\"", username),
+            Err(e) => eprintln!("Error setting password for user '{}': {}", username, e),
         }
     }
 
     if let Some(get) = matches.subcommand_matches("get") {
-        let username = get.value_of("username").ok_or("No username found to get")?;
+        let username = get
+            .value_of("username")
+            .ok_or("You must specify a Username to get")?;
         let keyring = Keyring::new(service, username);
 
         match keyring.get_password() {
-            Ok(password) => println!("The password for user \"{}\" is \"{}\"", username, password),
-            _ => println!("Could not find password for user \"{}\"", username),
+            Ok(password) => println!("The password for user '{}' is '{}'", username, password),
+            Err(e) => eprintln!("Error getting password for user '{}': {}", username, e),
         }
     }
 
     if let Some(delete) = matches.subcommand_matches("delete") {
         let username = delete
             .value_of("username")
-            .ok_or("No usernanme found to delete")?;
+            .ok_or("You must specify a Username to delete")?;
         let keyring = Keyring::new(service, username);
 
         match keyring.delete_password() {
-            Ok(_) => println!("Password deleted for user \"{}\"", username),
-            _ => println!("Could not delete password for user \"{}\"", username),
+            Ok(_) => println!("Password deleted for user '{}'", username),
+            Err(e) => eprintln!("Error deleting password for user '{}': {}", username, e),
         }
     }
 

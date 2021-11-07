@@ -40,6 +40,10 @@ impl fmt::Display for KeyringError {
 }
 
 impl error::Error for KeyringError {
+    // the description method on KeyringError is hard deprecated,
+    // but since we defined this impl before it was deprecated
+    // we are still using it.  So we have to turn off the warning.
+    #[allow(deprecated)]
     fn description(&self) -> &str {
         match *self {
             #[cfg(target_os = "macos")]
