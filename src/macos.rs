@@ -69,6 +69,7 @@ impl<'a> Keyring<'a> {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "macos")]
 mod test {
     use super::*;
     use serial_test::serial;
