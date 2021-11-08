@@ -151,7 +151,8 @@ function unlock-keyring ()
 
 ## Dev Notes
 
-* for TravisCI, osx builds and tests, but linux only builds. Work is underway to move to github CI.
+* We build using GitHub CI.
+* Each tag is built on Ubuntu x64, Win 10 x64, and Mac x64.  The `cli` example executable is posted with the tag.
 
 ## License
 
