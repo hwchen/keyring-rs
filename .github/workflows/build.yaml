@@ -14,13 +14,11 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
-      - name: Linux dependencies
+      - name: Linux build dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update -y
           sudo apt install -y build-essential gnome-keyring
-          # create login keychain with password "test" and unlock it for use in tests
-          export $(echo -n "test" | gnome-keyring-daemon --unlock)
 
       - name: Fetch head
         uses: actions/checkout@v2
@@ -38,6 +36,12 @@ jobs:
         with:
           command: build
           args: --verbose --all-targets
+
+      - name: Linux test dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          rm -f $HOME/.local/share/keyrings/*
+          echo -n "test" | gnome-keyring-daemon --replace --unlock
 
       - name: Test
         uses: actions-rs/cargo@v1
