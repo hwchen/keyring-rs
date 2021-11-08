@@ -91,13 +91,17 @@ impl<'a> Keyring<'a> {
     }
 
     pub fn get_password(&self) -> Result<String> {
+        let target_name: String = [self.username, self.service].join(".");
+        self.get_password_for_target(&target_name)
+    }
+
+    pub fn get_password_for_target(&self, target_name: &str) -> Result<String> {
         // passing uninitialized pcredential.
         // Should be ok; it's freed by a windows api
         // call CredFree.
         let mut pcredential = MaybeUninit::uninit();
 
-        let target_name: String = [self.username, self.service].join(".");
-        let target_name = to_wstr(&target_name);
+        let target_name = to_wstr(target_name);
 
         let cred_type = CRED_TYPE_GENERIC;
 
