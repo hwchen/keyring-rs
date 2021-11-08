@@ -131,11 +131,27 @@ the same name.
 ### Linux
 
 * The application name is hardcoded to be `rust-keyring`.
+* If you are running on a headless linux box, you will need to unlock the Gnome login keyring before you can use it.  The following `bash` function may be very helpful.
+```shell
+function unlock-keyring ()
+{
+	read -rsp "Password: " pass
+	echo -n "$pass" | gnome-keyring-daemon --unlock
+	unset pass
+}
+```
+
+### Windows
+
+* The credential name is currently hardcoded to be `username.service`, due to a [reported issue](https://github.com/jaraco/keyring/issues/47).  This breaks compatibility with 3rd-party applications, and is being fixed.
+
+### MacOS
+
+* Accessing the keychain from multiple threads simultaneously is generally a bad idea, and can cause deadlocks.
 
 ## Dev Notes
 
-* If you're running tests, please use `RUST_TEST_THREADS=1 cargo test`
-* for TravisCI, osx builds and tests, but linux only builds. Need to figure out how to mock secret service.
+* for TravisCI, osx builds and tests, but linux only builds. Work is underway to move to github CI.
 
 ## License
 
