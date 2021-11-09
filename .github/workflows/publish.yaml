@@ -18,7 +18,7 @@ jobs:
           - os: macos-latest
             executable_name: examples/cli
             posted_name: cli.macos
-          - os: macos-latest
+          - os: ubuntu-latest
             executable_name: examples/cli
             posted_name: cli.linux
 
