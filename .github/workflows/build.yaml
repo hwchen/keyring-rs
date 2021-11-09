@@ -11,14 +11,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
 
     steps:
       - name: Linux build dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
+          whoami
+          uname -a
+          apt list --installed
           sudo apt update -y
-          sudo apt install -y build-essential gnome-keyring
+          sudo apt install -y build-essential dbus-user-session gnome-keyring
 
       - name: Fetch head
         uses: actions/checkout@v2
@@ -40,6 +43,9 @@ jobs:
       - name: Linux test dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
+          who am i
+          uname -a
+          apt list --installed
           rm -f $HOME/.local/share/keyrings/*
           echo -n "test" | gnome-keyring-daemon --replace --unlock
 
