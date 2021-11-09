@@ -18,7 +18,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update -y
-          sudo apt install -y build-essential gnome-keyring dbus-x11
+          sudo apt install -y build-essential gnome-keyring
 
       - name: Fetch head
         uses: actions/checkout@v2
@@ -37,13 +37,12 @@ jobs:
           command: build
           args: --verbose --all-targets
 
-      - name: Linux test dependencies
+      - name: Linux tests
         if: matrix.os == 'ubuntu-latest'
-        run: |
-          rm -f $HOME/.local/share/keyrings/*
-          echo -n "test" | dbus-launch gnome-keyring-daemon --replace --unlock
+        run: dbus-run-session -- bash linux-test.sh
 
-      - name: Test
+      - name: Non-linux tests
+        if: matrix.os != 'ubuntu-latest'
         uses: actions-rs/cargo@v1
         with:
           command: test
