@@ -19,6 +19,7 @@ pub enum KeyringError {
     NoBackendFound,
     NoPasswordFound,
     Parse(FromUtf8Error),
+    BadPlatformMapValue,
 }
 
 impl fmt::Display for KeyringError {
@@ -34,7 +35,11 @@ impl fmt::Display for KeyringError {
             KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
             KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
             KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
-            KeyringError::Parse(ref err) => write!(f, "Keyring Parse Error: {}", err),
+            KeyringError::Parse(ref err) => write!(f, "Password Parse Error: {}", err),
+            KeyringError::BadPlatformMapValue => write!(
+                f,
+                "Keyring Error: Custom IdentityMapper value doesn't match this platform"
+            ),
         }
     }
 }
@@ -55,6 +60,9 @@ impl error::Error for KeyringError {
             KeyringError::NoBackendFound => "No Backend Found",
             KeyringError::NoPasswordFound => "No Password Found",
             KeyringError::Parse(ref err) => err.description(),
+            KeyringError::BadPlatformMapValue => {
+                "Custom IdentityMapper value doesn't match this platform"
+            }
         }
     }
 
