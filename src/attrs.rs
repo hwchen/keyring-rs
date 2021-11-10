@@ -38,7 +38,21 @@ pub enum Platform {
 
 #[derive(Debug)]
 pub struct LinuxIdentity {
-    pub attributes: HashMap<&'static str, String>,
+    pub attributes: HashMap<String, String>,
+    pub label: String,
+}
+
+impl LinuxIdentity {
+    pub fn attributes(&self) -> HashMap<&str, &str> {
+        self.attributes
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect()
+    }
+
+    pub fn label(&self) -> &str {
+        self.label.as_str()
+    }
 }
 
 #[derive(Debug)]
@@ -72,14 +86,19 @@ impl PlatformIdentity {
 // TODO: Make this a Fn trait so we can accept closures
 pub type IdentityMapper = fn(&Platform, &str, &str) -> PlatformIdentity;
 
-pub fn default_identity_mapper(os: Platform, service: &str, username: &str) -> PlatformIdentity {
-    match os {
+pub fn default_identity_mapper(
+    platform: Platform,
+    service: &str,
+    username: &str,
+) -> PlatformIdentity {
+    match platform {
         Platform::Linux => PlatformIdentity::Linux(LinuxIdentity {
             attributes: HashMap::from([
-                ("service", service.to_string()),
-                ("username", username.to_string()),
-                ("application", String::from("rust-keyring")),
+                ("service".to_string(), service.to_string()),
+                ("username".to_string(), username.to_string()),
+                ("application".to_string(), "rust-keyring".to_string()),
             ]),
+            label: format!("Password for service '{}', user '{}'", service, username),
         }),
         Platform::Windows => PlatformIdentity::Win(WinIdentity {
             target_name: format!("{}.{}", username, service),

@@ -1,64 +1,87 @@
-use crate::error::{KeyringError, Result};
 use secret_service::{EncryptionType, SecretService};
-use std::collections::HashMap;
 
-pub struct Keyring<'a> {
-    attributes: HashMap<&'a str, &'a str>,
-    service: &'a str,
-    username: &'a str,
-}
+use crate::{KeyringError, PlatformIdentity, Result};
 
-// Eventually try to get collection into the Keyring struct?
-impl<'a> Keyring<'a> {
-    pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        let attributes = HashMap::from([("service", service), ("username", username)]);
-        Keyring {
-            attributes,
-            service,
-            username,
+pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
+    if let PlatformIdentity::Linux(map) = map {
+        let ss =
+            SecretService::new(EncryptionType::Dh).map_err(KeyringError::SecretServiceError)?;
+        let collection = ss
+            .get_default_collection()
+            .map_err(KeyringError::SecretServiceError)?;
+        if collection
+            .is_locked()
+            .map_err(KeyringError::SecretServiceError)?
+        {
+            collection
+                .unlock()
+                .map_err(KeyringError::SecretServiceError)?;
         }
-    }
-
-    pub fn set_password(&self, password: &str) -> Result<()> {
-        let ss = SecretService::new(EncryptionType::Dh)?;
-        let collection = ss.get_default_collection()?;
-        if collection.is_locked()? {
-            collection.unlock()?;
-        }
-        let mut attrs = self.attributes.clone();
-        attrs.insert("application", "rust-keyring");
-        let label = &format!("Password for {} on {}", self.username, self.service)[..];
         collection.create_item(
-            label,
-            attrs,
+            map.label(),
+            map.attributes(),
             password.as_bytes(),
             true, // replace
             "text/plain",
         )?;
         Ok(())
+    } else {
+        Err(KeyringError::BadPlatformMapValue)
     }
+}
 
-    pub fn get_password(&self) -> Result<String> {
-        let ss = SecretService::new(EncryptionType::Dh)?;
-        let collection = ss.get_default_collection()?;
-        if collection.is_locked()? {
-            collection.unlock()?;
+pub fn get_password(map: &PlatformIdentity) -> Result<String> {
+    if let PlatformIdentity::Linux(map) = map {
+        let ss =
+            SecretService::new(EncryptionType::Dh).map_err(KeyringError::SecretServiceError)?;
+        let collection = ss
+            .get_default_collection()
+            .map_err(KeyringError::SecretServiceError)?;
+        if collection
+            .is_locked()
+            .map_err(KeyringError::SecretServiceError)?
+        {
+            collection
+                .unlock()
+                .map_err(KeyringError::SecretServiceError)?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection
+            .search_items(map.attributes())
+            .map_err(KeyringError::SecretServiceError)?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
         let secret_bytes = item.get_secret()?;
-        let secret = String::from_utf8(secret_bytes)?;
-        Ok(secret)
+        // Linux keyring allows non-UTF8 values, but this library only supports adding UTF8 items
+        // to the keyring, so this should only fail if we are trying to retrieve a non-UTF8
+        // password that was added to the keyring by another library
+        let password = String::from_utf8(secret_bytes).map_err(KeyringError::Parse)?;
+        Ok(password)
+    } else {
+        Err(KeyringError::BadPlatformMapValue)
     }
+}
 
-    pub fn delete_password(&self) -> Result<()> {
-        let ss = SecretService::new(EncryptionType::Dh)?;
-        let collection = ss.get_default_collection()?;
-        if collection.is_locked()? {
-            collection.unlock()?;
+pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
+    if let PlatformIdentity::Linux(map) = map {
+        let ss =
+            SecretService::new(EncryptionType::Dh).map_err(KeyringError::SecretServiceError)?;
+        let collection = ss
+            .get_default_collection()
+            .map_err(KeyringError::SecretServiceError)?;
+        if collection
+            .is_locked()
+            .map_err(KeyringError::SecretServiceError)?
+        {
+            collection
+                .unlock()
+                .map_err(KeyringError::SecretServiceError)?;
         }
-        let search = collection.search_items(self.attributes.clone())?;
+        let search = collection
+            .search_items(map.attributes())
+            .map_err(KeyringError::SecretServiceError)?;
         let item = search.get(0).ok_or(KeyringError::NoPasswordFound)?;
-        Ok(item.delete()?)
+        item.delete().map_err(KeyringError::SecretServiceError)?;
+        Ok(())
+    } else {
+        Err(KeyringError::BadPlatformMapValue)
     }
 }
