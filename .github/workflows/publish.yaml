@@ -1,0 +1,49 @@
+name: Publish executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: windows-latest
+            executable_name: examples/cli.exe
+            posted_name: cli.windows.exe
+          - os: macos-latest
+            executable_name: examples/cli
+            posted_name: cli.macos
+          - os: ubuntu-latest
+            executable_name: examples/cli
+            posted_name: cli.linux
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain (stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Build (release, locked)
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --locked --example cli
+
+      - name: Post cli executable
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.executable_name }}
+          asset_name: ${{ matrix.posted_name }}
+          tag: ${{ github.ref }}

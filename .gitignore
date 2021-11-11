@@ -1,4 +1,4 @@
-target
 Cargo.lock
+target
 fuzz
 libtest.rmeta

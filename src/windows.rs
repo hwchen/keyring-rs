@@ -127,12 +127,11 @@ impl<'a> Keyring<'a> {
                 // or other windows programs, which operate in utf16
                 let blob: &[u8] = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
                 let mut blob_u16 = vec![0; blob_len / 2];
-                LittleEndian::read_u16_into(&blob, &mut blob_u16);
+                LittleEndian::read_u16_into(blob, &mut blob_u16);
 
                 // Now can get utf8 string from the array
-                let password = String::from_utf16(&blob_u16)
-                    .map(|pass| pass.to_string())
-                    .map_err(|_| KeyringError::WindowsVaultError);
+                let password =
+                    String::from_utf16(&blob_u16).map_err(|_| KeyringError::WindowsVaultError);
 
                 // Free the credential
                 unsafe {
@@ -174,6 +173,7 @@ fn to_wstr_no_null(s: &str) -> Vec<u16> {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "windows")]
 mod test {
     use super::*;
 
@@ -183,17 +183,26 @@ mod test {
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
 
         let keyring = Keyring::new("testservice", "testuser");
+
         keyring.set_password(password_1).unwrap();
         let res_1 = keyring.get_password().unwrap();
-        println!("{}:{}", res_1, password_1);
-        assert_eq!(res_1, password_1);
+        assert_eq!(
+            res_1, password_1,
+            "Stored and retrieved passwords don't match"
+        );
 
         keyring.set_password(password_2).unwrap();
         let res_2 = keyring.get_password().unwrap();
-        println!("{}:{}", res_2, password_2);
-        assert_eq!(res_2, password_2);
+        assert_eq!(
+            res_2, password_2,
+            "Stored and retrieved passwords don't match"
+        );
 
         keyring.delete_password().unwrap();
+        assert!(
+            keyring.get_password().is_err(),
+            "Able to read a deleted password"
+        )
     }
 
     #[test]

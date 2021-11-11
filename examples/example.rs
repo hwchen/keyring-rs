@@ -1,15 +1,23 @@
 extern crate keyring;
 
-use keyring::Keyring;
+use keyring::{Keyring, Result};
 
-use std::error::Error;
-
-fn main() -> Result<(), Box<dyn Error>> {
-    let keyring = Keyring::new("example-service", "example-username");
-    keyring.set_password("example-pass")?;
-    let pass = keyring.get_password()?;
+fn main() -> Result<()> {
+    let username = "example-username";
+    let service = "example-service";
+    let password = "example-password";
+    let keyring = Keyring::new(service, username);
+    keyring.set_password(password)?;
+    let stored_password = keyring.get_password()?;
+    assert_eq!(
+        password, stored_password,
+        "Stored and retrieved passwords don't match"
+    );
     keyring.delete_password()?;
-    println!("Retrieved Password {}", pass);
+    assert!(
+        keyring.get_password().is_err(),
+        "No error retrieving password after deletion"
+    );
 
     Ok(())
 }
