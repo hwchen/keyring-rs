@@ -162,7 +162,7 @@ mod test {
     fn test_basic() {
         let password_1 = "大根";
         let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
-        let map = default_identity_mapper(Platform::MacOs, "test-service", "test-user");
+        let map = default_identity_mapper(Platform::Windows, "test-service", "test-user");
 
         set_password(&map, password_1).unwrap();
         let response_1 = get_password(&map).unwrap();
