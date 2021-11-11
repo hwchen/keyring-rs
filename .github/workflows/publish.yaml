@@ -38,7 +38,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --locked --example cli
+          args: --release --example cli
 
       - name: Post cli executable
         uses: svenstaro/upload-release-action@v2
