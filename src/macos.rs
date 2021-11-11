@@ -45,7 +45,6 @@ pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
 }
 
 #[cfg(test)]
-#[cfg(target_os = "macos")]
 mod test {
     use super::*;
     use crate::attrs::default_identity_mapper;

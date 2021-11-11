@@ -58,6 +58,7 @@ impl LinuxIdentity {
 #[derive(Debug)]
 pub struct WinIdentity {
     pub target_name: String,
+    pub username: String,
 }
 
 #[derive(Debug)]
@@ -101,7 +102,11 @@ pub fn default_identity_mapper(
             label: format!("Password for service '{}', user '{}'", service, username),
         }),
         Platform::Windows => PlatformIdentity::Win(WinIdentity {
+            // Note: default concatenation of user and service name is
+            // needed because windows identity is on target_name only
+            // See issue here: https://github.com/jaraco/keyring/issues/47
             target_name: format!("{}.{}", username, service),
+            username: username.to_string(),
         }),
         Platform::MacOs => PlatformIdentity::Mac(MacIdentity {
             service: service.to_string(),
