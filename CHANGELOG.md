@@ -1,9 +1,12 @@
-## Version 0.10.2
+## Version 0.10.3
 - Added NoPassword and NoBackend errors to windows code (phillip couto)
 - Update dependencies: (brotskydotcom)
     - secret-service from 1.1.1 to 2.0.2
     - security-framework from 0.4.2 to 2.4.2
 - Update CI/tests, readme (brotskydotcom)
+
+## Version 0.10.2
+- yanked, release snafu
 
 ## Version 0.10.1
 - update to secret-service 1.1.1
