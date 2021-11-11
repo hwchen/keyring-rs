@@ -1,3 +1,19 @@
+## Version 0.10.3
+- Added NoPassword and NoBackend errors to windows code (phillip couto)
+- Update dependencies: (brotskydotcom)
+    - secret-service from 1.1.1 to 2.0.2
+    - security-framework from 0.4.2 to 2.4.2
+- Update CI/tests, readme (brotskydotcom)
+
+## Version 0.10.2
+- yanked, release snafu
+
+## Version 0.10.1
+- update to secret-service 1.1.1
+
+## Version 0.10.0
+- ability to access named keychains in macos (nagasunilt)
+
 ## Verion 0.9.0
 - upgrade security-framework 0.3.0 -> 0.4.2
 - upgrade secret-service 1.0.0 -> 1.1.0 (updates hkdf dep, fixes error handling related to missing collection)
