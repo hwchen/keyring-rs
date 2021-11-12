@@ -5,18 +5,12 @@
 mod attrs;
 mod error;
 
-use crate::error::KeyringError::BadPlatformMapValue;
 pub use attrs::{IdentityMapper, Platform, PlatformIdentity};
-pub use error::{KeyringError, Result};
+pub use error::{Error, KeyringError, Result};
 
 // compile-time Platform known at runtime
 fn platform() -> Platform {
-    #[cfg(target_os = "linux")]
-    return Platform::Linux;
-    #[cfg(target_os = "windows")]
-    return Platform::Windows;
-    #[cfg(target_os = "macos")]
-    return Platform::MacOs;
+    platform::platform()
 }
 
 // Platform-specific implementations
@@ -47,7 +41,7 @@ impl Keyring {
         if map.matches_platform(&os) {
             Ok(Keyring { map })
         } else {
-            Err(BadPlatformMapValue)
+            Err(KeyringError::BadIdentityMapPlatform.into())
         }
     }
 

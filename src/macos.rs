@@ -1,20 +1,29 @@
 use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::os::macos::passwords::find_generic_password;
 
-use crate::{KeyringError, PlatformIdentity, Result};
+use crate::{Error as KeyError, KeyringError, Platform, PlatformIdentity, Result};
+
+pub fn platform() -> Platform {
+    Platform::MacOs
+}
+
+pub use security_framework::base::Error;
 
 fn get_keychain() -> Result<SecKeychain> {
-    SecKeychain::default().map_err(KeyringError::MacOsKeychainError)
+    match SecKeychain::default() {
+        Ok(keychain) => Ok(keychain),
+        Err(err) => Err(KeyError::new_from_platform(KeyringError::NoStorage, err)),
+    }
 }
 
 pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
     if let PlatformIdentity::Mac(map) = map {
         get_keychain()?
             .set_generic_password(&map.service, &map.account, password.as_bytes())
-            .map_err(KeyringError::MacOsKeychainError)?;
+            .map_err(|err| KeyError::new_from_platform(KeyringError::PlatformFailure, err))?;
         Ok(())
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 
@@ -22,25 +31,26 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
     if let PlatformIdentity::Mac(map) = map {
         let (password_bytes, _) =
             find_generic_password(Some(&[get_keychain()?]), &map.service, &map.account)
-                .map_err(KeyringError::MacOsKeychainError)?;
+                .map_err(|err| KeyError::new_from_platform(KeyringError::NoEntry, err))?;
         // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
         // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
         // password that was added to the keychain by another library
-        let password = String::from_utf8(password_bytes.to_vec()).map_err(KeyringError::Parse)?;
+        let password = String::from_utf8(password_bytes.to_vec())
+            .map_err(|err| KeyError::new_from_encoding(err.utf8_error()))?;
         Ok(password)
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 
 pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
     if let PlatformIdentity::Mac(map) = map {
         let (_, item) = find_generic_password(Some(&[get_keychain()?]), &map.service, &map.account)
-            .map_err(KeyringError::MacOsKeychainError)?;
+            .map_err(|err| KeyError::new_from_platform(KeyringError::NoEntry, err))?;
         item.delete();
         Ok(())
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 

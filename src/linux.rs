@@ -1,6 +1,12 @@
 use secret_service::{EncryptionType, SecretService};
 
-use crate::{KeyringError, PlatformIdentity, Result};
+use crate::{KeyringError, Platform, PlatformIdentity, Result};
+
+pub fn platform() -> Platform {
+    Platform::Linux
+}
+
+pub use secret_service::Error;
 
 pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
     if let PlatformIdentity::Linux(map) = map {
@@ -26,7 +32,7 @@ pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
         )?;
         Ok(())
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }
 
@@ -56,7 +62,7 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
         let password = String::from_utf8(secret_bytes).map_err(KeyringError::Parse)?;
         Ok(password)
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }
 
@@ -82,6 +88,6 @@ pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
         item.delete().map_err(KeyringError::SecretServiceError)?;
         Ok(())
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }

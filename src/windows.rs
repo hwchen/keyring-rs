@@ -13,7 +13,26 @@ use winapi::um::wincred::{
     CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
 
-use crate::{KeyringError, PlatformIdentity, Result};
+use crate::{KeyringError, Platform, PlatformIdentity, Result};
+
+pub fn platform() -> Platform {
+    Platform::Windows
+}
+
+pub type Error = (int32);
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let fstring = match self.code {
+            ErrorCode::BadIdentityMapPlatform => "IdentityMapper value doesn't match this platform",
+            ErrorCode::PlatformFailure => "Platform secure storage failure",
+            ErrorCode::NoStorage => "Couldn't access platform secure storage",
+            ErrorCode::NoEntry => "No matching entry found in secure storage",
+            ErrorCode::EncodingError => "Password data was not UTF-8 endcoded",
+        };
+        write!(f, "{}: {}", fstring, *self.err)
+    }
+}
 
 // DWORD is u32
 // LPCWSTR is *const u16
@@ -73,7 +92,7 @@ pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
             _ => Ok(()),
         }
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }
 
@@ -121,7 +140,7 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
             }
         }
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }
 
@@ -140,7 +159,7 @@ pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
             _ => Ok(()),
         }
     } else {
-        Err(KeyringError::BadPlatformMapValue)
+        Err(KeyringError::BadIdentityMapPlatform)
     }
 }
 

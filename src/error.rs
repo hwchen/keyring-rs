@@ -1,98 +1,95 @@
-#[cfg(target_os = "linux")]
-use secret_service::Error as SsError;
-#[cfg(target_os = "macos")]
-use security_framework::base::Error as SfError;
-use std::error;
-use std::fmt;
+use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
-pub type Result<T> = ::std::result::Result<T, KeyringError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum KeyringError {
-    #[cfg(target_os = "macos")]
-    MacOsKeychainError(SfError),
-    #[cfg(target_os = "linux")]
-    SecretServiceError(SsError),
-    #[cfg(target_os = "windows")]
-    WindowsVaultError,
-    NoBackendFound,
-    NoPasswordFound,
-    Parse(FromUtf8Error),
-    BadPlatformMapValue,
+    BadEncoding,
+    BadIdentityMapPlatform,
+    PlatformFailure,
+    NoStorage,
+    NoEntry,
 }
 
-impl fmt::Display for KeyringError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => {
-                write!(f, "Mac Os Keychain Error: {}", err)
+#[derive(Debug)]
+pub struct Error {
+    pub code: KeyringError,
+    pub platform: Option<crate::platform::Error>,
+    pub encoding: Option<Utf8Error>,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let fstring = match self.code {
+            KeyringError::BadIdentityMapPlatform => {
+                "IdentityMapper value doesn't match this platform"
             }
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
-            KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
-            KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
-            KeyringError::Parse(ref err) => write!(f, "Password Parse Error: {}", err),
-            KeyringError::BadPlatformMapValue => write!(
-                f,
-                "Keyring Error: Custom IdentityMapper value doesn't match this platform"
-            ),
+            KeyringError::PlatformFailure => "Platform secure storage failure",
+            KeyringError::NoStorage => "Couldn't access platform secure storage",
+            KeyringError::NoEntry => "No matching entry found in secure storage",
+            KeyringError::BadEncoding => "Password data was not UTF-8 encoded",
+        };
+        if let Some(platform_error) = self.platform {
+            write!(f, "{}: {}", fstring, platform_error)
+        } else if let Some(encoding_error) = self.encoding {
+            write!(f, "{}: {}", fstring, encoding_error)
+        } else {
+            write!(f, "{}", fstring)
         }
     }
 }
 
-impl error::Error for KeyringError {
-    // the description method on KeyringError is hard deprecated,
-    // but since we defined this impl before it was deprecated
-    // we are still using it.  So we have to turn off the warning.
-    #[allow(deprecated)]
-    fn description(&self) -> &str {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => err.description(),
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => err.description(),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => "Windows Vault Error",
-            KeyringError::NoBackendFound => "No Backend Found",
-            KeyringError::NoPasswordFound => "No Password Found",
-            KeyringError::Parse(ref err) => err.description(),
-            KeyringError::BadPlatformMapValue => {
-                "Custom IdentityMapper value doesn't match this platform"
-            }
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => Some(err),
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => Some(err),
-            _ => None,
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        if let Some(platform_error) = self.platform.as_ref() {
+            Some(platform_error)
+        } else if let Some(encoding_error) = self.encoding.as_ref() {
+            Some(encoding_error)
+        } else {
+            None
         }
     }
 }
 
-#[cfg(target_os = "linux")]
-impl From<SsError> for KeyringError {
-    fn from(err: SsError) -> KeyringError {
-        KeyringError::SecretServiceError(err)
+impl Error {
+    pub fn new(code: KeyringError) -> Error {
+        Error {
+            code,
+            platform: None,
+            encoding: None,
+        }
+    }
+    pub fn new_from_encoding(err: Utf8Error) -> Error {
+        Error {
+            code: KeyringError::BadEncoding,
+            platform: None,
+            encoding: Some(err),
+        }
+    }
+    pub fn new_from_platform(code: KeyringError, err: crate::platform::Error) -> Error {
+        Error {
+            code,
+            platform: Some(err),
+            encoding: None,
+        }
     }
 }
 
-#[cfg(target_os = "macos")]
-impl From<SfError> for KeyringError {
-    fn from(err: SfError) -> KeyringError {
-        KeyringError::MacOsKeychainError(err)
+impl From<Error> for KeyringError {
+    fn from(err: Error) -> Self {
+        err.code
     }
 }
 
-impl From<FromUtf8Error> for KeyringError {
-    fn from(err: FromUtf8Error) -> KeyringError {
-        KeyringError::Parse(err)
+impl From<KeyringError> for Error {
+    fn from(code: KeyringError) -> Self {
+        Error::new(code)
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(err: FromUtf8Error) -> Error {
+        Error::new_from_encoding(err.utf8_error())
     }
 }
