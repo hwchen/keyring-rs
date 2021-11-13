@@ -224,15 +224,19 @@ mod test {
         let result = get_password(&map);
         match result {
             Ok(_) => panic!("expected KeyringError::NoPassword, got Ok"),
-            Err(KeyringError::NoPasswordFound) => (),
-            Err(e) => panic!("expected KeyringError::NoPassword, got {:}", e),
+            Err(err) => match &err.code {
+                KeyringError::NoEntry => (),
+                other => panic!("expected KeyringError::NoPassword, got {:?}", other),
+            },
         }
 
         let result = delete_password(&map);
         match result {
-            Ok(_) => panic!("expected Err(KeyringError::NoPassword), got Ok()"),
-            Err(KeyringError::NoPasswordFound) => (),
-            Err(e) => panic!("expected KeyringError::NoPassword, got {:}", e),
+            Ok(_) => panic!("expected KeyringError::NoEntry, got Ok"),
+            Err(err) => match &err.code {
+                KeyringError::NoEntry => (),
+                other => panic!("expected KeyringError::NoEntry, got {:?}", other),
+            },
         }
     }
 }
