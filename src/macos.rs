@@ -1,3 +1,4 @@
+pub use security_framework::base::Error;
 use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::os::macos::passwords::find_generic_password;
 
@@ -6,8 +7,6 @@ use crate::{Error as KeyError, KeyringError, Platform, PlatformIdentity, Result}
 pub fn platform() -> Platform {
     Platform::MacOs
 }
-
-pub use security_framework::base::Error;
 
 fn get_keychain() -> Result<SecKeychain> {
     match SecKeychain::default() {
@@ -36,7 +35,7 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
         // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
         // password that was added to the keychain by another library
         let password = String::from_utf8(password_bytes.to_vec())
-            .map_err(|err| KeyError::new_from_encoding(err.utf8_error()))?;
+            .map_err(|_| KeyError::new(KeyringError::BadEncoding))?;
         Ok(password)
     } else {
         Err(KeyringError::BadIdentityMapPlatform.into())

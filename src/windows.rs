@@ -13,24 +13,28 @@ use winapi::um::wincred::{
     CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
 
-use crate::{KeyringError, Platform, PlatformIdentity, Result};
+use crate::{Error as KeyError, KeyringError, Platform, PlatformIdentity, Result};
 
 pub fn platform() -> Platform {
     Platform::Windows
 }
 
-pub type Error = (int32);
+#[derive(Debug)]
+pub struct Error(u32); // Windows error codes are long ints
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let fstring = match self.code {
-            ErrorCode::BadIdentityMapPlatform => "IdentityMapper value doesn't match this platform",
-            ErrorCode::PlatformFailure => "Platform secure storage failure",
-            ErrorCode::NoStorage => "Couldn't access platform secure storage",
-            ErrorCode::NoEntry => "No matching entry found in secure storage",
-            ErrorCode::EncodingError => "Password data was not UTF-8 endcoded",
-        };
-        write!(f, "{}: {}", fstring, *self.err)
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.0 {
+            ERROR_NO_SUCH_LOGON_SESSION => write!(f, "Windows ERROR_NO_SUCH_LOGON_SESSION"),
+            ERROR_NOT_FOUND => write!(f, "Windows ERROR_NOT_FOUND"),
+            err => write!(f, "Windows error code {}", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
     }
 }
 
@@ -43,17 +47,13 @@ pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
         let flags = 0;
         let cred_type = CRED_TYPE_GENERIC;
         let mut target_name = to_wstr(&map.target_name);
-
-        // empty string for comments, and target alias,
-        // I don't use here
+        // empty string for comments, and target alias, neither of which we set
         let mut empty_str = to_wstr("");
-
         // Ignored by CredWriteW
         let last_written = FILETIME {
             dwLowDateTime: 0,
             dwHighDateTime: 0,
         };
-
         // In order to allow editing of the password
         // from within Windows, the password must be
         // transformed into utf16. (but because it's a
@@ -62,13 +62,11 @@ pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
         let blob_u16 = to_wstr_no_null(password);
         let mut blob = vec![0; blob_u16.len() * 2];
         LittleEndian::write_u16_into(&blob_u16, &mut blob);
-
         let blob_len = blob.len() as u32;
         let persist = CRED_PERSIST_ENTERPRISE;
         let attribute_count = 0;
         let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
         let mut username = to_wstr(&map.username);
-
         let mut credential = CREDENTIALW {
             Flags: flags,
             Type: cred_type,
@@ -85,14 +83,22 @@ pub fn set_password(map: &PlatformIdentity, password: &str) -> Result<()> {
         };
         // raw pointer to credential, is coerced from &mut
         let pcredential: PCREDENTIALW = &mut credential;
-
         // Call windows API
         match unsafe { CredWriteW(pcredential, 0) } {
-            0 => Err(KeyringError::WindowsVaultError),
+            0 => match unsafe { GetLastError() } {
+                ERROR_NO_SUCH_LOGON_SESSION => Err(KeyError::new_from_platform(
+                    KeyringError::NoStorage,
+                    Error(ERROR_NO_SUCH_LOGON_SESSION),
+                )),
+                err => Err(KeyError::new_from_platform(
+                    KeyringError::PlatformFailure,
+                    Error(err),
+                )),
+            },
             _ => Ok(()),
         }
     } else {
-        Err(KeyringError::BadIdentityMapPlatform)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 
@@ -106,12 +112,19 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
         let cred_type = CRED_TYPE_GENERIC;
         // Windows api call
         match unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) } {
-            0 => unsafe {
-                match GetLastError() {
-                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
-                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
-                    _ => Err(KeyringError::WindowsVaultError),
-                }
+            0 => match unsafe { GetLastError() } {
+                ERROR_NOT_FOUND => Err(KeyError::new_from_platform(
+                    KeyringError::NoEntry,
+                    Error(ERROR_NOT_FOUND),
+                )),
+                ERROR_NO_SUCH_LOGON_SESSION => Err(KeyError::new_from_platform(
+                    KeyringError::NoStorage,
+                    Error(ERROR_NO_SUCH_LOGON_SESSION),
+                )),
+                err => Err(KeyError::new_from_platform(
+                    KeyringError::PlatformFailure,
+                    Error(err),
+                )),
             },
             _ => {
                 let pcredential = unsafe { pcredential.assume_init() };
@@ -124,14 +137,15 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
                 // blob needs to be transformed from bytes to an
                 // array of u16, which will then be transformed into
                 // a utf8 string. As noted above, this is to allow
-                // editing of the password from within the vault order
+                // editing of the password from within the vault
                 // or other windows programs, which operate in utf16
                 let blob: &[u8] = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
                 let mut blob_u16 = vec![0; blob_len / 2];
                 LittleEndian::read_u16_into(blob, &mut blob_u16);
-                // Now can get utf8 string from the array
-                let password =
-                    String::from_utf16(&blob_u16).map_err(|_| KeyringError::WindowsVaultError);
+                // Now can get utf8 string from the array  The only way this
+                // can fail is if a 3rd party wrote a malformed credential.
+                let password = String::from_utf16(&blob_u16)
+                    .map_err(|_| KeyError::new(KeyringError::BadEncoding));
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
@@ -140,7 +154,7 @@ pub fn get_password(map: &PlatformIdentity) -> Result<String> {
             }
         }
     } else {
-        Err(KeyringError::BadIdentityMapPlatform)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 
@@ -151,15 +165,15 @@ pub fn delete_password(map: &PlatformIdentity) -> Result<()> {
         match unsafe { CredDeleteW(target_name.as_ptr(), cred_type, 0) } {
             0 => unsafe {
                 match GetLastError() {
-                    ERROR_NOT_FOUND => Err(KeyringError::NoPasswordFound),
-                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoBackendFound),
-                    _ => Err(KeyringError::WindowsVaultError),
+                    ERROR_NOT_FOUND => Err(KeyringError::NoEntry.into()),
+                    ERROR_NO_SUCH_LOGON_SESSION => Err(KeyringError::NoStorage.into()),
+                    _ => Err(KeyringError::PlatformFailure.into()),
                 }
             },
             _ => Ok(()),
         }
     } else {
-        Err(KeyringError::BadIdentityMapPlatform)
+        Err(KeyringError::BadIdentityMapPlatform.into())
     }
 }
 
