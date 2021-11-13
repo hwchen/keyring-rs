@@ -1,3 +1,6 @@
+## Version 0.10.4
+- CI fix for linux executable
+
 ## Version 0.10.3
 - Added NoPassword and NoBackend errors to windows code (phillip couto)
 - Update dependencies: (brotskydotcom)
