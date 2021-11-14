@@ -57,7 +57,7 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
 // The MacOS error codes used here are from:
 // https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
 fn decode_error(err: Error) -> KeyError {
-    match err {
+    match err.code() {
         -25291 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecNotAvailable
         -25292 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecReadOnly
         -25294 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecNoSuchKeychain
