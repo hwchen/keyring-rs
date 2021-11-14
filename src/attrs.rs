@@ -36,13 +36,13 @@ pub enum Platform {
     MacOs,
 }
 
-#[derive(Debug)]
-pub struct LinuxIdentity {
+#[derive(Debug, Clone)]
+pub struct LinuxCredential {
     pub attributes: HashMap<String, String>,
     pub label: String,
 }
 
-impl LinuxIdentity {
+impl LinuxCredential {
     pub fn attributes(&self) -> HashMap<&str, &str> {
         self.attributes
             .iter()
@@ -55,60 +55,70 @@ impl LinuxIdentity {
     }
 }
 
-#[derive(Debug)]
-pub struct WinIdentity {
-    pub target_name: String,
+#[derive(Debug, Clone)]
+pub struct WinCredential {
     pub username: String,
+    pub target_name: String,
+    pub target_alias: String,
+    pub comment: String,
 }
 
-#[derive(Debug)]
-pub struct MacIdentity {
+#[derive(Debug, Clone)]
+pub struct MacCredential {
     pub service: String,
     pub account: String,
 }
 
-#[derive(Debug)]
-pub enum PlatformIdentity {
-    Linux(LinuxIdentity),
-    Win(WinIdentity),
-    Mac(MacIdentity),
+#[derive(Debug, Clone)]
+pub enum PlatformCredential {
+    Linux(LinuxCredential),
+    Win(WinCredential),
+    Mac(MacCredential),
 }
 
-impl PlatformIdentity {
+impl PlatformCredential {
     pub fn matches_platform(&self, os: &Platform) -> bool {
         match self {
-            PlatformIdentity::Linux(_) => matches!(os, Platform::Linux),
-            PlatformIdentity::Mac(_) => matches!(os, Platform::MacOs),
-            PlatformIdentity::Win(_) => matches!(os, Platform::Windows),
+            PlatformCredential::Linux(_) => matches!(os, Platform::Linux),
+            PlatformCredential::Mac(_) => matches!(os, Platform::MacOs),
+            PlatformCredential::Win(_) => matches!(os, Platform::Windows),
         }
     }
 }
 
 // TODO: Make this a Fn trait so we can accept closures
-pub type IdentityMapper = fn(&Platform, &str, &str) -> PlatformIdentity;
+pub type CredentialMapper = fn(&Platform, &str, &str) -> PlatformCredential;
 
-pub fn default_identity_mapper(
+pub fn default_credential_mapper(
     platform: Platform,
     service: &str,
     username: &str,
-) -> PlatformIdentity {
+) -> PlatformCredential {
     match platform {
-        Platform::Linux => PlatformIdentity::Linux(LinuxIdentity {
+        Platform::Linux => PlatformCredential::Linux(LinuxCredential {
             attributes: HashMap::from([
                 ("service".to_string(), service.to_string()),
                 ("username".to_string(), username.to_string()),
                 ("application".to_string(), "rust-keyring".to_string()),
             ]),
-            label: format!("Password for service '{}', user '{}'", service, username),
+            label: format!(
+                "keyring-rs credential for service '{}', user '{}'",
+                service, username
+            ),
         }),
-        Platform::Windows => PlatformIdentity::Win(WinIdentity {
+        Platform::Windows => PlatformCredential::Win(WinCredential {
             // Note: default concatenation of user and service name is
             // needed because windows identity is on target_name only
             // See issue here: https://github.com/jaraco/keyring/issues/47
-            target_name: format!("{}.{}", username, service),
             username: username.to_string(),
+            target_name: format!("{}.{}", username, service),
+            target_alias: String::new(),
+            comment: format!(
+                "keyring-rs credential for service '{}', user '{}'",
+                service, username
+            ),
         }),
-        Platform::MacOs => PlatformIdentity::Mac(MacIdentity {
+        Platform::MacOs => PlatformCredential::Mac(MacCredential {
             service: service.to_string(),
             account: username.to_string(),
         }),

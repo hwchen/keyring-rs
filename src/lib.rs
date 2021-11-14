@@ -5,8 +5,8 @@
 mod attrs;
 mod error;
 
-pub use attrs::{IdentityMapper, Platform, PlatformIdentity};
-pub use error::{Error, KeyringError, Result};
+pub use attrs::{CredentialMapper, Platform, PlatformCredential};
+pub use error::{Error, ErrorCode, Result};
 
 // compile-time Platform known at runtime
 fn platform() -> Platform {
@@ -21,27 +21,34 @@ mod platform;
 
 #[derive(Debug)]
 pub struct Keyring {
-    map: PlatformIdentity,
+    map: PlatformCredential,
 }
 
 impl Keyring {
+    // Create a new keyring for the given service and username.
+    // This uses the module-default algorithm for filling the
+    // platform-specific fields appropriately.  If these don't
+    // work for your application, you can construct your own
+    // algorithm and use `new_with_mapper`.
     pub fn new(service: &str, username: &str) -> Keyring {
         Keyring {
-            map: attrs::default_identity_mapper(platform(), service, username),
+            map: attrs::default_credential_mapper(platform(), service, username),
         }
     }
 
+    // Create a new keyring using a client-supplied algorithm
+    // for setting the platform-specific credential fields.
     pub fn new_with_mapper(
         service: &str,
         username: &str,
-        mapper: IdentityMapper,
+        mapper: CredentialMapper,
     ) -> Result<Keyring> {
         let os = platform();
         let map = mapper(&os, service, username);
         if map.matches_platform(&os) {
             Ok(Keyring { map })
         } else {
-            Err(KeyringError::BadIdentityMapPlatform.into())
+            Err(ErrorCode::BadCredentialMapPlatform.into())
         }
     }
 
@@ -50,7 +57,14 @@ impl Keyring {
     }
 
     pub fn get_password(&self) -> Result<String> {
-        platform::get_password(&self.map)
+        let mut map = self.map.clone();
+        platform::get_password(&mut map)
+    }
+
+    pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
+        let mut map = self.map.clone();
+        let password = platform::get_password(&mut map)?;
+        Ok((password, map))
     }
 
     pub fn delete_password(&self) -> Result<()> {
@@ -58,15 +72,18 @@ impl Keyring {
     }
 }
 
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serial_test::serial;
 
-    static TEST_SERVICE: &'static str = "test.keychain-rs.io";
-    static TEST_USER: &'static str = "user@keychain-rs.io";
-    static TEST_ASCII_PASSWORD: &'static str = "my_password";
-    static TEST_NON_ASCII_PASSWORD: &'static str = "大根";
+    static TEST_SERVICE: &str = "test.keychain-rs.io";
+    static TEST_USER: &str = "user@keychain-rs.io";
+    static TEST_ASCII_PASSWORD: &str = "my_password";
+    static TEST_NON_ASCII_PASSWORD: &str = "大根";
 
     #[test]
     #[serial]
@@ -122,6 +139,9 @@ mod tests {
             "Able to read a deleted password"
         )
     }
+
+    // TODO: write tests for erroneous input
+    // This might be better done in a separate test file.
 
     // TODO: write tests for custom mappers.
     // This might be better done in a separate test file.

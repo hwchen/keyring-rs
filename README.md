@@ -15,9 +15,9 @@ __Currently supports Linux, macOS, and Windows.__ Please file issues if you have
 
 To use this library in your project add the following to your `Cargo.toml` file:
 
-```
+```toml
 [dependencies]
-keyring = "0.10.1"
+keyring = "0.10"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
@@ -25,112 +25,41 @@ the `new` function to get an instance of the `Keyring` struct. The `new`
 function expects a `service` name and an `username` with which it accesses
 the password.
 
-You can get a password from the OS keyring with the `get_password` function.
+Passwords can be added to the keyring using the `set_password` function.  Then can then be read back using the `get_password` function, and deleted using the `delete_password` method.
 
-```rust,no_run
+```rust
 extern crate keyring;
 
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
-  let service = "my_application_name";
-  let username = "username";
+    let service = "my_application";
+    let username = "my_name";
+    let keyring = keyring::Keyring::new(&service, &username);
 
-  let keyring = keyring::Keyring::new(&service, &username);
+    let password = "topS3cr3tP4$$w0rd";
+    keyring.set_password(&password)?;
 
-  let password = keyring.get_password()?;
-  println!("The password is '{}'", password);
+    let password = keyring.get_password()?;
+    println!("My password is '{}'", password);
 
-  Ok(())
-}
-```
+    keyring.delete_password()?;
+    println!("My password has been deleted");
 
-Passwords can also be added to the keyring using the `set_password` function.
-
-```rust,no_run
-extern crate keyring;
-
-use std::error::Error;
-
-fn main() -> Result<(), Box<dyn Error>> {
-  let service = "my_application_name";
-  let username = "username";
-
-  let keyring = keyring::Keyring::new(&service, &username);
-
-  let password = "topS3cr3tP4$$w0rd";
-  keyring.set_password(&password)?;
-
-  let password = keyring.get_password()?;
-  println!("The password is '{}'", password);
-
-  Ok(())
-}
-```
-
-And they can be deleted with the `delete_password` function.
-
-```rust,no_run
-extern crate keyring;
-
-use std::error::Error;
-
-fn main() -> Result<(), Box<dyn Error>> {
-  let service = "my_application_name";
-  let username = "username";
-
-  let keyring = keyring::Keyring::new(&service, &username);
-
-  keyring.delete_password()?;
-
-  println!("The password has been deleted");
-
-  Ok(())
-}
-```
-
-On macOS, keychain object from specific path can be opened using `Keyring::use_keychain` which gives the flexibility to open non-default keychains. Note that this is currently feature-gated, and is considered unstable, and is subject to change without a semver major version change.
-
-In Cargo.toml, you need to turn the feature on:
-```toml
-keyring = { version = "0.10.0", features = ["macos-specify-keychain"] }
-```
-
-```rust,no_run
-extern crate keyring;
-
-use std::error::Error;
-
-fn main() -> Result<(), Box<dyn Error>> {
-  let service = "my_application_name";
-  let username = "username";
-
-  let keyring = keyring::Keyring::use_keychain(Path::new("/Library/Keychains/System.keychain"), &service, &username);
-
-  let password = "topS3cr3tP4$$w0rd";
-  keyring.set_password(&password)?;
-
-  let password = keyring.get_password()?;
-  println!("The password is '{}'", password);
-
-  Ok(())
+    Ok(())
 }
 ```
 
 ## Errors
 
-The `get_password`, `set_password` and `delete_password` functions return a
-`Result` which, if the operation was unsuccessful, can yield a `KeyringError`.
-
-The `KeyringError` struct implements the `error::Error` and `fmt::Display`
-traits, so it can be queried for a cause and an description using methods of
-the same name.
+The `get_password`, `set_password` and `delete_password` functions return a `Result` which, if the operation was unsuccessful, can yield a `keyring::Error` with a platform-independent code that describes the error and a platform-specific error that can be used to get more details.
 
 ## Caveats
 
+* This module manipulates passwords as UTF-8 encoded strings, so if a 3rd party has stored a non-Unicode password then retrieving that password will return an error.  The error in that case will have the raw bytes attached, so you can access them.
+
 ### Linux
 
-* The application name is hardcoded to be `rust-keyring`.
 * If you are running on a headless linux box, you will need to unlock the Gnome login keyring before you can use it.  The following `bash` function may be very helpful.
 ```shell
 function unlock-keyring ()
@@ -143,11 +72,11 @@ function unlock-keyring ()
 
 ### Windows
 
-* The credential name is currently hardcoded to be `username.service`, due to a [reported issue](https://github.com/jaraco/keyring/issues/47).  This breaks compatibility with 3rd-party applications, and is being fixed.
+* The default Windows approach to storing credentials doesn't allow storing passwords for different users against the same service.  You can override this approach, see the `IdentityMapper` type for details.
 
 ### MacOS
 
-* Accessing the keychain from multiple threads simultaneously is generally a bad idea, and can cause deadlocks.
+* Accessing the same keychain entry from multiple threads simultaneously is generally a bad idea, and can cause deadlocks.
 
 ## Dev Notes
 
@@ -178,6 +107,7 @@ Thanks to the following for helping make this library better, whether through co
 - @steveatinfincia
 - @bhkaminski
 - @MaikKlein
+- @brotskydotcom
 
 ### Contribution
 
