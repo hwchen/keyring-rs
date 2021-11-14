@@ -1,12 +1,10 @@
-use bytes::Bytes;
-
 #[derive(Debug)]
 pub enum ErrorCode {
     BadCredentialMapPlatform,
     PlatformFailure,
     NoStorageAccess,
     NoEntry,
-    BadEncoding(String, Bytes),
+    BadEncoding(String, Vec<u8>),
     TooLong(String, u32),
 }
 

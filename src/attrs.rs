@@ -65,8 +65,17 @@ pub struct WinCredential {
 
 #[derive(Debug, Clone)]
 pub struct MacCredential {
+    pub domain: MacKeychainDomain,
     pub service: String,
     pub account: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum MacKeychainDomain {
+    User,
+    System,
+    Common,
+    Dynamic,
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +128,7 @@ pub fn default_credential_mapper(
             ),
         }),
         Platform::MacOs => PlatformCredential::Mac(MacCredential {
+            domain: MacKeychainDomain::User,
             service: service.to_string(),
             account: username.to_string(),
         }),
