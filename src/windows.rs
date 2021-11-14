@@ -1,5 +1,4 @@
 use byteorder::{ByteOrder, LittleEndian};
-use bytes::{Bytes, BytesMut};
 use std::iter::once;
 use std::mem::MaybeUninit;
 use std::slice;
@@ -61,9 +60,9 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
         // the Windows native UI.  But the storage for the credential is actually
         // a little-endian blob, because passwords can contain anything.
         let blob_u16 = to_wstr_no_null(password);
-        let mut password_blob = BytesMut::with_capacity(blob_u16.len() * 2);
-        LittleEndian::write_u16_into(&blob_u16, &mut password_blob);
-        let blob_len = password_blob.len() as u32;
+        let mut blob = vec![0; blob_u16.len() * 2];
+        LittleEndian::write_u16_into(&blob_u16, &mut blob);
+        let blob_len = blob.len() as u32;
         let flags = 0;
         let cred_type = CRED_TYPE_GENERIC;
         let persist = CRED_PERSIST_ENTERPRISE;
@@ -82,7 +81,7 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
             Comment: comment.as_mut_ptr(),
             LastWritten: last_written,
             CredentialBlobSize: blob_len,
-            CredentialBlob: password_blob.as_mut_ptr(),
+            CredentialBlob: blob.as_mut_ptr(),
             Persist: persist,
             AttributeCount: attribute_count,
             Attributes: attributes,
@@ -200,19 +199,26 @@ fn decode_password(credential: &CREDENTIALW) -> Result<String> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
-    let blob = Bytes::from(unsafe { slice::from_raw_parts(blob_pointer, blob_len) });
+    let blob = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
     // 3rd parties may write credential data with an odd number of bytes,
     // so we make sure that we don't try to decode those as utf16
     if blob.len() % 2 != 0 {
-        let err = KeyError::new(ErrorCode::BadEncoding(String::from("password"), blob));
+        let err = KeyError::new(ErrorCode::BadEncoding(
+            String::from("password"),
+            blob.to_vec(),
+        ));
         return Err(err);
     }
     // Now we know this _can_ be a UTF-16 string, so convert it to
     // as UTF-16 vector and then try to decode it.
     let mut blob_u16 = vec![0; blob.len() / 2];
     LittleEndian::read_u16_into(&blob.to_vec(), &mut blob_u16);
-    String::from_utf16(&blob_u16)
-        .map_err(|_| KeyError::new(ErrorCode::BadEncoding(String::from("password"), blob)))
+    String::from_utf16(&blob_u16).map_err(|_| {
+        KeyError::new(ErrorCode::BadEncoding(
+            String::from("password"),
+            blob.to_vec(),
+        ))
+    })
 }
 
 fn to_wstr(s: &str) -> Vec<u16> {
@@ -224,6 +230,11 @@ fn to_wstr_no_null(s: &str) -> Vec<u16> {
 }
 
 unsafe fn from_wstr(ws: *const u16) -> String {
+    // null pointer case, return empty string
+    if ws.is_null() {
+        return String::new();
+    }
+    // this code from https://stackoverflow.com/a/48587463/558006
     let len = (0..).take_while(|&i| *ws.offset(i) != 0).count();
     let slice = std::slice::from_raw_parts(ws, len);
     String::from_utf16_lossy(slice)

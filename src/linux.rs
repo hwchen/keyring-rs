@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use secret_service::{Collection, EncryptionType, Item, SecretService};
 
 use crate::{Error as KeyError, ErrorCode, Platform, PlatformCredential, Result};
@@ -48,12 +47,12 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
         let item = search
             .get(0)
             .ok_or_else(|| KeyError::new(ErrorCode::NoEntry))?;
-        let bytes = Bytes::from(item.get_secret().map_err(decode_error)?);
+        let bytes = item.get_secret().map_err(decode_error)?;
         // Linux keyring allows non-UTF8 values, but this library only supports adding UTF8 items
         // to the keyring, so this should only fail if we are trying to retrieve a non-UTF8
         // password that was added to the keyring by another library
         decode_attributes(map, item);
-        let password = String::from_utf8(bytes.to_vec())
+        let password = String::from_utf8(bytes.clone())
             .map_err(|_| KeyError::new(ErrorCode::BadEncoding("password".to_string(), bytes)))?;
         Ok(password)
     } else {
