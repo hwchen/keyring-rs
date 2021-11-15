@@ -1,6 +1,6 @@
 extern crate keyring;
 
-use keyring::{Keyring, Result};
+use keyring::{Error, ErrorCode, Keyring, Result};
 
 fn main() -> Result<()> {
     let username = "example-username";
@@ -15,6 +15,10 @@ fn main() -> Result<()> {
             password, stored_password,
             "Stored and retrieved passwords don't match"
         ),
+        Err(Error {
+            code: ErrorCode::NoEntry,
+            ..
+        }) => panic!("No password found?"),
         Err(err) => panic!("Could not get password: {}", err),
     }
     if let Err(err) = keyring.delete_password() {

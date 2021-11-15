@@ -9,8 +9,10 @@ pub fn platform() -> Platform {
 use crate::attrs::LinuxCredential;
 pub use secret_service::Error;
 
-fn get_collection<'a>(ss: &'a SecretService) -> Result<Collection<'a>> {
-    let collection = ss.get_default_collection().map_err(decode_error)?;
+fn get_collection<'a>(map: &LinuxCredential, ss: &'a SecretService) -> Result<Collection<'a>> {
+    let collection = ss
+        .get_collection_by_alias(map.collection.as_str())
+        .map_err(decode_error)?;
     if collection.is_locked().map_err(decode_error)? {
         collection.unlock().map_err(decode_error)?;
     }
@@ -21,10 +23,10 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
     if let PlatformCredential::Linux(map) = map {
         let ss = SecretService::new(EncryptionType::Dh)
             .map_err(|err| KeyError::new_from_platform(ErrorCode::PlatformFailure, err))?;
-        let collection = get_collection(&ss)?;
+        let collection = get_collection(map, &ss)?;
         collection
             .create_item(
-                map.label(),
+                map.label.as_str(),
                 map.attributes(),
                 password.as_bytes(),
                 true, // replace
@@ -40,7 +42,7 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
 pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
     if let PlatformCredential::Linux(map) = map {
         let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
-        let collection = get_collection(&ss)?;
+        let collection = get_collection(map, &ss)?;
         let search = collection
             .search_items(map.attributes())
             .map_err(decode_error)?;
@@ -63,7 +65,7 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
 pub fn delete_password(map: &PlatformCredential) -> Result<()> {
     if let PlatformCredential::Linux(map) = map {
         let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
-        let collection = get_collection(&ss)?;
+        let collection = get_collection(map, &ss)?;
         let search = collection
             .search_items(map.attributes())
             .map_err(decode_error)?;

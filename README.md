@@ -25,7 +25,7 @@ the `new` function to get an instance of the `Keyring` struct. The `new`
 function expects a `service` name and an `username` with which it accesses
 the password.
 
-Passwords can be added to the keyring using the `set_password` function.  Then can then be read back using the `get_password` function, and deleted using the `delete_password` method.
+Passwords can be added to the keyring using the `set_password` function.  They can then be read back using the `get_password` function, and deleted using the `delete_password` method.
 
 ```rust
 extern crate keyring;

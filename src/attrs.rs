@@ -38,20 +38,21 @@ pub enum Platform {
 
 #[derive(Debug, Clone)]
 pub struct LinuxCredential {
+    pub collection: String,
     pub attributes: HashMap<String, String>,
     pub label: String,
 }
 
 impl LinuxCredential {
+    // Using strings in the credential map makes managing the lifetime
+    // of the credential much easier.  But since the secret service expects
+    // a map from &str to &str, we have this utility to transform the
+    // credential's map into one of the right form.
     pub fn attributes(&self) -> HashMap<&str, &str> {
         self.attributes
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect()
-    }
-
-    pub fn label(&self) -> &str {
-        self.label.as_str()
     }
 }
 
@@ -105,6 +106,7 @@ pub fn default_credential_mapper(
 ) -> PlatformCredential {
     match platform {
         Platform::Linux => PlatformCredential::Linux(LinuxCredential {
+            collection: "default".to_string(),
             attributes: HashMap::from([
                 ("service".to_string(), service.to_string()),
                 ("username".to_string(), username.to_string()),
