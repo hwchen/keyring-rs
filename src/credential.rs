@@ -1,30 +1,37 @@
 /*
-Every platform's secure storage system keeps a set of attributes with
-each stored item.  Which attributes are allowed can vary, as can which
-of the attributes are required and which are used to identify the item.
+This crate has a very simple model of a keyring: it has any number
+of items, each of which is identified by a <username, service> pair,
+has no other metadata, and has a UTF-8 string as its "password".
+Furthermore, there is only one keyring.
 
-The attribute model supported by this crate is that each item has only
-two attributes: username and service, and they are used together to
-uniquely identify the item.
+This crate runs on several different platforms, each of which has its
+own secure storage system with its own model for what constitutes a
+"generic" secure credential: where it is stored, how it is identified,
+what metadata it has, and what kind of "password" it allows.  These
+platform credentials provide the persistence for keyring items.
 
-The mismatch between this crate's attribute model and the underlying
-platform's attribute model can lead to incompatibility with 3rd-party
-applications whose attribute model, while consistent with the underlying
-platform model, may be more or less fine-grained than this crate's model.
+In order to bridge the gap between the keyring item model and each
+platform's credential model, this crate uses a "credential mapper":
+a function which maps from keyring items to platform credentials.
+The inputs to a credential mapper are the platform, username, and
+service of the keyring item; its output is a platform-specific
+"recipe" for identifying and annotating the credential which the
+crate will use to store the item's password.
 
-For example:
+This module provides a credential model for each supported platform,
+and a credential mapper which the crate uses by default.  Clients
+who want to use a different credential mapper can provide their own,
+which allows this crate to operate compatibly with the conventions
+used by third-party applications. For example:
 
-* On Windows, generic credential are identified by an arbitrary string,
-and that string may not be constructed by a third party application
-the same way this crate constructs it from username and service.
-* On Linux, additional attributes can be used by 3rd parties to produce
-credentials identified my more than just the two attributes this crate
-uses by default.
+* On Windows, generic credentials are identified by an arbitrary string,
+and this crate uses "service.username" as that string.  Most 3rd party
+applications, on the other hand, use the service name as the identifying
+string and keep the username as a metadata attribute on the credential.
 
-Thus, to provide interoperability with 3rd party credential clients,
-we provide a way for clients of this crate to override this crate's
-default algorithm for how the username and service are combined so as to
-produce the platform-specific attributes that identify each item.
+* On Linux and Mac, there are multiple credential stores for each OS user.
+Some 3rd party applications don't use the "default" store for their data.
+
  */
 
 use std::collections::HashMap;
@@ -36,6 +43,10 @@ pub enum Platform {
     MacOs,
 }
 
+// Linux supports multiple credential stores, each named by a string.
+// Credentials in a store are identified by an arbitrary collection
+// of attributes, and each can have "label" metadata for use in
+// graphical editors.
 #[derive(Debug, Clone)]
 pub struct LinuxCredential {
     pub collection: String,
@@ -56,6 +67,9 @@ impl LinuxCredential {
     }
 }
 
+// Windows has only one credential store, and each credential is identified
+// by a single string called the "target name".  But generic credentials
+// also have three pieces of metadata with suggestive names.
 #[derive(Debug, Clone)]
 pub struct WinCredential {
     pub username: String,
@@ -64,6 +78,10 @@ pub struct WinCredential {
     pub comment: String,
 }
 
+// MacOS supports multiple OS-provided credential stores, and used to support creating
+// arbitrary new credential stores (but that has been deprecated).  Credentials on
+// Mac also can have "type" but we don't reflect that here because the type is actually
+// opaque once set and is only used in the Keychain UI.
 #[derive(Debug, Clone)]
 pub struct MacCredential {
     pub domain: MacKeychainDomain,
@@ -96,14 +114,14 @@ impl PlatformCredential {
     }
 }
 
+// The signature of a credential mapper (see the module documentation for details).
 // TODO: Make this a Fn trait so we can accept closures
 pub type CredentialMapper = fn(&Platform, &str, &str) -> PlatformCredential;
 
-pub fn default_credential_mapper(
-    platform: Platform,
-    service: &str,
-    username: &str,
-) -> PlatformCredential {
+// The default credential mapper used by this crate, which maps keyring items
+// to credentials in the "default" store on each platform, identified uniquely
+// by the pair <service.username>, and carrying simple metadata where appropriate.
+pub fn default_mapper(platform: Platform, service: &str, username: &str) -> PlatformCredential {
     match platform {
         Platform::Linux => PlatformCredential::Linux(LinuxCredential {
             collection: "default".to_string(),

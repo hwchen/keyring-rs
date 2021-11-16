@@ -3,7 +3,7 @@ extern crate keyring;
 extern crate rpassword;
 
 use clap::{App, Arg, SubCommand};
-use keyring::Keyring;
+use keyring::Entry;
 use rpassword::read_password_from_tty;
 
 use std::error::Error;
@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let username = set
             .value_of("username")
             .ok_or("You must specify a Username to set")?;
-        let keyring = Keyring::new(service, username);
+        let keyring = Entry::new(service, username);
 
         let password = read_password_from_tty(Some("Password: "))?;
         match keyring.set_password(&password[..]) {
@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let username = get
             .value_of("username")
             .ok_or("You must specify a Username to get")?;
-        let keyring = Keyring::new(service, username);
+        let keyring = Entry::new(service, username);
 
         match keyring.get_password() {
             Ok(password) => println!("The password for user '{}' is '{}'", username, password),
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let username = delete
             .value_of("username")
             .ok_or("You must specify a Username to delete")?;
-        let keyring = Keyring::new(service, username);
+        let keyring = Entry::new(service, username);
 
         match keyring.delete_password() {
             Ok(_) => println!("Password deleted for user '{}'", username),

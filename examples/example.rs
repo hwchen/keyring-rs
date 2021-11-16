@@ -1,12 +1,12 @@
 extern crate keyring;
 
-use keyring::{Error, ErrorCode, Keyring, Result};
+use keyring::{Entry, Error, Result};
 
 fn main() -> Result<()> {
     let username = "example-username";
     let service = "example-service";
     let password = "example-password";
-    let keyring = Keyring::new(service, username);
+    let keyring = Entry::new(service, username);
     if let Err(err) = keyring.set_password(password) {
         panic!("Could not set password: {}", err)
     }
@@ -15,10 +15,7 @@ fn main() -> Result<()> {
             password, stored_password,
             "Stored and retrieved passwords don't match"
         ),
-        Err(Error {
-            code: ErrorCode::NoEntry,
-            ..
-        }) => panic!("No password found?"),
+        Err(Error::NoEntry) => panic!("Password was set but not found?"),
         Err(err) => panic!("Could not get password: {}", err),
     }
     if let Err(err) = keyring.delete_password() {

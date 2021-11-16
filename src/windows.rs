@@ -15,8 +15,8 @@ use winapi::um::wincred::{
     CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
 
-use crate::attrs::WinCredential;
-use crate::{Error as KeyError, ErrorCode, Platform, PlatformCredential, Result};
+use crate::credential::WinCredential;
+use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
     Platform::Windows
@@ -96,7 +96,7 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
             _ => Ok(()),
         }
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
@@ -126,7 +126,7 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
             }
         }
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
@@ -140,52 +140,51 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
             _ => Ok(()),
         }
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
 fn validate_attributes(map: &WinCredential, password: &str) -> Result<()> {
     if map.username.len() > CRED_MAX_USERNAME_LENGTH as usize {
-        return Err(KeyError::new(ErrorCode::TooLong(
+        return Err(ErrorCode::TooLong(
             String::from("username"),
             CRED_MAX_USERNAME_LENGTH,
-        )));
+        ));
     }
     if map.target_name.len() > CRED_MAX_GENERIC_TARGET_NAME_LENGTH as usize {
-        return Err(KeyError::new(ErrorCode::TooLong(
+        return Err(ErrorCode::TooLong(
             String::from("target name"),
             CRED_MAX_GENERIC_TARGET_NAME_LENGTH,
-        )));
+        ));
     }
     if map.target_alias.len() > CRED_MAX_STRING_LENGTH as usize {
-        return Err(KeyError::new(ErrorCode::TooLong(
+        return Err(ErrorCode::TooLong(
             String::from("target alias"),
             CRED_MAX_STRING_LENGTH,
-        )));
+        ));
     }
     if map.comment.len() > CRED_MAX_STRING_LENGTH as usize {
-        return Err(KeyError::new(ErrorCode::TooLong(
+        return Err(ErrorCode::TooLong(
             String::from("comment"),
             CRED_MAX_STRING_LENGTH,
-        )));
+        ));
     }
     if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
-        return Err(KeyError::new(ErrorCode::TooLong(
+        return Err(ErrorCode::TooLong(
             String::from("password"),
             CRED_MAX_CREDENTIAL_BLOB_SIZE,
-        )));
+        ));
     }
     Ok(())
 }
 
-fn decode_error() -> KeyError {
+fn decode_error() -> ErrorCode {
     match unsafe { GetLastError() } {
-        ERROR_NOT_FOUND => KeyError::new_from_platform(ErrorCode::NoEntry, Error(ERROR_NOT_FOUND)),
-        ERROR_NO_SUCH_LOGON_SESSION => KeyError::new_from_platform(
-            ErrorCode::NoStorageAccess,
-            Error(ERROR_NO_SUCH_LOGON_SESSION),
-        ),
-        err => KeyError::new_from_platform(ErrorCode::PlatformFailure, Error(err)),
+        ERROR_NOT_FOUND => ErrorCode::NoEntry,
+        ERROR_NO_SUCH_LOGON_SESSION => {
+            ErrorCode::NoStorageAccess(Error(ERROR_NO_SUCH_LOGON_SESSION))
+        }
+        err => ErrorCode::PlatformFailure(Error(err)),
     }
 }
 
@@ -203,22 +202,14 @@ fn decode_password(credential: &CREDENTIALW) -> Result<String> {
     // 3rd parties may write credential data with an odd number of bytes,
     // so we make sure that we don't try to decode those as utf16
     if blob.len() % 2 != 0 {
-        let err = KeyError::new(ErrorCode::BadEncoding(
-            String::from("password"),
-            blob.to_vec(),
-        ));
+        let err = ErrorCode::BadEncoding(blob.to_vec());
         return Err(err);
     }
     // Now we know this _can_ be a UTF-16 string, so convert it to
     // as UTF-16 vector and then try to decode it.
     let mut blob_u16 = vec![0; blob.len() / 2];
     LittleEndian::read_u16_into(&blob.to_vec(), &mut blob_u16);
-    String::from_utf16(&blob_u16).map_err(|_| {
-        KeyError::new(ErrorCode::BadEncoding(
-            String::from("password"),
-            blob.to_vec(),
-        ))
-    })
+    String::from_utf16(&blob_u16).map_err(|_| ErrorCode::BadEncoding(blob.to_vec()))
 }
 
 fn to_wstr(s: &str) -> Vec<u16> {

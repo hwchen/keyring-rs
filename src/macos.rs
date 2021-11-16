@@ -1,13 +1,13 @@
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
 
-use crate::{Error as KeyError, ErrorCode, Platform, PlatformCredential, Result};
+use crate::credential::{MacCredential, MacKeychainDomain};
+use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
     Platform::MacOs
 }
 
-use crate::attrs::{MacCredential, MacKeychainDomain};
 pub use security_framework::base::Error;
 
 fn get_keychain(map: &MacCredential) -> Result<SecKeychain> {
@@ -30,7 +30,7 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
             .map_err(decode_error)?;
         Ok(())
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
@@ -41,11 +41,11 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
                 .map_err(decode_error)?;
         // Mac keychain allows non-UTF8 values, passwords from 3rd parties may not be UTF-8.
         let bytes = password_bytes.to_vec();
-        let password = String::from_utf8(bytes.clone())
-            .map_err(|_| KeyError::new(ErrorCode::BadEncoding("password".to_string(), bytes)))?;
+        let password =
+            String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))?;
         Ok(password)
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
@@ -57,19 +57,19 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
         item.delete();
         Ok(())
     } else {
-        Err(ErrorCode::BadCredentialMapPlatform.into())
+        Err(ErrorCode::WrongCredentialPlatform)
     }
 }
 
 // The MacOS error codes used here are from:
 // https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
-fn decode_error(err: Error) -> KeyError {
+fn decode_error(err: Error) -> ErrorCode {
     match err.code() {
-        -25291 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecNotAvailable
-        -25292 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecReadOnly
-        -25294 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecNoSuchKeychain
-        -25295 => KeyError::new_from_platform(ErrorCode::NoStorageAccess, err), // errSecInvalidKeychain
-        -25300 => KeyError::new_from_platform(ErrorCode::NoEntry, err), // errSecItemNotFound
-        _ => KeyError::new_from_platform(ErrorCode::PlatformFailure, err),
+        -25291 => ErrorCode::NoStorageAccess(err), // errSecNotAvailable
+        -25292 => ErrorCode::NoStorageAccess(err), // errSecReadOnly
+        -25294 => ErrorCode::NoStorageAccess(err), // errSecNoSuchKeychain
+        -25295 => ErrorCode::NoStorageAccess(err), // errSecInvalidKeychain
+        -25300 => ErrorCode::NoEntry,              // errSecItemNotFound
+        _ => ErrorCode::PlatformFailure(err),
     }
 }

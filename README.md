@@ -21,11 +21,11 @@ keyring = "0.10"
 ```
 
 This will give you access to the `keyring` crate in your code. Now you can use
-the `new` function to get an instance of the `Keyring` struct. The `new`
-function expects a `service` name and an `username` with which it accesses
-the password.
+the `new` function to create a new `Entry` on the keyring. The `new`
+function expects a `service` name and an `username` which together identify
+the item.
 
-Passwords can be added to the keyring using the `set_password` function.  They can then be read back using the `get_password` function, and deleted using the `delete_password` method.
+Passwords can be added to an item using its `set_password` method.  They can then be read back using the `get_password` method, and deleted using the `delete_password` method.  (Note that persistence of the `Entry` is determined via Rust rules, so deleting the password doesn't delete the item.)
 
 ```rust
 extern crate keyring;
@@ -35,15 +35,15 @@ use std::error::Error;
 fn main() -> Result<(), Box<dyn Error>> {
     let service = "my_application";
     let username = "my_name";
-    let keyring = keyring::Keyring::new(&service, &username);
+    let entry = keyring::Entry::new(&service, &username);
 
     let password = "topS3cr3tP4$$w0rd";
-    keyring.set_password(&password)?;
+    entry.set_password(&password)?;
 
-    let password = keyring.get_password()?;
+    let password = entry.get_password()?;
     println!("My password is '{}'", password);
 
-    keyring.delete_password()?;
+    entry.delete_password()?;
     println!("My password has been deleted");
 
     Ok(())
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 ## Errors
 
-The `get_password`, `set_password` and `delete_password` functions return a `Result` which, if the operation was unsuccessful, can yield a `keyring::Error` with a platform-independent code that describes the error and a platform-specific error that can be used to get more details.
+The `get_password`, `set_password` and `delete_password` functions return a `Result` which, if the operation was unsuccessful, can yield a `keyring::Error` with a platform-independent code that describes the error.
 
 ## Caveats
 

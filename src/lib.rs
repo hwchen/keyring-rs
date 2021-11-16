@@ -2,11 +2,11 @@
 //!
 //! Allows for setting and getting passwords on Linux, OSX, and Windows
 
-mod attrs;
+mod credential;
 mod error;
 
-pub use attrs::{CredentialMapper, Platform, PlatformCredential};
-pub use error::{Error, ErrorCode, Result};
+pub use credential::{CredentialMapper, Platform, PlatformCredential};
+pub use error::{Error, Result};
 
 // compile-time Platform known at runtime
 fn platform() -> Platform {
@@ -20,55 +20,67 @@ fn platform() -> Platform {
 mod platform;
 
 #[derive(Debug)]
-pub struct Keyring {
-    map: PlatformCredential,
+pub struct Entry {
+    target: PlatformCredential,
 }
 
-impl Keyring {
-    // Create a new keyring for the given service and username.
-    // This uses the module-default algorithm for filling the
-    // platform-specific fields appropriately.  If these don't
+impl Entry {
+    // Create a new entry for the given service and username.
+    // This uses the module-default mapper.  If the defaults don't
     // work for your application, you can construct your own
     // algorithm and use `new_with_mapper`.
-    pub fn new(service: &str, username: &str) -> Keyring {
-        Keyring {
-            map: attrs::default_credential_mapper(platform(), service, username),
+    pub fn new(service: &str, username: &str) -> Entry {
+        Entry {
+            target: credential::default_mapper(platform(), service, username),
         }
     }
 
-    // Create a new keyring using a client-supplied algorithm
-    // for setting the platform-specific credential fields.
+    // Create a new item using a client-supplied mapper
+    // for interoperability with credentials written by
+    // other applications.
     pub fn new_with_mapper(
         service: &str,
         username: &str,
         mapper: CredentialMapper,
-    ) -> Result<Keyring> {
+    ) -> Result<Entry> {
         let os = platform();
         let map = mapper(&os, service, username);
         if map.matches_platform(&os) {
-            Ok(Keyring { map })
+            Ok(Entry { target: map })
         } else {
-            Err(ErrorCode::BadCredentialMapPlatform.into())
+            Err(Error::WrongCredentialPlatform)
         }
     }
 
+    // Set the password for this item.  Any other platform-specific
+    // annotations are determined by the mapper that was used
+    // to create the credential.
     pub fn set_password(&self, password: &str) -> Result<()> {
-        platform::set_password(&self.map, password)
+        platform::set_password(&self.target, password)
     }
 
+    // Retrieve the password saved for this item.
+    // Returns a `NoEntry` error is there isn't one.
     pub fn get_password(&self) -> Result<String> {
-        let mut map = self.map.clone();
+        let mut map = self.target.clone();
         platform::get_password(&mut map)
     }
 
+    // Retrieve the password and all the other fields
+    // set in the platform-specific credential.  This
+    // allows retrieving metdata on the credential that
+    // were saved by external applications.
     pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
-        let mut map = self.map.clone();
+        let mut map = self.target.clone();
         let password = platform::get_password(&mut map)?;
         Ok((password, map))
     }
 
+    // Delete the password for this item.  (Although the item
+    // itself follows the Rust structure lifecycle, deleting
+    // the password deletes the platform credential from secure storage.)
     pub fn delete_password(&self) -> Result<()> {
-        platform::delete_password(&self.map)
+        platform::delete_password(&self.target)
     }
 }
 
@@ -90,7 +102,7 @@ mod tests {
     fn test_empty_keyring() {
         let service = generate_random_string();
         let username = generate_random_string();
-        let keyring = Keyring::new(&service, &username);
+        let keyring = Entry::new(&service, &username);
         assert!(
             keyring.get_password().is_err(),
             "Read a password from a non-existent platform item"
@@ -101,7 +113,7 @@ mod tests {
     #[serial]
     fn test_empty_password_input() {
         let pass = "";
-        let keyring = Keyring::new("test", "test");
+        let keyring = Entry::new("test", "test");
         keyring.set_password(pass).unwrap();
         let out = keyring.get_password().unwrap();
         assert_eq!(pass, out, "Stored and retrieved passwords don't match");
@@ -115,7 +127,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_round_trip_ascii_password() {
-        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+        let keyring = Entry::new(TEST_SERVICE, TEST_USER);
         keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
         let stored_password = keyring.get_password().unwrap();
         assert_eq!(stored_password, TEST_ASCII_PASSWORD);
@@ -129,7 +141,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_round_trip_non_ascii_password() {
-        let keyring = Keyring::new(TEST_SERVICE, TEST_USER);
+        let keyring = Entry::new(TEST_SERVICE, TEST_USER);
         keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
         let stored_password = keyring.get_password().unwrap();
         assert_eq!(stored_password, TEST_NON_ASCII_PASSWORD);
