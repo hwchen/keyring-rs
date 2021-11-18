@@ -8,3 +8,7 @@ Cargo.lock
 target
 fuzz
 libtest.rmeta
+# profiling
+*.profdata
+*.profraw
+

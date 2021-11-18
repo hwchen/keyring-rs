@@ -47,7 +47,7 @@ pub enum Platform {
 // Credentials in a store are identified by an arbitrary collection
 // of attributes, and each can have "label" metadata for use in
 // graphical editors.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LinuxCredential {
     pub collection: String,
     pub attributes: HashMap<String, String>,
@@ -70,7 +70,7 @@ impl LinuxCredential {
 // Windows has only one credential store, and each credential is identified
 // by a single string called the "target name".  But generic credentials
 // also have three pieces of metadata with suggestive names.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WinCredential {
     pub username: String,
     pub target_name: String,
@@ -82,14 +82,14 @@ pub struct WinCredential {
 // arbitrary new credential stores (but that has been deprecated).  Credentials on
 // Mac also can have "type" but we don't reflect that here because the type is actually
 // opaque once set and is only used in the Keychain UI.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MacCredential {
     pub domain: MacKeychainDomain,
     pub service: String,
     pub account: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MacKeychainDomain {
     User,
     System,
@@ -97,7 +97,7 @@ pub enum MacKeychainDomain {
     Dynamic,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PlatformCredential {
     Linux(LinuxCredential),
     Win(WinCredential),

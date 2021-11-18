@@ -84,89 +84,79 @@ impl Entry {
     }
 }
 
-#[cfg(doctest)]
-doc_comment::doctest!("../README.md");
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::credential::{
+        default_mapper, LinuxCredential, MacCredential, MacKeychainDomain, WinCredential,
+    };
     use serial_test::serial;
-
-    static TEST_SERVICE: &str = "test.keychain-rs.io";
-    static TEST_USER: &str = "user@keychain-rs.io";
-    static TEST_ASCII_PASSWORD: &str = "my_password";
-    static TEST_NON_ASCII_PASSWORD: &str = "大根";
+    use std::collections::HashMap;
 
     #[test]
     #[serial]
-    fn test_empty_keyring() {
-        let service = generate_random_string();
-        let username = generate_random_string();
-        let keyring = Entry::new(&service, &username);
-        assert!(
-            keyring.get_password().is_err(),
-            "Read a password from a non-existent platform item"
-        )
+    fn test_default_initial_and_retrieved_map() {
+        let username = "username";
+        let service = "service";
+        let expected_target = default_mapper(platform(), service, username);
+        let entry = Entry::new(service, username);
+        assert_eq!(
+            entry.target, expected_target,
+            "Entry doesn't have default map"
+        );
+        entry.set_password("ignored").unwrap();
+        let (_, target) = entry.get_password_and_credential().unwrap();
+        assert_eq!(
+            target, expected_target,
+            "Retrieved entry doesn't have default map"
+        );
+    }
+
+    fn constant_mapper(platform: Platform, _: &str, _: &str) -> PlatformCredential {
+        match platform {
+            Platform::Linux => PlatformCredential::Linux(LinuxCredential {
+                collection: "default".to_string(),
+                attributes: HashMap::from([
+                    ("service".to_string(), "service".to_string()),
+                    ("username".to_string(), "username".to_string()),
+                    ("application".to_string(), "application".to_string()),
+                    ("additional".to_string(), "additional".to_string()),
+                ]),
+                label: "constant label".to_string(),
+            }),
+            Platform::Windows => PlatformCredential::Win(WinCredential {
+                // Note: default concatenation of user and service name is
+                // needed because windows identity is on target_name only
+                // See issue here: https://github.com/jaraco/keyring/issues/47
+                username: "username".to_string(),
+                target_name: "target_name".to_string(),
+                target_alias: "target_alias".to_string(),
+                comment: "constant comment".to_string(),
+            }),
+            Platform::MacOs => PlatformCredential::Mac(MacCredential {
+                domain: MacKeychainDomain::User,
+                service: "service".to_string(),
+                account: "username".to_string(),
+            }),
+        }
     }
 
     #[test]
     #[serial]
-    fn test_empty_password_input() {
-        let pass = "";
-        let keyring = Entry::new("test", "test");
-        keyring.set_password(pass).unwrap();
-        let out = keyring.get_password().unwrap();
-        assert_eq!(pass, out, "Stored and retrieved passwords don't match");
-        keyring.delete_password().unwrap();
-        assert!(
-            keyring.get_password().is_err(),
-            "Able to read a deleted password"
-        )
-    }
-
-    #[test]
-    #[serial]
-    fn test_round_trip_ascii_password() {
-        let keyring = Entry::new(TEST_SERVICE, TEST_USER);
-        keyring.set_password(TEST_ASCII_PASSWORD).unwrap();
-        let stored_password = keyring.get_password().unwrap();
-        assert_eq!(stored_password, TEST_ASCII_PASSWORD);
-        keyring.delete_password().unwrap();
-        assert!(
-            keyring.get_password().is_err(),
-            "Able to read a deleted password"
-        )
-    }
-
-    #[test]
-    #[serial]
-    fn test_round_trip_non_ascii_password() {
-        let keyring = Entry::new(TEST_SERVICE, TEST_USER);
-        keyring.set_password(TEST_NON_ASCII_PASSWORD).unwrap();
-        let stored_password = keyring.get_password().unwrap();
-        assert_eq!(stored_password, TEST_NON_ASCII_PASSWORD);
-        keyring.delete_password().unwrap();
-        assert!(
-            keyring.get_password().is_err(),
-            "Able to read a deleted password"
-        )
-    }
-
-    // TODO: write tests for erroneous input
-    // This might be better done in a separate test file.
-
-    // TODO: write tests for custom mappers.
-    // This might be better done in a separate test file.
-
-    // utility
-    fn generate_random_string() -> String {
-        // from the Rust Cookbook:
-        // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-        use rand::{distributions::Alphanumeric, thread_rng, Rng};
-        thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(30)
-            .map(char::from)
-            .collect()
+    fn test_custom_initial_and_retrieved_map() {
+        let username = "username";
+        let service = "service";
+        let expected_target = constant_mapper(platform(), service, username);
+        let entry = Entry::new(service, username);
+        assert_eq!(
+            entry.target, expected_target,
+            "Entry doesn't have expected map"
+        );
+        entry.set_password("ignored").unwrap();
+        let (_, target) = entry.get_password_and_credential().unwrap();
+        assert_eq!(
+            target, expected_target,
+            "Retrieved entry doesn't have expected map"
+        );
     }
 }
