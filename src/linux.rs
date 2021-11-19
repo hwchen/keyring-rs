@@ -51,9 +51,7 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
         // to the keyring, so this should only fail if we are trying to retrieve a non-UTF8
         // password that was added to the keyring by another library
         decode_attributes(map, item);
-        let password =
-            String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))?;
-        Ok(password)
+        decode_password(bytes)
     } else {
         Err(ErrorCode::WrongCredentialPlatform)
     }
@@ -74,6 +72,10 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
     }
 }
 
+fn decode_password(bytes: Vec<u8>) -> Result<String> {
+    String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))
+}
+
 fn decode_error(err: Error) -> ErrorCode {
     match err {
         Error::Crypto(_) => ErrorCode::PlatformFailure(err),
@@ -91,5 +93,26 @@ fn decode_error(err: Error) -> ErrorCode {
 fn decode_attributes(map: &mut LinuxCredential, item: &Item) {
     if let Ok(label) = item.get_label() {
         map.label = label
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bad_password() {
+        // malformed sequences here taken from:
+        // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+        for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
+            match decode_password(bytes.clone()) {
+                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
+                Err(other) => panic!(
+                    "Bad password ({:?}) decode gave wrong error: {}",
+                    bytes, other
+                ),
+                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+            }
+        }
     }
 }
