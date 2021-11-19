@@ -2,10 +2,10 @@
 //!
 //! Allows for setting and getting passwords on Linux, OSX, and Windows
 
-mod credential;
-mod error;
+pub mod credential;
+pub mod error;
 
-pub use credential::{CredentialMapper, Platform, PlatformCredential};
+use credential::{CredentialMapper, Platform, PlatformCredential};
 pub use error::{Error, Result};
 
 // compile-time Platform known at runtime
@@ -31,7 +31,7 @@ impl Entry {
     // algorithm and use `new_with_mapper`.
     pub fn new(service: &str, username: &str) -> Entry {
         Entry {
-            target: credential::default_mapper(platform(), service, username),
+            target: credential::default_mapper(&platform(), service, username),
         }
     }
 
@@ -98,7 +98,7 @@ mod tests {
     fn test_default_initial_and_retrieved_map() {
         let username = "username";
         let service = "service";
-        let expected_target = default_mapper(platform(), service, username);
+        let expected_target = default_mapper(&platform(), service, username);
         let entry = Entry::new(service, username);
         assert_eq!(
             entry.target, expected_target,
@@ -110,33 +110,52 @@ mod tests {
             target, expected_target,
             "Retrieved entry doesn't have default map"
         );
+        // don't leave password around.
+        entry.delete_password().unwrap();
     }
 
-    fn constant_mapper(platform: Platform, _: &str, _: &str) -> PlatformCredential {
+    fn constant_mapper(platform: &Platform, _: &str, _: &str) -> PlatformCredential {
+        // this always gives the same credential to a single process,
+        // and different credentials to different processes.
+        // On Mac this is very important, because otherwise test runs
+        // can clash with credentials created on prior test runs
+        let suffix = std::process::id().to_string();
         match platform {
             Platform::Linux => PlatformCredential::Linux(LinuxCredential {
                 collection: "default".to_string(),
                 attributes: HashMap::from([
-                    ("service".to_string(), "service".to_string()),
-                    ("username".to_string(), "username".to_string()),
-                    ("application".to_string(), "application".to_string()),
-                    ("additional".to_string(), "additional".to_string()),
+                    (
+                        "service".to_string(),
+                        format!("keyring-service-{}", &suffix),
+                    ),
+                    (
+                        "username".to_string(),
+                        format!("keyring-username-{}", &suffix),
+                    ),
+                    (
+                        "application".to_string(),
+                        format!("keyring-application-{}", &suffix),
+                    ),
+                    (
+                        "additional".to_string(),
+                        format!("keyring-additional-{}", &suffix),
+                    ),
                 ]),
-                label: "constant label".to_string(),
+                label: format!("keyring-label-{}", &suffix),
             }),
             Platform::Windows => PlatformCredential::Win(WinCredential {
                 // Note: default concatenation of user and service name is
                 // needed because windows identity is on target_name only
                 // See issue here: https://github.com/jaraco/keyring/issues/47
-                username: "username".to_string(),
-                target_name: "target_name".to_string(),
-                target_alias: "target_alias".to_string(),
-                comment: "constant comment".to_string(),
+                username: format!("keyring-username-{}", &suffix),
+                target_name: format!("keyring-target-name-{}", &suffix),
+                target_alias: format!("keyring-target-alias-{}", &suffix),
+                comment: format!("keyring-comment-{}", &suffix),
             }),
             Platform::MacOs => PlatformCredential::Mac(MacCredential {
                 domain: MacKeychainDomain::User,
-                service: "service".to_string(),
-                account: "username".to_string(),
+                service: format!("keyring-service-{}", &suffix),
+                account: format!("keyring-username-{}", &suffix),
             }),
         }
     }
@@ -146,8 +165,8 @@ mod tests {
     fn test_custom_initial_and_retrieved_map() {
         let username = "username";
         let service = "service";
-        let expected_target = constant_mapper(platform(), service, username);
-        let entry = Entry::new(service, username);
+        let expected_target = constant_mapper(&platform(), service, username);
+        let entry = Entry::new_with_mapper(service, username, constant_mapper).unwrap();
         assert_eq!(
             entry.target, expected_target,
             "Entry doesn't have expected map"
@@ -158,5 +177,7 @@ mod tests {
             target, expected_target,
             "Retrieved entry doesn't have expected map"
         );
+        // don't leave password around.
+        entry.delete_password().unwrap();
     }
 }

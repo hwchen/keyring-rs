@@ -121,7 +121,7 @@ pub type CredentialMapper = fn(&Platform, &str, &str) -> PlatformCredential;
 // The default credential mapper used by this crate, which maps keyring items
 // to credentials in the "default" store on each platform, identified uniquely
 // by the pair <service.username>, and carrying simple metadata where appropriate.
-pub fn default_mapper(platform: Platform, service: &str, username: &str) -> PlatformCredential {
+pub fn default_mapper(platform: &Platform, service: &str, username: &str) -> PlatformCredential {
     match platform {
         Platform::Linux => PlatformCredential::Linux(LinuxCredential {
             collection: "default".to_string(),

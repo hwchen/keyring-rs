@@ -230,3 +230,100 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     let slice = std::slice::from_raw_parts(ws, len);
     String::from_utf16_lossy(slice)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ptr::null_mut;
+
+    #[test]
+    fn test_bad_password() {
+        for bytes in [b"1".to_vec(), b"\x01\xd8".to_vec()] {
+            let credential = make_platform_credential(bytes.clone());
+            match decode_password(&credential) {
+                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
+                Err(other) => panic!(
+                    "Bad password ({:?}) decode gave wrong error: {}",
+                    bytes, other
+                ),
+                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+            }
+        }
+    }
+
+    fn make_platform_credential(mut password: Vec<u8>) -> CREDENTIALW {
+        let last_written = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let attribute_count = 0;
+        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+        CREDENTIALW {
+            Flags: 0,
+            Type: CRED_TYPE_GENERIC,
+            TargetName: null_mut(),
+            Comment: null_mut(),
+            LastWritten: last_written,
+            CredentialBlobSize: password.len() as u32,
+            CredentialBlob: password.as_mut_ptr(),
+            Persist: CRED_PERSIST_ENTERPRISE,
+            AttributeCount: attribute_count,
+            Attributes: attributes,
+            TargetAlias: null_mut(),
+            UserName: null_mut(),
+        }
+    }
+
+    #[test]
+    fn test_bad_inputs() {
+        let cred = WinCredential {
+            username: "username".to_string(),
+            target_name: "target_name".to_string(),
+            target_alias: "target_alias".to_string(),
+            comment: "comment".to_string(),
+        };
+        for (attr, len) in [
+            ("username", CRED_MAX_USERNAME_LENGTH),
+            ("target name", CRED_MAX_GENERIC_TARGET_NAME_LENGTH),
+            ("target alias", CRED_MAX_STRING_LENGTH),
+            ("comment", CRED_MAX_STRING_LENGTH),
+            ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE),
+        ] {
+            let long_string = generate_random_string(1 + len as usize);
+            let mut bad_cred = cred.clone();
+            let mut password = "password";
+            match attr {
+                "username" => bad_cred.username = long_string.clone(),
+                "target name" => bad_cred.target_name = long_string.clone(),
+                "target alias" => bad_cred.target_alias = long_string.clone(),
+                "comment" => bad_cred.comment = long_string.clone(),
+                "password" => password = &long_string,
+                other => panic!("unexpected attribute: {}", other),
+            }
+            let map = PlatformCredential::Win(bad_cred);
+            validate_attribute_too_long(set_password(&map, password), attr, len);
+        }
+    }
+
+    fn validate_attribute_too_long(result: Result<()>, attr: &str, len: u32) {
+        match result {
+            Err(ErrorCode::TooLong(arg, val)) => {
+                assert_eq!(&arg, attr, "Error names wrong attribute");
+                assert_eq!(val, len, "Error names wrong limit");
+            }
+            Err(other) => panic!("Err not 'username too long': {}", other),
+            Ok(_) => panic!("No error when {} too long", attr),
+        }
+    }
+
+    fn generate_random_string(len: usize) -> String {
+        // from the Rust Cookbook:
+        // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
+        use rand::{distributions::Alphanumeric, thread_rng, Rng};
+        thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(len)
+            .map(char::from)
+            .collect()
+    }
+}
