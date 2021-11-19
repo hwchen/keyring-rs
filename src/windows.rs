@@ -238,6 +238,9 @@ mod tests {
 
     #[test]
     fn test_bad_password() {
+        // first malformed sequence can't be UTF-16 because it has an odd number of bytes
+        // second malformed sequence is a first surrogate marker (0xd801) in little-endian
+        // form, and it doesn't have a companion so it's invalid.
         for bytes in [b"1".to_vec(), b"\x01\xd8".to_vec()] {
             let credential = make_platform_credential(bytes.clone());
             match decode_password(&credential) {
