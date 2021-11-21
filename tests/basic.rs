@@ -1,17 +1,14 @@
-mod common;
-
 use serial_test::serial;
 
-use keyring::{Entry, Error};
+use keyring::{credential::default_target, platform, Entry, Error};
 
 doc_comment::doctest!("../README.md");
 
 #[test]
 #[serial]
 fn test_empty_keyring() {
-    let service = common::generate_random_string();
-    let username = common::generate_random_string();
-    let entry = Entry::new(&service, &username);
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Read a password from a non-existent platform item"
@@ -21,13 +18,12 @@ fn test_empty_keyring() {
 #[test]
 #[serial]
 fn test_empty_password_input() {
-    let service = common::generate_random_string();
-    let username = common::generate_random_string();
-    let entry = Entry::new(&service, &username);
-    let pass = "";
-    entry.set_password(pass).unwrap();
-    let out = entry.get_password().unwrap();
-    assert_eq!(pass, out, "Stored and retrieved passwords don't match");
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
+    let in_pass = "";
+    entry.set_password(in_pass).unwrap();
+    let out_pass = entry.get_password().unwrap();
+    assert_eq!(in_pass, out_pass);
     entry.delete_password().unwrap();
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -38,43 +34,34 @@ fn test_empty_password_input() {
 #[test]
 #[serial]
 fn test_round_trip_ascii_password() {
-    let service = common::generate_random_string();
-    let username = common::generate_random_string();
-    let entry = Entry::new(&service, &username);
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
     let password = "test ascii password";
     entry.set_password(password).unwrap();
     let stored_password = entry.get_password().unwrap();
     assert_eq!(stored_password, password);
     entry.delete_password().unwrap();
-    assert!(
-        matches!(entry.get_password(), Err(Error::NoEntry)),
-        "Able to read a deleted password"
-    )
+    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
 #[test]
 #[serial]
 fn test_round_trip_non_ascii_password() {
-    let service = common::generate_random_string();
-    let username = common::generate_random_string();
-    let entry = Entry::new(&service, &username);
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
     let password = "このきれいな花は桜です";
     entry.set_password(password).unwrap();
     let stored_password = entry.get_password().unwrap();
     assert_eq!(stored_password, password);
     entry.delete_password().unwrap();
-    assert!(
-        matches!(entry.get_password(), Err(Error::NoEntry)),
-        "Able to read a deleted password"
-    )
+    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
 #[test]
 #[serial]
-fn test_round_trip_credential() {
-    let service = common::generate_random_string();
-    let username = common::generate_random_string();
-    let entry = Entry::new(&service, &username);
+fn test_independent_credential_and_password() {
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
     let password = "このきれいな花は桜です";
     entry.set_password(password).unwrap();
     let (stored_password, credential1) = entry.get_password_and_credential().unwrap();
@@ -89,4 +76,30 @@ fn test_round_trip_credential() {
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted password"
     )
+}
+
+#[test]
+#[serial]
+fn test_same_target() {
+    let name = generate_random_string();
+    let entry1 = Entry::new(&name, &name);
+    let credential = default_target(&platform(), "default", &name, &name);
+    let entry2 = Entry::new_with_credential(&credential).unwrap();
+    let password1 = generate_random_string();
+    entry1.set_password(&password1).unwrap();
+    let password2 = entry2.get_password().unwrap();
+    assert_eq!(password2, password1);
+    entry1.delete_password().unwrap();
+    assert!(matches!(entry2.delete_password(), Err(Error::NoEntry)))
+}
+
+fn generate_random_string() -> String {
+    // from the Rust Cookbook:
+    // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
+    use rand::{distributions::Alphanumeric, thread_rng, Rng};
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
 }

@@ -97,6 +97,17 @@ pub enum MacKeychainDomain {
     Dynamic,
 }
 
+impl From<&str> for MacKeychainDomain {
+    fn from(keychain: &str) -> Self {
+        match keychain.to_ascii_lowercase().as_str() {
+            "system" => MacKeychainDomain::System,
+            "common" => MacKeychainDomain::Common,
+            "dynamic" => MacKeychainDomain::Dynamic,
+            _ => MacKeychainDomain::User,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlatformCredential {
     Linux(LinuxCredential),
@@ -114,17 +125,16 @@ impl PlatformCredential {
     }
 }
 
-// The signature of a credential mapper (see the module documentation for details).
-// TODO: Make this a Fn trait so we can accept closures
-pub type CredentialMapper = fn(&Platform, &str, &str) -> PlatformCredential;
-
-// The default credential mapper used by this crate, which maps keyring items
-// to credentials in the "default" store on each platform, identified uniquely
-// by the pair <service.username>, and carrying simple metadata where appropriate.
-pub fn default_mapper(platform: &Platform, service: &str, username: &str) -> PlatformCredential {
+// Create the default target credential for a keyring item.
+pub fn default_target(
+    platform: &Platform,
+    keychain: &str,
+    service: &str,
+    username: &str,
+) -> PlatformCredential {
     match platform {
         Platform::Linux => PlatformCredential::Linux(LinuxCredential {
-            collection: "default".to_string(),
+            collection: keychain.to_string(),
             attributes: HashMap::from([
                 ("service".to_string(), service.to_string()),
                 ("username".to_string(), username.to_string()),
@@ -148,7 +158,7 @@ pub fn default_mapper(platform: &Platform, service: &str, username: &str) -> Pla
             ),
         }),
         Platform::MacOs => PlatformCredential::Mac(MacCredential {
-            domain: MacKeychainDomain::User,
+            domain: keychain.into(),
             service: service.to_string(),
             account: username.to_string(),
         }),

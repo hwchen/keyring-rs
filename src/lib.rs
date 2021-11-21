@@ -5,11 +5,11 @@
 pub mod credential;
 pub mod error;
 
-use credential::{CredentialMapper, Platform, PlatformCredential};
+use credential::{Platform, PlatformCredential};
 pub use error::{Error, Result};
 
 // compile-time Platform known at runtime
-fn platform() -> Platform {
+pub fn platform() -> Platform {
     platform::platform()
 }
 
@@ -25,28 +25,28 @@ pub struct Entry {
 }
 
 impl Entry {
-    // Create a new entry for the given service and username.
-    // This uses the module-default mapper.  If the defaults don't
-    // work for your application, you can construct your own
-    // algorithm and use `new_with_mapper`.
+    // Create an entry for the given service and username.
+    // This maps to a target credential in the default keychain.
     pub fn new(service: &str, username: &str) -> Entry {
         Entry {
-            target: credential::default_mapper(&platform(), service, username),
+            target: credential::default_target(&platform(), "default", service, username),
         }
     }
 
-    // Create a new item using a client-supplied mapper
-    // for interoperability with credentials written by
-    // other applications.
-    pub fn new_with_mapper(
-        service: &str,
-        username: &str,
-        mapper: CredentialMapper,
-    ) -> Result<Entry> {
-        let os = platform();
-        let map = mapper(&os, service, username);
-        if map.matches_platform(&os) {
-            Ok(Entry { target: map })
+    // Create an entry for the given keychain, service, and username.
+    // If the platform doesn't support multiple keychains, this is the same as `new`.
+    pub fn new_in_keychain(keychain: &str, service: &str, username: &str) -> Entry {
+        Entry {
+            target: credential::default_target(&platform(), keychain, service, username),
+        }
+    }
+
+    // Create an entry that uses the given credential for storage.
+    pub fn new_with_credential(target: &PlatformCredential) -> Result<Entry> {
+        if target.matches_platform(&platform()) {
+            Ok(Entry {
+                target: target.clone(),
+            })
         } else {
             Err(Error::WrongCredentialPlatform)
         }
@@ -87,97 +87,31 @@ impl Entry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::credential::{
-        default_mapper, LinuxCredential, MacCredential, MacKeychainDomain, WinCredential,
-    };
+    use crate::credential::default_target;
     use serial_test::serial;
-    use std::collections::HashMap;
 
     #[test]
     #[serial]
     fn test_default_initial_and_retrieved_map() {
-        let username = "username";
-        let service = "service";
-        let expected_target = default_mapper(&platform(), service, username);
-        let entry = Entry::new(service, username);
-        assert_eq!(
-            entry.target, expected_target,
-            "Entry doesn't have default map"
-        );
+        let name = generate_random_string();
+        let expected_target = default_target(&platform(), "default", &name, &name);
+        let entry = Entry::new(&name, &name);
+        assert_eq!(entry.target, expected_target);
         entry.set_password("ignored").unwrap();
         let (_, target) = entry.get_password_and_credential().unwrap();
-        assert_eq!(
-            target, expected_target,
-            "Retrieved entry doesn't have default map"
-        );
+        assert_eq!(target, expected_target);
         // don't leave password around.
         entry.delete_password().unwrap();
     }
 
-    fn constant_mapper(platform: &Platform, _: &str, _: &str) -> PlatformCredential {
-        // this always gives the same credential to a single process,
-        // and different credentials to different processes.
-        // On Mac this is very important, because otherwise test runs
-        // can clash with credentials created on prior test runs
-        let suffix = std::process::id().to_string();
-        match platform {
-            Platform::Linux => PlatformCredential::Linux(LinuxCredential {
-                collection: "default".to_string(),
-                attributes: HashMap::from([
-                    (
-                        "service".to_string(),
-                        format!("keyring-service-{}", &suffix),
-                    ),
-                    (
-                        "username".to_string(),
-                        format!("keyring-username-{}", &suffix),
-                    ),
-                    (
-                        "application".to_string(),
-                        format!("keyring-application-{}", &suffix),
-                    ),
-                    (
-                        "additional".to_string(),
-                        format!("keyring-additional-{}", &suffix),
-                    ),
-                ]),
-                label: format!("keyring-label-{}", &suffix),
-            }),
-            Platform::Windows => PlatformCredential::Win(WinCredential {
-                // Note: default concatenation of user and service name is
-                // needed because windows identity is on target_name only
-                // See issue here: https://github.com/jaraco/keyring/issues/47
-                username: format!("keyring-username-{}", &suffix),
-                target_name: format!("keyring-target-name-{}", &suffix),
-                target_alias: format!("keyring-target-alias-{}", &suffix),
-                comment: format!("keyring-comment-{}", &suffix),
-            }),
-            Platform::MacOs => PlatformCredential::Mac(MacCredential {
-                domain: MacKeychainDomain::User,
-                service: format!("keyring-service-{}", &suffix),
-                account: format!("keyring-username-{}", &suffix),
-            }),
-        }
-    }
-
-    #[test]
-    #[serial]
-    fn test_custom_initial_and_retrieved_map() {
-        let username = "username";
-        let service = "service";
-        let expected_target = constant_mapper(&platform(), service, username);
-        let entry = Entry::new_with_mapper(service, username, constant_mapper).unwrap();
-        assert_eq!(
-            entry.target, expected_target,
-            "Entry doesn't have expected map"
-        );
-        entry.set_password("ignored").unwrap();
-        let (_, target) = entry.get_password_and_credential().unwrap();
-        assert_eq!(
-            target, expected_target,
-            "Retrieved entry doesn't have expected map"
-        );
-        // don't leave password around.
-        entry.delete_password().unwrap();
+    fn generate_random_string() -> String {
+        // from the Rust Cookbook:
+        // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
+        use rand::{distributions::Alphanumeric, thread_rng, Rng};
+        thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect()
     }
 }
