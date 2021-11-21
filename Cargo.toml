@@ -20,7 +20,6 @@ byteorder = "1.2.1"
 winapi = { version =  "0.3", features = ["wincred", "minwindef"] }
 
 [dev-dependencies]
-clap = "2.33"
 rpassword = "5.0"
 rand = "0.8.4"
 serial_test = "0.5.1"
