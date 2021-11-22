@@ -1,11 +1,8 @@
-use serial_test::serial;
-
 use keyring::{credential::default_target, platform, Entry, Error};
 
 doc_comment::doctest!("../README.md");
 
 #[test]
-#[serial]
 fn test_empty_keyring() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
@@ -16,7 +13,6 @@ fn test_empty_keyring() {
 }
 
 #[test]
-#[serial]
 fn test_empty_password_input() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
@@ -32,7 +28,6 @@ fn test_empty_password_input() {
 }
 
 #[test]
-#[serial]
 fn test_round_trip_ascii_password() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
@@ -45,7 +40,6 @@ fn test_round_trip_ascii_password() {
 }
 
 #[test]
-#[serial]
 fn test_round_trip_non_ascii_password() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
@@ -58,7 +52,6 @@ fn test_round_trip_non_ascii_password() {
 }
 
 #[test]
-#[serial]
 fn test_independent_credential_and_password() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
@@ -79,7 +72,6 @@ fn test_independent_credential_and_password() {
 }
 
 #[test]
-#[serial]
 fn test_same_target() {
     let name = generate_random_string();
     let entry1 = Entry::new(&name, &name);

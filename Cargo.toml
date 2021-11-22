@@ -22,7 +22,6 @@ winapi = { version =  "0.3", features = ["wincred", "minwindef"] }
 [dev-dependencies]
 rpassword = "5.0"
 rand = "0.8.4"
-serial_test = "0.5.1"
 doc-comment = "0.3.3"
 structopt = "0.3.25"
 whoami = "1.2.0"

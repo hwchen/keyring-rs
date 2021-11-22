@@ -88,10 +88,8 @@ impl Entry {
 mod tests {
     use super::*;
     use crate::credential::default_target;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_default_initial_and_retrieved_map() {
         let name = generate_random_string();
         let expected_target = default_target(&platform(), "default", &name, &name);
