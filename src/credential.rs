@@ -13,25 +13,24 @@ platform credentials provide the persistence for keyring items.
 In order to bridge the gap between the keyring item model and each
 platform's credential model, this crate uses a "credential mapper":
 a function which maps from keyring items to platform credentials.
-The inputs to a credential mapper are the platform, username, and
-service of the keyring item; its output is a platform-specific
-"recipe" for identifying and annotating the credential which the
-crate will use to store the item's password.
+The inputs to a credential mapper are the platform, optional target
+specification, service, and username, of the keyring item; its output
+is a platform-specific "recipe" for identifying and annotating the
+platform credential which the crate will use for this item.
 
 This module provides a credential model for each supported platform,
-and a credential mapper which the crate uses by default.  Clients
-who want to use a different credential mapper can provide their own,
-which allows this crate to operate compatibly with the conventions
-used by third-party applications. For example:
+and a credential mapper which the crate uses by default.  The default
+credential mapper can be "advised" by providing a suggested "target"
+when creating an entry: on Linux and Mac this target is interpreted
+as the collection/keychain to put the credential in; on Windows this
+target is taken literally as the "target name" of the credential.
 
-* On Windows, generic credentials are identified by an arbitrary string,
-and this crate uses "service.username" as that string.  Most 3rd party
-applications, on the other hand, use the service name as the identifying
-string and keep the username as a metadata attribute on the credential.
+Clients who want to use a different algorithm for mapping service/username
+pairs to platform credentials can also provide the specific credential spec
+they want to use when creating the entry.
 
-* On Linux and Mac, there are multiple credential stores for each OS user.
-Some 3rd party applications don't use the "default" store for their data.
-
+See the top-level README for the project for more information about the
+platform-specific credential mapping.  Or read the code here :).
  */
 
 use std::collections::HashMap;
@@ -108,6 +107,15 @@ impl From<&str> for MacKeychainDomain {
     }
 }
 
+impl From<Option<&str>> for MacKeychainDomain {
+    fn from(keychain: Option<&str>) -> Self {
+        match keychain {
+            None => MacKeychainDomain::User,
+            Some(str) => str.into(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlatformCredential {
     Linux(LinuxCredential),
@@ -125,40 +133,61 @@ impl PlatformCredential {
     }
 }
 
-// Create the default target credential for a keyring item.
+// Create the default target credential for a keyring item.  The caller
+// can provide a target parameter to influence the mapping.
 pub fn default_target(
     platform: &Platform,
-    keychain: &str,
+    target: Option<&str>,
     service: &str,
     username: &str,
 ) -> PlatformCredential {
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    let custom = if target.is_none() {
+        "entry"
+    } else {
+        "custom entry"
+    };
+    let metadata = format!(
+        "keyring-rs v{} {} for service '{}', user '{}'",
+        VERSION, custom, service, username
+    );
     match platform {
         Platform::Linux => PlatformCredential::Linux(LinuxCredential {
-            collection: keychain.to_string(),
+            collection: target.unwrap_or("default").to_string(),
             attributes: HashMap::from([
                 ("service".to_string(), service.to_string()),
                 ("username".to_string(), username.to_string()),
                 ("application".to_string(), "rust-keyring".to_string()),
             ]),
-            label: format!(
-                "keyring-rs credential for service '{}', user '{}'",
-                service, username
-            ),
+            label: metadata,
         }),
-        Platform::Windows => PlatformCredential::Win(WinCredential {
-            // Note: default concatenation of user and service name is
-            // needed because windows identity is on target_name only
-            // See issue here: https://github.com/jaraco/keyring/issues/47
-            username: username.to_string(),
-            target_name: format!("{}.{}", username, service),
-            target_alias: String::new(),
-            comment: format!(
-                "keyring-rs credential for service '{}', user '{}'",
-                service, username
-            ),
-        }),
+        Platform::Windows => {
+            if let Some(keychain) = target {
+                PlatformCredential::Win(WinCredential {
+                    // Note: Since Windows doesn't support multiple keychains,
+                    // and since it's nice for clients to have control over
+                    // the target_name directly, we use the `keychain` value
+                    // as the target name if it's specified non-default.
+                    username: username.to_string(),
+                    target_name: keychain.to_string(),
+                    target_alias: String::new(),
+                    comment: metadata,
+                })
+            } else {
+                PlatformCredential::Win(WinCredential {
+                    // Note: default concatenation of user and service name is
+                    // used because windows uses target_name as sole identifier.
+                    // See the README for more rationale.  Also see this issue
+                    // for Python: https://github.com/jaraco/keyring/issues/47
+                    username: username.to_string(),
+                    target_name: format!("{}.{}", username, service),
+                    target_alias: String::new(),
+                    comment: metadata,
+                })
+            }
+        }
         Platform::MacOs => PlatformCredential::Mac(MacCredential {
-            domain: keychain.into(),
+            domain: target.into(),
             service: service.to_string(),
             account: username.to_string(),
         }),

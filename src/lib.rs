@@ -29,19 +29,23 @@ impl Entry {
     // This maps to a target credential in the default keychain.
     pub fn new(service: &str, username: &str) -> Entry {
         Entry {
-            target: credential::default_target(&platform(), "default", service, username),
+            target: credential::default_target(&platform(), None, service, username),
         }
     }
 
-    // Create an entry for the given keychain, service, and username.
-    // If the platform doesn't support multiple keychains, this is the same as `new`.
-    pub fn new_in_keychain(keychain: &str, service: &str, username: &str) -> Entry {
+    // Create an entry for the given target, service, and username.
+    // On Linux and Mac, the target is interpreted as naming the collection/keychain
+    // to store the credential.  On Windows, the target is used directly as
+    // the _target name_ of the credential.
+    pub fn new_with_target(target: &str, service: &str, username: &str) -> Entry {
         Entry {
-            target: credential::default_target(&platform(), keychain, service, username),
+            target: credential::default_target(&platform(), Some(target), service, username),
         }
     }
 
-    // Create an entry that uses the given credential for storage.
+    // Create an entry that uses the given credential for storage.  Callers can use
+    // their own algorithm to produce a platform-specific credential spec for the
+    // given service and username and then call this entry with that value.
     pub fn new_with_credential(target: &PlatformCredential) -> Result<Entry> {
         if target.matches_platform(&platform()) {
             Ok(Entry {
@@ -68,7 +72,7 @@ impl Entry {
 
     // Retrieve the password and all the other fields
     // set in the platform-specific credential.  This
-    // allows retrieving metdata on the credential that
+    // allows retrieving metadata on the credential that
     // were saved by external applications.
     pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
         let mut map = self.target.clone();
@@ -92,7 +96,7 @@ mod tests {
     #[test]
     fn test_default_initial_and_retrieved_map() {
         let name = generate_random_string();
-        let expected_target = default_target(&platform(), "default", &name, &name);
+        let expected_target = default_target(&platform(), None, &name, &name);
         let entry = Entry::new(&name, &name);
         assert_eq!(entry.target, expected_target);
         entry.set_password("ignored").unwrap();
@@ -100,6 +104,22 @@ mod tests {
         assert_eq!(target, expected_target);
         // don't leave password around.
         entry.delete_password().unwrap();
+    }
+
+    #[test]
+    fn test_targeted_initial_and_retrieved_map() {
+        let name = generate_random_string();
+        let expected_target = default_target(&platform(), Some(&name), &name, &name);
+        let entry = Entry::new_with_target(&name, &name, &name);
+        assert_eq!(entry.target, expected_target);
+        // can only test targeted credentials on Windows
+        if matches!(platform(), Platform::Windows) {
+            entry.set_password("ignored").unwrap();
+            let (_, target) = entry.get_password_and_credential().unwrap();
+            assert_eq!(target, expected_target);
+            // don't leave password around.
+            entry.delete_password().unwrap();
+        }
     }
 
     fn generate_random_string() -> String {

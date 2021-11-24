@@ -75,7 +75,7 @@ fn test_independent_credential_and_password() {
 fn test_same_target() {
     let name = generate_random_string();
     let entry1 = Entry::new(&name, &name);
-    let credential = default_target(&platform(), "default", &name, &name);
+    let credential = default_target(&platform(), None, &name, &name);
     let entry2 = Entry::new_with_credential(&credential).unwrap();
     let password1 = generate_random_string();
     entry1.set_password(&password1).unwrap();
