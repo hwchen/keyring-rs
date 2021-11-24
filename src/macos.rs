@@ -1,138 +1,97 @@
-use crate::error::Result;
-use security_framework::os::macos::keychain::SecKeychain;
+use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
 
-use std::path::Path;
-pub struct Keyring<'a> {
-    service: &'a str,
-    username: &'a str,
-    path: Option<&'a Path>,
+use crate::credential::{MacCredential, MacKeychainDomain};
+use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
+
+pub fn platform() -> Platform {
+    Platform::MacOs
 }
 
-// Eventually try to get collection into the Keyring struct?
-impl<'a> Keyring<'a> {
-    pub fn new(service: &'a str, username: &'a str) -> Keyring<'a> {
-        Keyring {
-            service,
-            username,
-            path: None,
-        }
+pub use security_framework::base::Error;
+
+fn get_keychain(map: &MacCredential) -> Result<SecKeychain> {
+    let domain = match map.domain {
+        MacKeychainDomain::User => SecPreferencesDomain::User,
+        MacKeychainDomain::System => SecPreferencesDomain::System,
+        MacKeychainDomain::Common => SecPreferencesDomain::Common,
+        MacKeychainDomain::Dynamic => SecPreferencesDomain::Dynamic,
+    };
+    match SecKeychain::default_for_domain(domain) {
+        Ok(keychain) => Ok(keychain),
+        Err(err) => Err(decode_error(err)),
     }
+}
 
-    #[cfg(feature = "macos-specify-keychain")]
-    pub fn use_keychain(service: &'a str, username: &'a str, path: &'a Path) -> Keyring<'a> {
-        Keyring {
-            service,
-            username,
-            path: Some(path),
-        }
-    }
-
-    fn get_keychain(&self) -> security_framework::base::Result<SecKeychain> {
-        match self.path {
-            Some(path) => SecKeychain::open(path),
-            _ => SecKeychain::default(),
-        }
-    }
-
-    pub fn set_password(&self, password: &str) -> Result<()> {
-        self.get_keychain()?.set_generic_password(
-            self.service,
-            self.username,
-            password.as_bytes(),
-        )?;
-
+pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
+    if let PlatformCredential::Mac(map) = map {
+        get_keychain(map)?
+            .set_generic_password(&map.service, &map.account, password.as_bytes())
+            .map_err(decode_error)?;
         Ok(())
+    } else {
+        Err(ErrorCode::WrongCredentialPlatform)
     }
+}
 
-    pub fn get_password(&self) -> Result<String> {
+pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
+    if let PlatformCredential::Mac(map) = map {
         let (password_bytes, _) =
-            find_generic_password(Some(&[self.get_keychain()?]), self.service, self.username)?;
-
-        // Mac keychain allows non-UTF8 values, but this library only supports adding UTF8 items
-        // to the keychain, so this should only fail if we are trying to retrieve a non-UTF8
-        // password that was added to the keychain by another library
-
-        let password = String::from_utf8(password_bytes.to_vec())?;
-
-        Ok(password)
+            find_generic_password(Some(&[get_keychain(map)?]), &map.service, &map.account)
+                .map_err(decode_error)?;
+        decode_password(password_bytes.to_vec())
+    } else {
+        Err(ErrorCode::WrongCredentialPlatform)
     }
+}
 
-    pub fn delete_password(&self) -> Result<()> {
+pub fn delete_password(map: &PlatformCredential) -> Result<()> {
+    if let PlatformCredential::Mac(map) = map {
         let (_, item) =
-            find_generic_password(Some(&[self.get_keychain()?]), self.service, self.username)?;
-
+            find_generic_password(Some(&[get_keychain(map)?]), &map.service, &map.account)
+                .map_err(decode_error)?;
         item.delete();
-
         Ok(())
+    } else {
+        Err(ErrorCode::WrongCredentialPlatform)
+    }
+}
+
+fn decode_password(bytes: Vec<u8>) -> Result<String> {
+    // Mac keychain allows non-UTF8 values, passwords from 3rd parties may not be UTF-8.
+    String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))
+}
+
+// The MacOS error codes used here are from:
+// https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
+fn decode_error(err: Error) -> ErrorCode {
+    match err.code() {
+        -25291 => ErrorCode::NoStorageAccess(err), // errSecNotAvailable
+        -25292 => ErrorCode::NoStorageAccess(err), // errSecReadOnly
+        -25294 => ErrorCode::NoStorageAccess(err), // errSecNoSuchKeychain
+        -25295 => ErrorCode::NoStorageAccess(err), // errSecInvalidKeychain
+        -25300 => ErrorCode::NoEntry,              // errSecItemNotFound
+        _ => ErrorCode::PlatformFailure(err),
     }
 }
 
 #[cfg(test)]
-#[cfg(target_os = "macos")]
-mod test {
+mod tests {
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
-    fn test_basic() {
-        let password_1 = "大根";
-        let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
-
-        let keyring = Keyring::new("testservice", "testuser");
-
-        keyring.set_password(password_1).unwrap();
-        let res_1 = keyring.get_password().unwrap();
-        assert_eq!(
-            res_1, password_1,
-            "Stored and retrieved passwords don't match"
-        );
-
-        keyring.set_password(password_2).unwrap();
-        let res_2 = keyring.get_password().unwrap();
-        assert_eq!(
-            res_2, password_2,
-            "Stored and retrieved passwords don't match"
-        );
-
-        keyring.delete_password().unwrap();
-        assert!(
-            keyring.get_password().is_err(),
-            "Able to read a deleted password"
-        )
-    }
-
-    #[test]
-    #[ignore]
-    #[cfg(feature = "macos-specify-keychain")]
-    #[serial]
-    fn test_basic_with_features() {
-        use security_framework::os::macos::keychain;
-        use tempfile::tempdir;
-
-        let password_1 = "大根";
-        let password_2 = "0xE5A4A7E6A0B9"; // Above in hex string
-
-        let dir = tempdir().unwrap();
-        let temp_keychain_path = dir.path().join("Temporary.keychain");
-        dbg!(&temp_keychain_path);
-        let temp_keychain = keychain::CreateOptions::new();
-        temp_keychain
-            .create(&temp_keychain_path)
-            .expect("Could not create temp keychain");
-        let keyring = Keyring::use_keychain("testservice", "testuser", &temp_keychain_path);
-
-        keyring.set_password(password_1).unwrap();
-        let res_1 = keyring.get_password().unwrap();
-        println!("{}:{}", res_1, password_1);
-        assert_eq!(res_1, password_1);
-
-        keyring.set_password(password_2).unwrap();
-        let res_2 = keyring.get_password().unwrap();
-        println!("{}:{}", res_2, password_2);
-        assert_eq!(res_2, password_2);
-
-        keyring.delete_password().unwrap();
+    fn test_bad_password() {
+        // malformed sequences here taken from:
+        // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+        for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
+            match decode_password(bytes.clone()) {
+                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
+                Err(other) => panic!(
+                    "Bad password ({:?}) decode gave wrong error: {}",
+                    bytes, other
+                ),
+                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+            }
+        }
     }
 }

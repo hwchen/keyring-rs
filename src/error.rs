@@ -1,90 +1,66 @@
-#[cfg(target_os = "linux")]
-use secret_service::Error as SsError;
-#[cfg(target_os = "macos")]
-use security_framework::base::Error as SfError;
-use std::error;
-use std::fmt;
-use std::string::FromUtf8Error;
-
-pub type Result<T> = ::std::result::Result<T, KeyringError>;
-
 #[derive(Debug)]
-pub enum KeyringError {
-    #[cfg(target_os = "macos")]
-    MacOsKeychainError(SfError),
-    #[cfg(target_os = "linux")]
-    SecretServiceError(SsError),
-    #[cfg(target_os = "windows")]
-    WindowsVaultError,
-    NoBackendFound,
-    NoPasswordFound,
-    Parse(FromUtf8Error),
+pub enum Error {
+    // This indicates runtime failure in the underlying
+    // platform storage system.  The details of the failure can
+    // be retrieved from the attached platform error.
+    PlatformFailure(crate::platform::Error),
+    // This indicates that the underlying secure storage
+    // holding saved items could not be accessed.  Typically this
+    // is because of access rules in the platform; for example, it
+    // might be that the credential store is locked.  The underlying
+    // platform error will typically give the reason.
+    NoStorageAccess(crate::platform::Error),
+    // This indicates that there is no underlying credential
+    // entry in the platform for this item.  Either one was
+    // never set, or it was deleted.
+    NoEntry,
+    // This indicates that the retrieved password blob was not
+    // a UTF-8 string.  The underlying bytes are available
+    // for examination in the attached value.
+    BadEncoding(Vec<u8>),
+    // This indicates that one of the underlying credential
+    // metadata values produced by the mapper exceeded a
+    // length limit for the underlying platform.  The
+    // attached value give the name of the attribute and
+    // the platform length limit that was exceeded.
+    TooLong(String, u32),
+    // This indicates that the underlying mapper produced
+    // a credential specification for a different platform
+    // that you are running on.  Since the mapper is only
+    // run when items are created, this can only be a status
+    // returned from `new_with_mapper`.
+    WrongCredentialPlatform,
 }
 
-impl fmt::Display for KeyringError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => {
-                write!(f, "Mac Os Keychain Error: {}", err)
+pub type Result<T> = std::result::Result<T, Error>;
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::WrongCredentialPlatform => {
+                write!(f, "CredentialMapper value doesn't match this platform")
             }
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => write!(f, "Secret Service Error: {}", err),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => write!(f, "Windows Vault Error"),
-            KeyringError::NoBackendFound => write!(f, "Keyring error: No Backend Found"),
-            KeyringError::NoPasswordFound => write!(f, "Keyring Error: No Password Found"),
-            KeyringError::Parse(ref err) => write!(f, "Keyring Parse Error: {}", err),
+            Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {}", err),
+            Error::NoStorageAccess(err) => {
+                write!(f, "Couldn't access platform secure storage: {}", err)
+            }
+            Error::NoEntry => write!(f, "No matching entry found in secure storage"),
+            Error::BadEncoding(_) => write!(f, "Password cannot be UTF-8 encoded"),
+            Error::TooLong(name, len) => write!(
+                f,
+                "Attribute '{}' is longer than platform limit of {} chars",
+                name, len
+            ),
         }
     }
 }
 
-impl error::Error for KeyringError {
-    // the description method on KeyringError is hard deprecated,
-    // but since we defined this impl before it was deprecated
-    // we are still using it.  So we have to turn off the warning.
-    #[allow(deprecated)]
-    fn description(&self) -> &str {
-        match *self {
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => err.description(),
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => err.description(),
-            #[cfg(target_os = "windows")]
-            KeyringError::WindowsVaultError => "Windows Vault Error",
-            KeyringError::NoBackendFound => "No Backend Found",
-            KeyringError::NoPasswordFound => "No Password Found",
-            KeyringError::Parse(ref err) => err.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
-        match *self {
-            #[cfg(target_os = "linux")]
-            KeyringError::SecretServiceError(ref err) => Some(err),
-            #[cfg(target_os = "macos")]
-            KeyringError::MacOsKeychainError(ref err) => Some(err),
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::PlatformFailure(err) => Some(err),
+            Error::NoStorageAccess(err) => Some(err),
             _ => None,
         }
-    }
-}
-
-#[cfg(target_os = "linux")]
-impl From<SsError> for KeyringError {
-    fn from(err: SsError) -> KeyringError {
-        KeyringError::SecretServiceError(err)
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl From<SfError> for KeyringError {
-    fn from(err: SfError) -> KeyringError {
-        KeyringError::MacOsKeychainError(err)
-    }
-}
-
-impl From<FromUtf8Error> for KeyringError {
-    fn from(err: FromUtf8Error) -> KeyringError {
-        KeyringError::Parse(err)
     }
 }
