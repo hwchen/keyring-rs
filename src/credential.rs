@@ -42,10 +42,10 @@ pub enum Platform {
     MacOs,
 }
 
-// Linux supports multiple credential stores, each named by a string.
-// Credentials in a store are identified by an arbitrary collection
-// of attributes, and each can have "label" metadata for use in
-// graphical editors.
+/// Linux supports multiple credential stores, each named by a string.
+/// Credentials in a store are identified by an arbitrary collection
+/// of attributes, and each can have "label" metadata for use in
+/// graphical editors.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LinuxCredential {
     pub collection: String,
@@ -54,10 +54,10 @@ pub struct LinuxCredential {
 }
 
 impl LinuxCredential {
-    // Using strings in the credential map makes managing the lifetime
-    // of the credential much easier.  But since the secret service expects
-    // a map from &str to &str, we have this utility to transform the
-    // credential's map into one of the right form.
+    /// Using strings in the credential map makes managing the lifetime
+    /// of the credential much easier.  But since the secret service expects
+    /// a map from &str to &str, we have this utility to transform the
+    /// credential's map into one of the right form.
     pub fn attributes(&self) -> HashMap<&str, &str> {
         self.attributes
             .iter()
@@ -66,9 +66,9 @@ impl LinuxCredential {
     }
 }
 
-// Windows has only one credential store, and each credential is identified
-// by a single string called the "target name".  But generic credentials
-// also have three pieces of metadata with suggestive names.
+/// Windows has only one credential store, and each credential is identified
+/// by a single string called the "target name".  But generic credentials
+/// also have three pieces of metadata with suggestive names.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WinCredential {
     pub username: String,
@@ -77,10 +77,10 @@ pub struct WinCredential {
     pub comment: String,
 }
 
-// MacOS supports multiple OS-provided credential stores, and used to support creating
-// arbitrary new credential stores (but that has been deprecated).  Credentials on
-// Mac also can have "type" but we don't reflect that here because the type is actually
-// opaque once set and is only used in the Keychain UI.
+/// MacOS supports multiple OS-provided credential stores, and used to support creating
+/// arbitrary new credential stores (but that has been deprecated).  Credentials on
+/// Mac also can have "type" but we don't reflect that here because the type is actually
+/// opaque once set and is only used in the Keychain UI.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MacCredential {
     pub domain: MacKeychainDomain,
@@ -133,8 +133,8 @@ impl PlatformCredential {
     }
 }
 
-// Create the default target credential for a keyring item.  The caller
-// can provide a target parameter to influence the mapping.
+/// Create the default target credential for a keyring item.  The caller
+/// can provide a target parameter to influence the mapping.
 pub fn default_target(
     platform: &Platform,
     target: Option<&str>,

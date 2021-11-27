@@ -62,8 +62,8 @@ fn decode_password(bytes: Vec<u8>) -> Result<String> {
     String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))
 }
 
-// The MacOS error codes used here are from:
-// https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
+/// The MacOS error codes used here are from:
+/// https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
 fn decode_error(err: Error) -> ErrorCode {
     match err.code() {
         -25291 => ErrorCode::NoStorageAccess(err), // errSecNotAvailable
