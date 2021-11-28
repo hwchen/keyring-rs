@@ -25,27 +25,27 @@ pub struct Entry {
 }
 
 impl Entry {
-    // Create an entry for the given service and username.
-    // This maps to a target credential in the default keychain.
+    /// Create an entry for the given service and username.
+    /// This maps to a target credential in the default keychain.
     pub fn new(service: &str, username: &str) -> Entry {
         Entry {
             target: credential::default_target(&platform(), None, service, username),
         }
     }
 
-    // Create an entry for the given target, service, and username.
-    // On Linux and Mac, the target is interpreted as naming the collection/keychain
-    // to store the credential.  On Windows, the target is used directly as
-    // the _target name_ of the credential.
+    /// Create an entry for the given target, service, and username.
+    /// On Linux and Mac, the target is interpreted as naming the collection/keychain
+    /// to store the credential.  On Windows, the target is used directly as
+    /// the _target name_ of the credential.
     pub fn new_with_target(target: &str, service: &str, username: &str) -> Entry {
         Entry {
             target: credential::default_target(&platform(), Some(target), service, username),
         }
     }
 
-    // Create an entry that uses the given credential for storage.  Callers can use
-    // their own algorithm to produce a platform-specific credential spec for the
-    // given service and username and then call this entry with that value.
+    /// Create an entry that uses the given credential for storage.  Callers can use
+    /// their own algorithm to produce a platform-specific credential spec for the
+    /// given service and username and then call this entry with that value.
     pub fn new_with_credential(target: &PlatformCredential) -> Result<Entry> {
         if target.matches_platform(&platform()) {
             Ok(Entry {
@@ -56,33 +56,33 @@ impl Entry {
         }
     }
 
-    // Set the password for this item.  Any other platform-specific
-    // annotations are determined by the mapper that was used
-    // to create the credential.
+    /// Set the password for this item.  Any other platform-specific
+    /// annotations are determined by the mapper that was used
+    /// to create the credential.
     pub fn set_password(&self, password: &str) -> Result<()> {
         platform::set_password(&self.target, password)
     }
 
-    // Retrieve the password saved for this item.
-    // Returns a `NoEntry` error is there isn't one.
+    /// Retrieve the password saved for this item.
+    /// Returns a `NoEntry` error is there isn't one.
     pub fn get_password(&self) -> Result<String> {
         let mut map = self.target.clone();
         platform::get_password(&mut map)
     }
 
-    // Retrieve the password and all the other fields
-    // set in the platform-specific credential.  This
-    // allows retrieving metadata on the credential that
-    // were saved by external applications.
+    /// Retrieve the password and all the other fields
+    /// set in the platform-specific credential.  This
+    /// allows retrieving metadata on the credential that
+    /// were saved by external applications.
     pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
         let mut map = self.target.clone();
         let password = platform::get_password(&mut map)?;
         Ok((password, map))
     }
 
-    // Delete the password for this item.  (Although the item
-    // itself follows the Rust structure lifecycle, deleting
-    // the password deletes the platform credential from secure storage.)
+    /// Delete the password for this item.  (Although the item
+    /// itself follows the Rust structure lifecycle, deleting
+    /// the password deletes the platform credential from secure storage.)
     pub fn delete_password(&self) -> Result<()> {
         platform::delete_password(&self.target)
     }
