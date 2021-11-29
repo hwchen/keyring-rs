@@ -1,6 +1,9 @@
-/*
+/*!
+
+Defines the credential model for each supported platform.
+
 This crate has a very simple model of a keyring: it has any number
-of items, each of which is identified by a <username, service> pair,
+of entries, each of which is identified by a <username, service> pair,
 has no other metadata, and has a UTF-8 string as its "password".
 Furthermore, there is only one keyring.
 
@@ -8,15 +11,15 @@ This crate runs on several different platforms, each of which has its
 own secure storage system with its own model for what constitutes a
 "generic" secure credential: where it is stored, how it is identified,
 what metadata it has, and what kind of "password" it allows.  These
-platform credentials provide the persistence for keyring items.
+platform credentials provide the persistence for keyring entries.
 
-In order to bridge the gap between the keyring item model and each
+In order to bridge the gap between the keyring entry model and each
 platform's credential model, this crate uses a "credential mapper":
-a function which maps from keyring items to platform credentials.
+a function which maps from keyring entries to platform credentials.
 The inputs to a credential mapper are the platform, optional target
-specification, service, and username, of the keyring item; its output
+specification, service, and username of the keyring entry; its output
 is a platform-specific "recipe" for identifying and annotating the
-platform credential which the crate will use for this item.
+platform credential which the crate will use for this entry.
 
 This module provides a credential model for each supported platform,
 and a credential mapper which the crate uses by default.  The default
@@ -29,12 +32,15 @@ Clients who want to use a different algorithm for mapping service/username
 pairs to platform credentials can also provide the specific credential spec
 they want to use when creating the entry.
 
-See the top-level README for the project for more information about the
-platform-specific credential mapping.  Or read the code here :).
+See the [top-level library documentation](https://docs.rs/keyring) for
+more information about the platform-specific credential mapping.
+Or read the code here :).
+
  */
 
 use std::collections::HashMap;
 
+/// The supported platforms.
 #[derive(Debug)]
 pub enum Platform {
     Linux,
@@ -89,6 +95,8 @@ pub struct MacCredential {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// There are four pre-defined Mac keychains.  Now that file-based keychains are
+/// deprecated, those are the only domains that can be accessed.
 pub enum MacKeychainDomain {
     User,
     System,
@@ -97,6 +105,10 @@ pub enum MacKeychainDomain {
 }
 
 impl From<&str> for MacKeychainDomain {
+    /// Target specifications are strings, but on Mac we map them
+    /// to keychoin domains.  We accept any case in the string,
+    /// but the value has to match a known keychain domain name
+    /// or else we assume the login keychain is meant.
     fn from(keychain: &str) -> Self {
         match keychain.to_ascii_lowercase().as_str() {
             "system" => MacKeychainDomain::System,
@@ -117,6 +129,9 @@ impl From<Option<&str>> for MacKeychainDomain {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// While defined cross-platform, instantiated platform
+/// credentials always contain just the model for the
+/// current runtime `Platform`.
 pub enum PlatformCredential {
     Linux(LinuxCredential),
     Win(WinCredential),
@@ -133,8 +148,8 @@ impl PlatformCredential {
     }
 }
 
-/// Create the default target credential for a keyring item.  The caller
-/// can provide a target parameter to influence the mapping.
+/// Create the default target credential for a keyring entry.  The caller
+/// can provide an optional target parameter to influence the mapping.
 pub fn default_target(
     platform: &Platform,
     target: Option<&str>,

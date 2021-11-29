@@ -6,10 +6,7 @@ doc_comment::doctest!("../README.md");
 fn test_empty_keyring() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
-    assert!(
-        matches!(entry.get_password(), Err(Error::NoEntry)),
-        "Read a password from a non-existent platform item"
-    )
+    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
 #[test]
