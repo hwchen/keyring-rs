@@ -1,4 +1,13 @@
+/*!
+
+Defines a platform-independent error model.
+
+ */
+
 #[derive(Debug)]
+/// Each variant of the `Error` enum provides a summary of the error.
+/// More details, if relevant, are contained in the associated value,
+/// which may be platform-specific.
 pub enum Error {
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
@@ -11,24 +20,22 @@ pub enum Error {
     /// platform error will typically give the reason.
     NoStorageAccess(crate::platform::Error),
     /// This indicates that there is no underlying credential
-    /// entry in the platform for this item.  Either one was
+    /// entry in the platform for this entry.  Either one was
     /// never set, or it was deleted.
     NoEntry,
     /// This indicates that the retrieved password blob was not
     /// a UTF-8 string.  The underlying bytes are available
     /// for examination in the attached value.
     BadEncoding(Vec<u8>),
-    /// This indicates that one of the underlying credential
-    /// metadata values produced by the mapper exceeded a
-    /// length limit for the underlying platform.  The
-    /// attached value give the name of the attribute and
+    /// This indicates that one of the entry's credential
+    /// attributes exceeded a
+    /// length limit in the underlying platform.  The
+    /// attached values give the name of the attribute and
     /// the platform length limit that was exceeded.
     TooLong(String, u32),
-    /// This indicates that the underlying mapper produced
-    /// a credential specification for a different platform
-    /// that you are running on.  Since the mapper is only
-    /// run when items are created, this can only be a status
-    /// returned from `new_with_mapper`.
+    /// This indicates that the credential provided
+    /// to `Entry::new_with_credential` was for
+    /// a different platform than the one in use.
     WrongCredentialPlatform,
 }
 

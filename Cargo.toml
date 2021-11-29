@@ -1,12 +1,12 @@
 [package]
-authors = ["Walther Chen <walther.chen@gmail.com>"]
-description = "Cross-platform library for managing passwords"
-homepage = "https://github.com/hwchen/keyring-rs.git"
-keywords = ["password", "cross-platform", "keychain", "keyring"]
+authors = ["Walther Chen <walther.chen@gmail.com>", "Daniel Brotsky <dev@brotsky.com>"]
+description = "Cross-platform library for managing passwords/credentials"
+homepage = "https://github.com/hwchen/keyring-rs"
+keywords = ["password", "credential", "secure storage", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "0.10.4"
+version = "1.0.0"
 edition = "2018"
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -25,6 +25,3 @@ rand = "0.8.4"
 doc-comment = "0.3.3"
 structopt = "0.3.25"
 whoami = "1.2.0"
-
-[target.'cfg(target_os = "macos")'.dev-dependencies]
-tempfile = "3.1.0"

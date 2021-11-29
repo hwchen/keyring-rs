@@ -1,3 +1,14 @@
+## Version 1.0.0
+- Breaking API changes:
+  - `Keyring` struct renamed to `Entry`
+  - `KeyringError` enum renamed to `Error`, and is completely cross-platform.
+- API enhancements:
+  - Clients can now control how entries map to credentials; see `Entry::new_with_target` and `Entry::new_with_credential`
+  - Clients can now retrieve platform credentials with metadata rather than just passwords; see `Entry::get_password_and_credential`.
+  - Non UTF8 passwords now have their data available.
+  - Non-login keychains are usable on Linux and Mac.
+- Expanded documentation and `cli` example.
+
 ## Version 0.10.4
 - CI fix for linux executable
 
