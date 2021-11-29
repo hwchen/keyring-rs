@@ -238,13 +238,17 @@ mod tests {
 
     #[test]
     fn test_bad_password() {
-        // first malformed sequence can't be UTF-16 because it has an odd number of bytes
-        // second malformed sequence is a first surrogate marker (0xd801) in little-endian
-        // form, and it doesn't have a companion so it's invalid.
-        for bytes in [b"1".to_vec(), b"\x01\xd8".to_vec()] {
+        // the first malformed sequence can't be UTF-16 because it has an odd number of bytes.
+        // the second malformed sequence has a first surrogate marker (0xd800) without a matching
+        // companion (it's taken from the String::fromUTF16 docs).
+        let odd_bytes = b"1".to_vec();
+        let malformed_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
+        let mut malformed_bytes: Vec<u8> = vec![0; malformed_utf16.len() * 2];
+        LittleEndian::write_u16_into(&malformed_utf16, &mut malformed_bytes);
+        for bytes in [&odd_bytes, &malformed_bytes] {
             let credential = make_platform_credential(bytes.clone());
             match decode_password(&credential) {
-                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
+                Err(ErrorCode::BadEncoding(str)) => assert_eq!(&str, bytes),
                 Err(other) => panic!(
                     "Bad password ({:?}) decode gave wrong error: {}",
                     bytes, other
