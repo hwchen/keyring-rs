@@ -2,7 +2,7 @@
 authors = ["Walther Chen <walther.chen@gmail.com>", "Daniel Brotsky <dev@brotsky.com>"]
 description = "Cross-platform library for managing passwords/credentials"
 homepage = "https://github.com/hwchen/keyring-rs"
-keywords = ["password", "credential", "secret-service", "keychain", "keyring", "cross-platform"]
+keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
