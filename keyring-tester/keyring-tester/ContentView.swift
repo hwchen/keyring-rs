@@ -10,69 +10,77 @@ import SwiftUI
 struct ContentView: View {
     @State var service = "test-service"
     @State var user = "test-user"
-    @State var password_in = "test-password"
-    @State var password_out = ""
-    @State var show_alert = false
-    @State var action = "Set Password"
-    @State var errMessage = ""
-    @State var opStatus: OSStatus = 0;
+    @State var passwordIn = "test-password"
+    @State var passwordOut = ""
+    @State var showAlert = false
+    @State var alertTitle = ""
+    @State var alertMessage = ""
     
     var body: some View {
         Form {
             Section("Service Name") {
                 TextField("Service Name", text: $service)
+                    .textInputAutocapitalization(.never)
             }
             Section("User Name") {
                 TextField("User Name", text: $user)
+                    .textInputAutocapitalization(.never)
             }
-            Section("Password") {
-                TextField("Password to Set", text: $password_in)
+            Section("Set or Update Password") {
+                TextField("Password to Set", text: $passwordIn)
+                    .textInputAutocapitalization(.never)
                 Button("Set Password") {
-                    action = "Set Password"
-                    opStatus = add_password()
-                    if opStatus == errSecSuccess {
-                        password_in = "[Already set, use get!]"
-                    } else {
-                        show_alert = true
-                    }
+                    add_or_update_password()
                 }
             }
-            Section("Get Password") {
+            Section("Get or Delete Password") {
                 Button("Get Password") {
-                    action = "Get Password"
-                    opStatus = get_password()
-                    if opStatus != errSecSuccess {
-                        password_out = "[Error retrieving password]"
-                        show_alert = true
-                    }
+                    get_password()
                 }
-                Text(password_out)
+                Text(passwordOut)
+                Button("Delete Password") {
+                    delete_password()
+                }
             }
         }
-        .alert(isPresented: $show_alert) {
-            Alert(
-                title: Text("Operation Failure"),
-                message: Text("\(action) failed: \(errMessage)"))
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("\(alertTitle)"),
+                  message: Text("\(alertMessage)"))
         }
     }
     
-    func add_password() -> OSStatus {
-        let password = password_in.data(using: String.Encoding.utf8)!
-        let query: [String: Any] = [
+    func add_or_update_password() {
+        if passwordIn.isEmpty {
+            alertTitle = "Failure"
+            alertMessage = "Can't set empty password; use Delete Password instead."
+        }
+        showAlert = true
+        alertTitle = "Success"
+        alertMessage = "Password set!"
+        let password = passwordIn.data(using: String.Encoding.utf8)!
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: user,
             kSecAttrService as String: service,
             kSecValueData as String: password,
         ]
-        var item: CFTypeRef?
-        let status = SecItemAdd(query as CFDictionary, &item)
-        print("item: \(String(describing:item))")
-        errMessage = "OSStatus \(status)"
-        return status
+        var status = SecItemAdd(query as CFDictionary, nil)
+        if status == errSecDuplicateItem {
+            alertMessage = "Password updated!"
+            query.removeValue(forKey: kSecValueData as String)
+            let update: [String: Any] = [kSecValueData as String: password]
+            status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        }
+        if status != errSecSuccess {
+            alertTitle = "Failure"
+            alertMessage = "Set Password failed: OSStatus \(status)"
+        }
     }
     
-    func get_password() -> OSStatus {
-        password_out = ""
+    func get_password() {
+        passwordOut = ""
+        showAlert = true
+        alertTitle = "Failure"
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -82,22 +90,40 @@ struct ContentView: View {
             kSecReturnData as String: true]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        print("item: \(String(describing:item))")
         if status == errSecSuccess {
             if let existingItem = item as? [String : Any],
                let passwordData = existingItem[kSecValueData as String] as? Data,
                let password = String(data: passwordData, encoding: String.Encoding.utf8) {
-                password_out = password
+                showAlert = false
+                passwordOut = password
             } else {
-                errMessage = "Bad password data"
-                return errSecDecode
+                alertMessage = "Bad password data in keychain"
             }
         } else if status == errSecItemNotFound {
-            errMessage = "No item found for \(service) and \(user)"
+            alertMessage = "No item found for \(service) and \(user)"
         } else {
-            errMessage = "OSStatus \(status)"
+            alertMessage = "Get Password failed: OSStatus \(status)"
         }
-        return status
+    }
+    
+    func delete_password() {
+        showAlert = true
+        alertTitle = "Failure"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: user,
+            kSecAttrService as String: service,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        if status == errSecSuccess {
+            passwordOut = ""
+            showAlert = false
+        } else if status == errSecItemNotFound {
+            passwordOut = ""
+            alertMessage = "No keychain entry found for \(service) and \(user)"
+        } else {
+            alertMessage = "Delete Password failed: OSStatus \(status)"
+        }
     }
 }
 
