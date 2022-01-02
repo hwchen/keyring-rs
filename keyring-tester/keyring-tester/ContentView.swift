@@ -50,79 +50,52 @@ struct ContentView: View {
     }
     
     func add_or_update_password() {
-        if passwordIn.isEmpty {
+        showAlert = true
+        guard !passwordIn.isEmpty else {
             alertTitle = "Failure"
             alertMessage = "Can't set empty password; use Delete Password instead."
+            return
         }
-        showAlert = true
-        alertTitle = "Success"
-        alertMessage = "Password set!"
-        let password = passwordIn.data(using: String.Encoding.utf8)!
-        var query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: user,
-            kSecAttrService as String: service,
-            kSecValueData as String: password,
-        ]
-        var status = SecItemAdd(query as CFDictionary, nil)
-        if status == errSecDuplicateItem {
-            alertMessage = "Password updated!"
-            query.removeValue(forKey: kSecValueData as String)
-            let update: [String: Any] = [kSecValueData as String: password]
-            status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
-        }
-        if status != errSecSuccess {
+        let status = KeyringSetPassword(service as CFString, user as CFString, passwordIn as CFString)
+        if status == errSecSuccess {
+            alertTitle = "Success"
+            alertMessage = "Password set!"
+        } else {
             alertTitle = "Failure"
             alertMessage = "Set Password failed: OSStatus \(status)"
         }
     }
     
     func get_password() {
-        passwordOut = ""
-        showAlert = true
-        alertTitle = "Failure"
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: user,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnAttributes as String: true,
-            kSecReturnData as String: true]
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        var password: CFString?
+        let status = KeyringCopyPassword(service as CFString, user as CFString, &password)
         if status == errSecSuccess {
-            if let existingItem = item as? [String : Any],
-               let passwordData = existingItem[kSecValueData as String] as? Data,
-               let password = String(data: passwordData, encoding: String.Encoding.utf8) {
-                showAlert = false
-                passwordOut = password
-            } else {
-                alertMessage = "Bad password data in keychain"
-            }
-        } else if status == errSecItemNotFound {
-            alertMessage = "No item found for \(service) and \(user)"
+            passwordOut = password! as String
         } else {
-            alertMessage = "Get Password failed: OSStatus \(status)"
+            passwordOut = ""
+            showAlert = true
+            alertTitle = "Failure"
+            if status == errSecItemNotFound {
+                alertMessage = "No item found for \(service) and \(user)"
+            } else {
+                alertMessage = "Get Password failed: OSStatus \(status)"
+            }
         }
     }
     
     func delete_password() {
-        showAlert = true
-        alertTitle = "Failure"
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: user,
-            kSecAttrService as String: service,
-        ]
-        let status = SecItemDelete(query as CFDictionary)
+        let status = KeyringDeletePassword(service as CFString, user as CFString)
         if status == errSecSuccess {
             passwordOut = ""
-            showAlert = false
-        } else if status == errSecItemNotFound {
-            passwordOut = ""
-            alertMessage = "No keychain entry found for \(service) and \(user)"
         } else {
-            alertMessage = "Delete Password failed: OSStatus \(status)"
+            showAlert = true
+            alertTitle = "Failure"
+            if status == errSecItemNotFound {
+                passwordOut = ""
+                alertMessage = "No keychain entry found for \(service) and \(user)"
+            } else {
+                alertMessage = "Delete Password failed: OSStatus \(status)"
+            }
         }
     }
 }

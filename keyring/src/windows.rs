@@ -17,6 +17,25 @@ use winapi::um::wincred::{
 
 use crate::credential::WinCredential;
 use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
+use byteorder::{ByteOrder, LittleEndian};
+use std::iter::once;
+use std::mem::MaybeUninit;
+use std::slice;
+use std::str;
+use winapi::shared::minwindef::FILETIME;
+use winapi::shared::winerror::{
+    ERROR_BAD_USERNAME, ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER, ERROR_NOT_FOUND,
+    ERROR_NO_SUCH_LOGON_SESSION,
+};
+use winapi::um::errhandlingapi::GetLastError;
+use winapi::um::wincred::{
+    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_MAX_CREDENTIAL_BLOB_SIZE,
+    CRED_MAX_GENERIC_TARGET_NAME_LENGTH, CRED_MAX_STRING_LENGTH, CRED_MAX_USERNAME_LENGTH,
+    CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
+};
+
+use crate::credential::WinCredential;
+use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
     Platform::Windows
@@ -117,7 +136,7 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
                 // Dereferencing pointer to credential
                 let credential: CREDENTIALW = unsafe { *pcredential };
                 decode_attributes(map, &credential);
-                let password = decode_password(&credential);
+                let password = extract_password(&credential);
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
@@ -194,7 +213,7 @@ fn decode_attributes(map: &mut WinCredential, credential: &CREDENTIALW) {
     map.target_alias = unsafe { from_wstr(credential.TargetAlias) };
 }
 
-fn decode_password(credential: &CREDENTIALW) -> Result<String> {
+fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
@@ -247,7 +266,7 @@ mod tests {
         LittleEndian::write_u16_into(&malformed_utf16, &mut malformed_bytes);
         for bytes in [&odd_bytes, &malformed_bytes] {
             let credential = make_platform_credential(bytes.clone());
-            match decode_password(&credential) {
+            match extract_password(&credential) {
                 Err(ErrorCode::BadEncoding(str)) => assert_eq!(&str, bytes),
                 Err(other) => panic!(
                     "Bad password ({:?}) decode gave wrong error: {}",

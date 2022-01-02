@@ -46,6 +46,7 @@ pub enum Platform {
     Linux,
     Windows,
     MacOs,
+    Ios,
 }
 
 /// Linux supports multiple credential stores, each named by a string.
@@ -128,6 +129,13 @@ impl From<Option<&str>> for MacKeychainDomain {
     }
 }
 
+/// iOS credentials all go in the user keychain identified by service and account.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IosCredential {
+    pub service: String,
+    pub account: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 /// While defined cross-platform, instantiated platform
 /// credentials always contain just the model for the
@@ -136,14 +144,16 @@ pub enum PlatformCredential {
     Linux(LinuxCredential),
     Win(WinCredential),
     Mac(MacCredential),
+    Ios(IosCredential),
 }
 
 impl PlatformCredential {
     pub fn matches_platform(&self, os: &Platform) -> bool {
         match self {
             PlatformCredential::Linux(_) => matches!(os, Platform::Linux),
-            PlatformCredential::Mac(_) => matches!(os, Platform::MacOs),
             PlatformCredential::Win(_) => matches!(os, Platform::Windows),
+            PlatformCredential::Mac(_) => matches!(os, Platform::MacOs),
+            PlatformCredential::Ios(_) => matches!(os, Platform::Ios),
         }
     }
 }
@@ -203,6 +213,10 @@ pub fn default_target(
         }
         Platform::MacOs => PlatformCredential::Mac(MacCredential {
             domain: target.into(),
+            service: service.to_string(),
+            account: username.to_string(),
+        }),
+        Platform::Ios => PlatformCredential::Ios(IosCredential {
             service: service.to_string(),
             account: username.to_string(),
         }),

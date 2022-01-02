@@ -2,6 +2,7 @@ use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain}
 use security_framework::os::macos::passwords::find_generic_password;
 
 use crate::credential::{MacCredential, MacKeychainDomain};
+use crate::error::decode_password;
 use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
@@ -57,11 +58,6 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
     }
 }
 
-fn decode_password(bytes: Vec<u8>) -> Result<String> {
-    // Mac keychain allows non-UTF8 values, passwords from 3rd parties may not be UTF-8.
-    String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))
-}
-
 /// The MacOS error codes used here are from:
 /// https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html
 fn decode_error(err: Error) -> ErrorCode {
@@ -72,26 +68,5 @@ fn decode_error(err: Error) -> ErrorCode {
         -25295 => ErrorCode::NoStorageAccess(err), // errSecInvalidKeychain
         -25300 => ErrorCode::NoEntry,              // errSecItemNotFound
         _ => ErrorCode::PlatformFailure(err),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_bad_password() {
-        // malformed sequences here taken from:
-        // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
-        for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
-            match decode_password(bytes.clone()) {
-                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
-                Err(other) => panic!(
-                    "Bad password ({:?}) decode gave wrong error: {}",
-                    bytes, other
-                ),
-                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
-            }
-        }
     }
 }
