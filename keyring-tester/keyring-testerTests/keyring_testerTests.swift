@@ -6,21 +6,20 @@
 //
 
 import XCTest
+@testable import keyring_tester
 
 class keyring_testerTests: XCTestCase {
 
     func testRoundtrip() throws {
-//        let input = "testRoundtrip" as CFString
-//        XCTAssertEqual(KeyringSetPassword(input, input, input), errSecSuccess)
-//        var output: CFString?
-//        XCTAssertEqual(KeyringSetPassword(input, input, input), errSecSuccess)
-//        let result: String = try! PasswordOps.getPassword(service: "testRoundtrip", user: "testRoundtrip")
-//        XCTAssertEqual(input, result)
-//        XCTAssertNotNil(try? PasswordOps.deletePassword(service: "testRoundtrip", user: "testRoundtrip"))
+        let input: String = "testRoundtrip"
+        XCTAssertNotNil(try? PasswordOps.setPassword(service: input, user: input, password: input))
+        let result: String = try! PasswordOps.getPassword(service: input, user: input)
+        XCTAssertEqual(input, result)
+        XCTAssertNotNil(try? PasswordOps.deletePassword(service: input, user: input))
     }
     
     func testMissing() throws {
-//        XCTAssertNil(try? PasswordOps.getPassword(service: "testMissing", user: "testMissing"))
+        XCTAssertNil(try? PasswordOps.getPassword(service: "testMissing", user: "testMissing"))
     }
 
 }

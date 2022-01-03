@@ -56,45 +56,58 @@ struct ContentView: View {
             alertMessage = "Can't set empty password; use Delete Password instead."
             return
         }
-        let status = KeyringSetPassword(service as CFString, user as CFString, passwordIn as CFString)
-        if status == errSecSuccess {
+        do {
+            try PasswordOps.setPassword(service: service, user: user, password: passwordIn)
             alertTitle = "Success"
             alertMessage = "Password set!"
-        } else {
+        } catch PasswordError.unexpected(let status) {
             alertTitle = "Failure"
             alertMessage = "Set Password failed: OSStatus \(status)"
+        } catch {
+            alertTitle = "Failure"
+            alertMessage = "Set Password failed: \(error)"
         }
     }
     
     func get_password() {
-        var password: CFString?
-        let status = KeyringCopyPassword(service as CFString, user as CFString, &password)
-        if status == errSecSuccess {
-            passwordOut = password! as String
-        } else {
+        do {
+            try passwordOut = PasswordOps.getPassword(service: service, user: user)
+        } catch {
             passwordOut = ""
             showAlert = true
             alertTitle = "Failure"
-            if status == errSecItemNotFound {
+            switch error {
+            case PasswordError.notFound:
                 alertMessage = "No item found for \(service) and \(user)"
-            } else {
+            case PasswordError.notString(let data):
+                var password = ""
+                _ = transcode(data.makeIterator(), from: UTF8.self, to: UTF8.self, stoppingOnError: false, into: {
+                    password.append(contentsOf: String(Unicode.Scalar($0)))
+                })
+                passwordOut = password
+                alertMessage = "Password is not UTF-8 encoded, bytes have been replaced"
+            case PasswordError.unexpected(let status):
                 alertMessage = "Get Password failed: OSStatus \(status)"
+            default:
+                alertMessage = "Get Password failed: \(error)"
             }
         }
     }
     
     func delete_password() {
-        let status = KeyringDeletePassword(service as CFString, user as CFString)
-        if status == errSecSuccess {
-            passwordOut = ""
-        } else {
+        do {
+            try PasswordOps.deletePassword(service: service, user: user)
+        } catch {
             showAlert = true
             alertTitle = "Failure"
-            if status == errSecItemNotFound {
+            switch error {
+            case PasswordError.notFound:
                 passwordOut = ""
                 alertMessage = "No keychain entry found for \(service) and \(user)"
-            } else {
+            case PasswordError.unexpected(let status):
                 alertMessage = "Delete Password failed: OSStatus \(status)"
+            default:
+                alertMessage = "Delete Password failed: \(error)"
             }
         }
     }

@@ -21,6 +21,7 @@
 //! but be aware that it was written long enough ago that some of the processor
 //! architectures it refers to are no longer in use.
 use core_foundation::base::{CFRetain, OSStatus, TCFType};
+use core_foundation::data::{CFData, CFDataRef};
 use core_foundation::string::{CFString, CFStringRef};
 
 extern crate keyring;
@@ -39,7 +40,7 @@ const errSecItemNotFound: OSStatus = -25300;
 
 /// Set a generic password for the given service and account.
 /// Creates or updates a keychain entry.
-/// If an unexpected runtime error is encountered, the status will be `errSecParam`.
+/// Otherwise, an appropriate error status is returned.
 #[no_mangle]
 pub extern "C" fn KeyringSetPassword(
     service: CFStringRef,
@@ -47,7 +48,7 @@ pub extern "C" fn KeyringSetPassword(
     password: CFStringRef,
 ) -> OSStatus {
     if service.is_null() || user.is_null() || password.is_null() {
-        return errSecBadReq;
+        return errSecParam;
     }
     let service = unsafe { CFString::wrap_under_get_rule(service) }.to_string();
     let account = unsafe { CFString::wrap_under_get_rule(user) }.to_string();
@@ -57,20 +58,25 @@ pub extern "C" fn KeyringSetPassword(
         Ok(_) => errSecSuccess,
         Err(Error::PlatformFailure(err)) => err.code(),
         Err(Error::NoStorageAccess(err)) => err.code(),
-        Err(_) => errSecParam,
+        Err(_) => errSecBadReq,
     }
 }
 
-/// Get the password for the given service and account.  If no keychain entry
-/// exists for the service and account, returns `errSecItemNotFound`.
-/// If the password is not UTF8-encoded, the status will be `errSecDecode`.
-/// If an unexpected runtime error is encountered, the status will be `errSecParam`.
+/// Get the password for the given service and account.  If a password is
+/// found, the status will either be `errSecSuccess` or `errSecDecode`
+/// (meaning that it's not UTF8 encoded), and the password will be
+/// returned.
+/// If no keychain entry exists, returns `errSecItemNotFound`.
+/// Otherwise, returns an appropriate error status (with no password).
+///
 ///
 /// # Safety
 /// The `password` argument to this function is a mutable pointer to a CFDataRef.
-/// This is an input-output variable, and (as per CF standards) should come in
+/// (It's a DataRef not a StringRef because we have to be able to pass back badly
+/// encoded passwords through the interface, rather than throw them.)
+/// This DataRef is an input-output variable, and (as per CF standards) should come in
 /// either as nil (a null pointer) or as the address of a CFDataRef whose value is nil.
-/// If the input passowrd value is nil, then the password will be looked up
+/// If the input password value is nil, then the password will be looked up
 /// and an appropriate status returned, but the password data will not be output.
 /// If the input value is non-nil, then the password will be looked up and,
 /// if found:
@@ -84,7 +90,7 @@ pub extern "C" fn KeyringSetPassword(
 pub unsafe extern "C" fn KeyringCopyPassword(
     service: CFStringRef,
     user: CFStringRef,
-    password: *mut CFStringRef,
+    password: *mut CFDataRef,
 ) -> OSStatus {
     if service.is_null() || user.is_null() {
         return errSecBadReq;
@@ -92,31 +98,39 @@ pub unsafe extern "C" fn KeyringCopyPassword(
     let service = CFString::wrap_under_get_rule(service).to_string();
     let account = CFString::wrap_under_get_rule(user).to_string();
     let entry = Entry::new(&service, &account);
+    let copy_password_to_output = |bytes: &[u8]| {
+        let data = CFData::from_buffer(bytes);
+        // take an extra retain count to hand to our caller
+        CFRetain(data.as_CFTypeRef());
+        *password = data.as_concrete_TypeRef();
+    };
     match entry.get_password() {
-        Ok(s) => {
+        Ok(string) => {
             if !password.is_null() {
-                let pw = CFString::new(&s);
-                // take an extra retain count to hand to our caller
-                CFRetain(pw.as_CFTypeRef());
-                *password = pw.as_concrete_TypeRef();
+                copy_password_to_output(string.as_bytes());
             }
             errSecSuccess
         }
         Err(Error::NoEntry) => errSecItemNotFound,
         Err(Error::PlatformFailure(err)) => err.code(),
         Err(Error::NoStorageAccess(err)) => err.code(),
-        Err(Error::BadEncoding(_)) => errSecDecode,
-        Err(_) => errSecParam,
+        Err(Error::BadEncoding(bytes)) => {
+            if !password.is_null() {
+                copy_password_to_output(&bytes);
+            }
+            errSecDecode
+        }
+        Err(_) => errSecBadReq,
     }
 }
 
 /// Delete the keychain entry for the given service and account.  If none
 /// exists, returns `errSecItemNotFound`.
-/// If an unexpected runtime error is encountered, the status will be `errSecParam`.
+/// Otherwise, an appropriate error status is returned.
 #[no_mangle]
 pub extern "C" fn KeyringDeletePassword(service: CFStringRef, user: CFStringRef) -> OSStatus {
     if service.is_null() || user.is_null() {
-        return errSecBadReq;
+        return errSecParam;
     }
     let service = unsafe { CFString::wrap_under_get_rule(service) }.to_string();
     let account = unsafe { CFString::wrap_under_get_rule(user) }.to_string();
@@ -126,6 +140,6 @@ pub extern "C" fn KeyringDeletePassword(service: CFStringRef, user: CFStringRef)
         Err(Error::NoEntry) => errSecItemNotFound,
         Err(Error::PlatformFailure(err)) => err.code(),
         Err(Error::NoStorageAccess(err)) => err.code(),
-        Err(_) => errSecParam,
+        Err(_) => errSecBadReq,
     }
 }

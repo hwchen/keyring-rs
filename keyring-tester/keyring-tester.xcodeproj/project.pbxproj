@@ -15,6 +15,7 @@
 		37697161275D9050001696C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 37697160275D9050001696C9 /* Assets.xcassets */; };
 		37697164275D9050001696C9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 37697163275D9050001696C9 /* Preview Assets.xcassets */; };
 		376971712766BD13001696C9 /* keyring_testerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376971702766BD12001696C9 /* keyring_testerTests.swift */; };
+		37E1909A27822D26004437FB /* PasswordOps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E1909927822D26004437FB /* PasswordOps.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +44,7 @@
 		37697163275D9050001696C9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		3769716E2766BD12001696C9 /* keyring-testerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "keyring-testerTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		376971702766BD12001696C9 /* keyring_testerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keyring_testerTests.swift; sourceTree = "<group>"; };
+		37E1909927822D26004437FB /* PasswordOps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordOps.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +86,7 @@
 				37046C57277FD8C90095D055 /* iospw-Bridging-Header.h */,
 				37428831278112A1003BA3B6 /* create-iospw.sh */,
 				374288432781433D003BA3B6 /* remove-iospw.sh */,
+				37E1909927822D26004437FB /* PasswordOps.swift */,
 			);
 			path = iospw;
 			sourceTree = "<group>";
@@ -280,6 +283,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3769715F275D904E001696C9 /* ContentView.swift in Sources */,
+				37E1909A27822D26004437FB /* PasswordOps.swift in Sources */,
 				3769715D275D904E001696C9 /* keyring_testerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
