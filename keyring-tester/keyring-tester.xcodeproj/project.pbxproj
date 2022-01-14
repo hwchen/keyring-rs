@@ -8,14 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		37046C55277FD81E0095D055 /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 37046C54277FD80D0095D055 /* libresolv.tbd */; };
-		37428846278148E2003BA3B6 /* libiospw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 37428845278148E2003BA3B6 /* libiospw.a */; };
-		3742884827814946003BA3B6 /* libiospw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3742884727814946003BA3B6 /* libiospw.a */; };
 		3769715D275D904E001696C9 /* keyring_testerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3769715C275D904E001696C9 /* keyring_testerApp.swift */; };
 		3769715F275D904E001696C9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3769715E275D904E001696C9 /* ContentView.swift */; };
 		37697161275D9050001696C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 37697160275D9050001696C9 /* Assets.xcassets */; };
 		37697164275D9050001696C9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 37697163275D9050001696C9 /* Preview Assets.xcassets */; };
 		376971712766BD13001696C9 /* keyring_testerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 376971702766BD12001696C9 /* keyring_testerTests.swift */; };
 		37E1909A27822D26004437FB /* PasswordOps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E1909927822D26004437FB /* PasswordOps.swift */; };
+		37E1909C278981F1004437FB /* libiospw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 37E1909B278981F1004437FB /* libiospw.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,8 +34,6 @@
 		37046C57277FD8C90095D055 /* iospw-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iospw-Bridging-Header.h"; sourceTree = "<group>"; };
 		37428831278112A1003BA3B6 /* create-iospw.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "create-iospw.sh"; sourceTree = "<group>"; };
 		374288432781433D003BA3B6 /* remove-iospw.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "remove-iospw.sh"; sourceTree = "<group>"; };
-		37428845278148E2003BA3B6 /* libiospw.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libiospw.a; path = ../target/universal/debug/libiospw.a; sourceTree = "<group>"; };
-		3742884727814946003BA3B6 /* libiospw.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libiospw.a; path = ../target/universal/release/libiospw.a; sourceTree = "<group>"; };
 		37697159275D904E001696C9 /* keyring-tester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "keyring-tester.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3769715C275D904E001696C9 /* keyring_testerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keyring_testerApp.swift; sourceTree = "<group>"; };
 		3769715E275D904E001696C9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -45,6 +42,7 @@
 		3769716E2766BD12001696C9 /* keyring-testerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "keyring-testerTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		376971702766BD12001696C9 /* keyring_testerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = keyring_testerTests.swift; sourceTree = "<group>"; };
 		37E1909927822D26004437FB /* PasswordOps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordOps.swift; sourceTree = "<group>"; };
+		37E1909B278981F1004437FB /* libiospw.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libiospw.a; path = "../../Intermediates.noindex/keyring-tester.build/Debug-iphoneos/keyring-tester.build/DerivedSources/libiospw.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,8 +50,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3742884827814946003BA3B6 /* libiospw.a in Frameworks */,
-				37428846278148E2003BA3B6 /* libiospw.a in Frameworks */,
+				37E1909C278981F1004437FB /* libiospw.a in Frameworks */,
 				37046C55277FD81E0095D055 /* libresolv.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,8 +68,7 @@
 		37046C4C277FD6DE0095D055 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				37428845278148E2003BA3B6 /* libiospw.a */,
-				3742884727814946003BA3B6 /* libiospw.a */,
+				37E1909B278981F1004437FB /* libiospw.a */,
 				37046C54277FD80D0095D055 /* libresolv.tbd */,
 				37046C51277FD7CF0095D055 /* keyring-tester */,
 			);
@@ -238,7 +234,6 @@
 /* Begin PBXShellScriptBuildPhase section */
 		3742883F27813C42003BA3B6 /* create iospw */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 12;
 			files = (
 			);
@@ -250,11 +245,12 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(PROJECT_DIR)/../target/universal/$(CONFIGURATION:lower)/libiospw.a",
+				"$(DERIVED_FILES_DIR)/libiospw.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = "source /Users/dbrotsky/src.vendor/keyring-rs/keyring-tester/iospw/create-iospw.sh\n\n";
+			showEnvVarsInLog = 0;
 		};
 		3742884227814179003BA3B6 /* remove iospw */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -274,6 +270,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "source /Users/dbrotsky/src.vendor/keyring-rs/keyring-tester/iospw/remove-iospw.sh\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -432,7 +429,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"keyring-tester/Preview Content\"";
 				DEVELOPMENT_TEAM = 85H73V9R3F;
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "keyring-tester/Info.plist";
@@ -445,7 +442,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../target/universal/$(CONFIGURATION:lower)";
+				LIBRARY_SEARCH_PATHS = "$(DERIVED_FILES_DIR)";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.brotsky.keyring-tester";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -465,7 +462,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"keyring-tester/Preview Content\"";
 				DEVELOPMENT_TEAM = 85H73V9R3F;
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "keyring-tester/Info.plist";
@@ -478,7 +475,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(PROJECT_DIR)/../target/universal/$(CONFIGURATION:lower)";
+				LIBRARY_SEARCH_PATHS = "$(DERIVED_FILES_DIR)";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.brotsky.keyring-tester";
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -5,4 +5,4 @@ set -x
 #
 #  Created by Daniel Brotsky on 1/1/22.
 #  
-rm -fv ../target/universal/*/libiospw.a
+# rm -fv ${DERIVED_FILES_DIR}/libiospw.a
