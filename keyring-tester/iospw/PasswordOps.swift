@@ -26,23 +26,29 @@ class PasswordOps {
     static func getPassword(service: String, user: String) throws -> String {
         var result: CFData?
         let status = KeyringCopyPassword(service as CFString, user as CFString, &result)
-        if status == errSecItemNotFound {
+        switch status {
+        case errSecItemNotFound:
             throw PasswordError.notFound
-        }
-        guard status == errSecSuccess || status == errSecDecode else {
+        case errSecSuccess, errSecDecode:
+            let data = result! as Data
+            if let password = String.init(bytes: data, encoding: .utf8) {
+                return password
+            } else {
+                throw PasswordError.notString(data)
+            }
+        default:
             throw PasswordError.unexpected(status)
-        }
-        let data = result! as Data
-        if let password = String.init(bytes: data, encoding: .utf8) {
-            return password
-        } else {
-            throw PasswordError.notString(data)
         }
     }
     
     static func deletePassword(service: String, user: String) throws {
         let status = KeyringDeletePassword(service as CFString, user as CFString)
-        guard status == errSecSuccess else {
+        switch status {
+        case errSecItemNotFound:
+            throw PasswordError.notFound
+        case errSecSuccess:
+            return
+        default:
             throw PasswordError.unexpected(status)
         }
     }

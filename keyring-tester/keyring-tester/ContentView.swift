@@ -97,6 +97,7 @@ struct ContentView: View {
     func delete_password() {
         do {
             try PasswordOps.deletePassword(service: service, user: user)
+            passwordOut = ""
         } catch {
             showAlert = true
             alertTitle = "Failure"
