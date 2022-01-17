@@ -11,11 +11,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Figure out the correct Rust target from the ARCHS and PLATFORM.
 # This script expects just one element in ARCHS.
 case "$ARCHS" in
-	"armv7")	rust_arch="armv7" ;;
 	"arm64")	rust_arch="aarch64" ;;
-	"i386")		rust_arch="i386" ;;
 	"x86_64")	rust_arch="x86_64" ;;
-	*)			echo "error: failed to parse ARCHS: $ARCHS";;
+	*)			echo "error: unsupported architecture: $ARCHS" ;;
 esac
 if [[ "$PLATFORM_NAME" == "macosx" ]]; then
 	rust_platform="apple-darwin"
@@ -23,19 +21,25 @@ else
 	rust_platform="apple-ios"
 fi
 if [[ "$PLATFORM_NAME" == "iphonesimulator" ]]; then
-	rust_abi="-sim"
+    if [[ "${rust_arch}" == "aarch64" ]]; then
+        rust_abi="-sim"
+    else
+        rust_abi=""
+    fi
 else
 	rust_abi=""
 fi
 rust_target="${rust_arch}-${rust_platform}${rust_abi}"
 
 # Build library in debug or release
-if [[ "$CONFIGURATION" == "Release" || "$CONFIGURATION" == "Archive" ]]; then
+if [[ "$CONFIGURATION" == "Release" ]]; then
 	rust_config="release"
 	cargo build --release --manifest-path ../iospw/Cargo.toml --target ${rust_target}
-else
+elif [[ "$CONFIGURATION" == "Debug" ]]; then
 	rust_config="debug"
 	cargo build --manifest-path ../iospw/Cargo.toml --target ${rust_target}
+else
+    echo "error: Unexpected build configuration: $CONFIGURATION"
 fi
 
 # Copy the built library to the derived files directory
