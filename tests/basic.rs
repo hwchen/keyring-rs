@@ -49,6 +49,22 @@ fn test_round_trip_non_ascii_password() {
 }
 
 #[test]
+fn test_update() {
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name);
+    let password = "test ascii password";
+    entry.set_password(password).unwrap();
+    let stored_password = entry.get_password().unwrap();
+    assert_eq!(stored_password, password);
+    let password = "このきれいな花は桜です";
+    entry.set_password(password).unwrap();
+    let stored_password = entry.get_password().unwrap();
+    assert_eq!(stored_password, password);
+    entry.delete_password().unwrap();
+    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+}
+
+#[test]
 fn test_independent_credential_and_password() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name);
