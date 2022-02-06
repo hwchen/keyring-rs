@@ -17,25 +17,6 @@ use winapi::um::wincred::{
 
 use crate::credential::WinCredential;
 use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
-use byteorder::{ByteOrder, LittleEndian};
-use std::iter::once;
-use std::mem::MaybeUninit;
-use std::slice;
-use std::str;
-use winapi::shared::minwindef::FILETIME;
-use winapi::shared::winerror::{
-    ERROR_BAD_USERNAME, ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER, ERROR_NOT_FOUND,
-    ERROR_NO_SUCH_LOGON_SESSION,
-};
-use winapi::um::errhandlingapi::GetLastError;
-use winapi::um::wincred::{
-    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_MAX_CREDENTIAL_BLOB_SIZE,
-    CRED_MAX_GENERIC_TARGET_NAME_LENGTH, CRED_MAX_STRING_LENGTH, CRED_MAX_USERNAME_LENGTH,
-    CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
-};
-
-use crate::credential::WinCredential;
-use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
     Platform::Windows
