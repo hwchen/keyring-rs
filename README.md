@@ -9,7 +9,7 @@ Published on [crates.io](https://crates.io/crates/keyring)
 
 ## Usage
 
-__Currently supports Linux, macOS, and Windows.__ Please file issues if you have any problems or bugs!
+__Currently supports Linux, iOS, macOS, and Windows.__ Please file issues if you have any problems or bugs!
 
 To use this library in your project add the following to your `Cargo.toml` file:
 
@@ -51,7 +51,11 @@ The `get_password`, `set_password` and `delete_password` functions return a `Res
 
 ## Examples
 
-The keychain-rs project contains a sample application: a command-line interface to the keychain in `cli.rs` in the examples directory.  This can be a great way to explore how the library is used, and it allows experimentation with the use of different service names, usernames, and targets.  When run in "singly verbose" mode (-v), it outputs the retrieved credentials on each `get` run.  When run in "doubly verbose" mode (-vv), it also outputs any errors returned.  This can be a great way to see which errors result from which conditions on each platform.
+The keychain-rs project contains a sample application (`cli`) and a sample library (`ios`).
+
+The application is a command-line interface to the keychain.  This can be a great way to explore how the library is used, and it allows experimentation with the use of different service names, usernames, and targets.  When run in "singly verbose" mode (-v), it outputs the retrieved credentials on each `get` run.  When run in "doubly verbose" mode (-vv), it also outputs any errors returned.  This can be a great way to see which errors result from which conditions on each platform.
+
+The sample library is a full exercise of all the iOS functionality; it's meant to be loaded into an iOS test harness such as the one found in [this project](https://github.com/brotskydotcom/rust-on-ios). While the library can be compiled and linked to on macOS as well, doing so doesn't provide any advantages over using standard Rust tests.
 
 ## Dev Notes
 
@@ -70,20 +74,20 @@ at your option.
 ## Contributors
 Thanks to the following for helping make this library better, whether through contributing code, discussion, or bug reports!
 
+- @bhkaminski
+- @brotskydotcom
 - @dario23
 - @dten
 - @jasikpark
-- @jyuch
 - @jonathanmorley
+- @jyuch
 - @lexxvir
+- @MaikKlein
 - @Phrohdoh
 - @Rukenshia
 - @samuela
 - @stankec
 - @steveatinfincia
-- @bhkaminski
-- @MaikKlein
-- @brotskydotcom
 
 ### Contribution
 

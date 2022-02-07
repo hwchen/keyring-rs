@@ -1,3 +1,6 @@
+## Version 1.1.0
+- add iOS support
+
 ## Version 1.0.1
 - fix #80: missing winapi features (jyuch)
 
