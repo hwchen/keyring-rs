@@ -1,3 +1,6 @@
+## Version 1.1.1
+- no functional updates, just documentation improvements
+
 ## Version 1.1.0
 - add iOS support
 
