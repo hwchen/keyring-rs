@@ -1,3 +1,6 @@
+## Version 1.0.1
+- fix #80: missing winapi features (jyuch)
+
 ## Version 1.0.0
 - Breaking API changes:
   - `Keyring` struct renamed to `Entry`
