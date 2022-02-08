@@ -71,3 +71,29 @@ impl std::error::Error for Error {
         }
     }
 }
+
+/// Try to interpret a byte vector as a password string
+pub fn decode_password(bytes: Vec<u8>) -> Result<String> {
+    String::from_utf8(bytes.clone()).map_err(|_| Error::BadEncoding(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bad_password() {
+        // malformed sequences here taken from:
+        // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
+        for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
+            match decode_password(bytes.clone()) {
+                Err(Error::BadEncoding(str)) => assert_eq!(str, bytes),
+                Err(other) => panic!(
+                    "Bad password ({:?}) decode gave wrong error: {}",
+                    bytes, other
+                ),
+                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+            }
+        }
+    }
+}

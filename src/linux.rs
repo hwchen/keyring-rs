@@ -1,5 +1,6 @@
 use secret_service::{Collection, EncryptionType, Item, SecretService};
 
+use crate::error::decode_password;
 use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
 
 pub fn platform() -> Platform {
@@ -72,10 +73,6 @@ pub fn delete_password(map: &PlatformCredential) -> Result<()> {
     }
 }
 
-fn decode_password(bytes: Vec<u8>) -> Result<String> {
-    String::from_utf8(bytes.clone()).map_err(|_| ErrorCode::BadEncoding(bytes))
-}
-
 fn decode_error(err: Error) -> ErrorCode {
     match err {
         Error::Crypto(_) => ErrorCode::PlatformFailure(err),
@@ -93,26 +90,5 @@ fn decode_error(err: Error) -> ErrorCode {
 fn decode_attributes(map: &mut LinuxCredential, item: &Item) {
     if let Ok(label) = item.get_label() {
         map.label = label
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_bad_password() {
-        // malformed sequences here taken from:
-        // https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
-        for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
-            match decode_password(bytes.clone()) {
-                Err(ErrorCode::BadEncoding(str)) => assert_eq!(str, bytes),
-                Err(other) => panic!(
-                    "Bad password ({:?}) decode gave wrong error: {}",
-                    bytes, other
-                ),
-                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
-            }
-        }
     }
 }

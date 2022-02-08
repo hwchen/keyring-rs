@@ -2,11 +2,11 @@
 
 # Keyring
 
-This is a cross-platform library that does storage and retrieval of passwords (and other credential-like secrets) in the underlying platform secure store. A top-level introduction to the library's usage, as well as a small code sample, may be found in [the library's entry on crates.io](https://crates.io/crates/keyring). Currently supported platforms are Linux, Windows, and MacOS.
+This is a cross-platform library that does storage and retrieval of passwords (and other credential-like secrets) in the underlying platform secure store. A top-level introduction to the library's usage, as well as a small code sample, may be found in [the library's entry on crates.io](https://crates.io/crates/keyring). Currently supported platforms are Linux, Windows, MacOS, and iOS.
 
 ## Design
 
-This module uses platform-native credential managers: secret service on Linux, the Credential Manager on Windows, and the Secure Keychain on Mac.  Each entry constructed with `Entry::new(service, username)` is mapped to a credential using platform-specific conventions described below.
+This module uses platform-native credential managers: secret service on Linux, the Credential Manager on Windows, and the Secure Keychain on Mac and iOS.  Each entry constructed with `Entry::new(service, username)` is mapped to a credential using platform-specific conventions described below.
 
 To facilitate interoperability with third-party software, there are alternate constructors for keyring entries - `Entry::new_with_target` and `Entry::new_with_credential` - that use different conventions to map entries to credentials. In addition, the `get_password_and_credential` method on an entry can be used retrieve the underlying credential data along with the password.
 
@@ -38,13 +38,15 @@ For a given service/username pair, this module uses the concatenated string `use
 
 Because the Windows credential manager doesn't support multiple keychains, and because many Windows programs use _only_ the service name as the credential target name, the `Entry::new_with_target` call uses the target parameter as the credential's target name rather than concatenating the username and service.  So if you have a custom algorithm you want to use for computing the Windows target name (such as just the service name), you can specify the target name directly (along with the usual service and username values).
 
-### MacOS
+### MacOS and iOS
 
-MacOS credential stores are called keychains, and the OS automatically creates three of them (or four if removable media is being used).  Generic credentials on Mac can be identified by a large number of _key/value_ attributes; this module (currently) uses only the _account_ and _name_ attributes.
+MacOS/iOS credential stores are called keychains.  On iOS there is only one of these, but on Mac the OS automatically creates three of them (or four if removable media is being used).  Generic credentials on Mac/iOS can be identified by a large number of _key/value_ attributes; this module (currently) uses only the _account_ and _name_ attributes.
 
-For a given service/username pair, this module uses a generic credential in the User (login) keychain whose _account_ is the username and and whose _name_ is the service.  In the _Keychain Access_ UI, generic credentials created by this module show up in the passwords area (with their _where_ field equal to their _name_), but _Note_ entries on Mac are also generic credentials and can be accessed by this module if you know their _account_ value (which is not displayed by _Keychain Access_).
+For a given service/username pair, this module uses a generic credential in the User (login) keychain whose _account_ is the username and and whose _name_ is the service.  In the _Keychain Access_ UI on Mac, generic credentials created by this module show up in the passwords area (with their _where_ field equal to their _name_), but _Note_ entries on Mac are also generic credentials and can be accessed by this module if you know their _account_ value (which is not displayed by _Keychain Access_).
 
-You can specify targeting a different keychain by passing the keychain's (case-insensitive) name as the target parameter to `Entry::new_with_target`. Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic) will be mapped to `User`.  (_N.B._ The latest versions of the MacOS SDK no longer support creation of file-based keychains, so this module's experimental support for those has been removed.)
+On Mac, you can specify targeting a different keychain by passing the keychain's (case-insensitive) name as the target parameter to `Entry::new_with_target`. Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic) will be mapped to `User`.  On iOS, the target parameter is ignored.
+
+(_N.B._ The latest versions of the MacOS SDK no longer support creation of file-based keychains, so this module's experimental support for those has been removed.)
 
 ## Caveats
 
@@ -69,6 +71,7 @@ pub fn platform() -> Platform {
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
+#[cfg_attr(target_os = "ios", path = "ios.rs")]
 mod platform;
 
 #[derive(Debug)]

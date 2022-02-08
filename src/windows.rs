@@ -117,7 +117,7 @@ pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
                 // Dereferencing pointer to credential
                 let credential: CREDENTIALW = unsafe { *pcredential };
                 decode_attributes(map, &credential);
-                let password = decode_password(&credential);
+                let password = extract_password(&credential);
                 // Free the credential
                 unsafe {
                     CredFree(pcredential as *mut _);
@@ -194,7 +194,7 @@ fn decode_attributes(map: &mut WinCredential, credential: &CREDENTIALW) {
     map.target_alias = unsafe { from_wstr(credential.TargetAlias) };
 }
 
-fn decode_password(credential: &CREDENTIALW) -> Result<String> {
+fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
@@ -247,7 +247,7 @@ mod tests {
         LittleEndian::write_u16_into(&malformed_utf16, &mut malformed_bytes);
         for bytes in [&odd_bytes, &malformed_bytes] {
             let credential = make_platform_credential(bytes.clone());
-            match decode_password(&credential) {
+            match extract_password(&credential) {
                 Err(ErrorCode::BadEncoding(str)) => assert_eq!(&str, bytes),
                 Err(other) => panic!(
                     "Bad password ({:?}) decode gave wrong error: {}",
