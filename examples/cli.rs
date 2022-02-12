@@ -1,35 +1,35 @@
+use clap::Parser;
 use rpassword::read_password_from_tty;
-use structopt::StructOpt;
 
 extern crate keyring;
 use keyring::{Entry, Error};
 
-#[derive(Debug, StructOpt)]
-#[structopt(author = "github.com/hwchen/keyring-rs")]
+#[derive(Debug, Parser)]
+#[clap(author = "github.com/hwchen/keyring-rs")]
 /// Keyring CLI: A command-line interface to platform secure storage
 pub struct Cli {
-    #[structopt(short, parse(from_occurrences))]
+    #[clap(short, parse(from_occurrences))]
     /// Specify once to retrieve all aspects of credentials on get.
     /// Specify twice to provide structure print of all errors in addition to messages.
     pub verbose: u8,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// The target for the entry.
     pub target: Option<String>,
 
-    #[structopt(short, long, default_value = "keyring-cli")]
+    #[clap(short, long, default_value = "keyring-cli")]
     /// The service name for the entry
     pub service: String,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// The user name to store/retrieve the password for [default: user's login name]
     pub username: Option<String>,
 
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub command: Command,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub enum Command {
     /// Set the password in the secure store
     Set {
@@ -44,7 +44,7 @@ pub enum Command {
 }
 
 fn main() {
-    let args: Cli = Cli::from_args();
+    let args: Cli = Cli::parse();
     execute_args(&args);
 }
 
