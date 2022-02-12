@@ -1,3 +1,6 @@
+## Version 1.1.2
+- replace `structopt` with new, improved `clap` that incoporates all of the same functionality.
+
 ## Version 1.1.1
 - no functional updates, just documentation improvements
 

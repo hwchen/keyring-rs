@@ -78,6 +78,7 @@ Thanks to the following for helping make this library better, whether through co
 - @brotskydotcom
 - @dario23
 - @dten
+- @gondolyr
 - @jasikpark
 - @jonathanmorley
 - @jyuch
