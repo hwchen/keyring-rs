@@ -18,7 +18,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 keyring = "1"
 ```
 
-This will give you access to the `keyring` crate in your code. Now you can use  the `Entry::new` function to create a new keyring entry. The `new` function expects a `service` name and an `username` which together identify the entry.
+This will give you access to the `keyring` crate in your code. Now you can use  the `Entry::new` function to create a new keyring entry. The `new` function expects a non-empty `service` name and a non-empty `username` which together identify the entry.
 
 Passwords can be added to an entry using its `set_password` method.  They can then be read back using the `get_password` method, and deleted using the `delete_password` method.  (The persistence of the `Entry` is determined via Rust rules, so deleting the password doesn't delete the entry, but it does delete the underlying platform credential which was used to store the password.)
 

@@ -82,6 +82,12 @@ pub struct Entry {
 impl Entry {
     /// Create an entry for the given service and username.
     /// This maps to a target credential in the default keychain.
+    ///
+    /// This call never fails, because there is no actual platform access
+    /// performed when the credential object is created.  But if you specify
+    /// empty strings for any of the arguments, any attempt to use the
+    /// credential will fail with a `NoEntry` error.  And if you specify a
+    /// string that exceeds platform limits, you will get a `TooLong` error.
     pub fn new(service: &str, username: &str) -> Entry {
         Entry {
             target: credential::default_target(&platform(), None, service, username),
@@ -92,6 +98,12 @@ impl Entry {
     /// On Linux and Mac, the target is interpreted as naming the collection/keychain
     /// to store the credential.  On Windows, the target is used directly as
     /// the _target name_ of the credential.
+    ///
+    /// This call never fails, because there is no actual platform access
+    /// performed when the credential object is created.  But if you specify
+    /// empty strings for any of the arguments, any attempt to use the
+    /// credential will fail with a `NoEntry` error.  And if you specify a
+    /// string that exceeds platform limits, you will get a `TooLong` error.
     pub fn new_with_target(target: &str, service: &str, username: &str) -> Entry {
         Entry {
             target: credential::default_target(&platform(), Some(target), service, username),
@@ -101,6 +113,11 @@ impl Entry {
     /// Create an entry that uses the given credential for storage.  Callers can use
     /// their own algorithm to produce a platform-specific credential spec for the
     /// given service and username and then call this entry with that value.
+    ///
+    /// This call never fails, because there is no actual platform access
+    /// performed when the credential object is created.  But if you specify
+    /// a platform credential that contains empty or invalid attributes, you
+    /// may get errors or surprises when attempting to use the credential.
     pub fn new_with_credential(target: &PlatformCredential) -> Result<Entry> {
         if target.matches_platform(&platform()) {
             Ok(Entry {
@@ -115,12 +132,14 @@ impl Entry {
     /// annotations are determined by the mapper that was used
     /// to create the credential.
     pub fn set_password(&self, password: &str) -> Result<()> {
+        self.validate_or_no_entry()?;
         platform::set_password(&self.target, password)
     }
 
     /// Retrieve the password saved for this entry.
     /// Returns a `NoEntry` error is there isn't one.
     pub fn get_password(&self) -> Result<String> {
+        self.validate_or_no_entry()?;
         let mut map = self.target.clone();
         platform::get_password(&mut map)
     }
@@ -130,6 +149,7 @@ impl Entry {
     /// allows retrieving metadata on the credential that
     /// were saved by external applications.
     pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
+        self.validate_or_no_entry()?;
         let mut map = self.target.clone();
         let password = platform::get_password(&mut map)?;
         Ok((password, map))
@@ -141,12 +161,36 @@ impl Entry {
     pub fn delete_password(&self) -> Result<()> {
         platform::delete_password(&self.target)
     }
+
+    /// Validate the arguments given to credential create were not empty.  If they were,
+    /// return a NoEntry generic error to prevent the user using the credential.
+    fn validate_or_no_entry(&self) -> Result<()> {
+        match self.target {
+            PlatformCredential::Invalid => Err(Error::NoEntry),
+            _ => Ok(()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::credential::default_target;
+
+    #[test]
+    fn test_invalid_credential_creation() {
+        let entry = Entry::new("service", "");
+        assert!(matches!(entry.target, PlatformCredential::Invalid));
+        assert!(entry.set_password("foo").is_err());
+        assert!(entry.get_password().is_err());
+        assert!(entry.get_password_and_credential().is_err());
+        let entry = Entry::new("", "username");
+        assert!(matches!(entry.target, PlatformCredential::Invalid));
+        let entry = Entry::new_with_target("", "service", "username");
+        assert!(matches!(entry.target, PlatformCredential::Invalid));
+        let result = Entry::new_with_credential(&PlatformCredential::Invalid);
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_default_initial_and_retrieved_map() {
