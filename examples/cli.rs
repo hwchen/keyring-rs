@@ -8,20 +8,20 @@ use keyring::{Entry, Error};
 #[clap(author = "github.com/hwchen/keyring-rs")]
 /// Keyring CLI: A command-line interface to platform secure storage
 pub struct Cli {
-    #[clap(short, parse(from_occurrences))]
+    #[clap(short, action = clap::ArgAction::Count)]
     /// Specify once to retrieve all aspects of credentials on get.
     /// Specify twice to provide structure print of all errors in addition to messages.
     pub verbose: u8,
 
-    #[clap(short, long)]
+    #[clap(short, long, value_parser)]
     /// The target for the entry.
     pub target: Option<String>,
 
-    #[clap(short, long, default_value = "keyring-cli")]
+    #[clap(short, long, value_parser, default_value = "keyring-cli")]
     /// The service name for the entry
     pub service: String,
 
-    #[clap(short, long)]
+    #[clap(short, long, value_parser)]
     /// The user name to store/retrieve the password for [default: user's login name]
     pub username: Option<String>,
 
@@ -33,6 +33,7 @@ pub struct Cli {
 pub enum Command {
     /// Set the password in the secure store
     Set {
+        #[clap(value_parser)]
         /// The password to set. If not specified, the password
         /// is collected interactively from the terminal
         password: Option<String>,
