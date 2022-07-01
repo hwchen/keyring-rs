@@ -57,6 +57,12 @@ The application is a command-line interface to the keychain.  This can be a grea
 
 The sample library is a full exercise of all the iOS functionality; it's meant to be loaded into an iOS test harness such as the one found in [this project](https://github.com/brotskydotcom/rust-on-ios). While the library can be compiled and linked to on macOS as well, doing so doesn't provide any advantages over using standard Rust tests.
 
+## Known Issues
+
+Because credentials identified with empty service, user, or target names are handled inconsistently at the platform layer, the library had inconsistent (and arguably buggy - see [#86](https://github.com/hwchen/keyring-rs/issues/86)) behavior in this case.  As of version 1.2, this inconsistency was eliminated by having the library always fail on access when using credentials created with empty strings via `new` or `new_with_target`.  The prior platform-specific behavior can still be accessed, however, by using `new_with_credential` to produce the same credential that would have been produced before the change.
+
+A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
+
 ## Dev Notes
 
 * We build using GitHub CI.

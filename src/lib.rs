@@ -54,6 +54,10 @@ This module manipulates passwords as UTF-8 encoded strings, so if a third party 
 
 Accessing the same keychain entry from multiple threads simultaneously can produce odd results, even deadlocks.  This is because the system calls to the platform credential managers may use the same thread discipline, and so may be serialized quite differently than the client-side calls.  On MacOS, for example, all calls to access the keychain are serialized in an order that is independent of when they are made.
 
+Because credentials identified with empty service, user, or target names are handled inconsistently at the platform layer, the library had inconsistent (and arguably buggy) behavior in this case.  As of version 1.2, this inconsistency was eliminated by having the library always fail on access when using credentials created with empty strings via `new` or `new_with_target`.  The prior platform-specific behavior can still be accessed by using `new_with_credential` to produce the same credential that would have been produced before the change.
+
+A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
+
  */
 pub mod credential;
 pub mod error;
