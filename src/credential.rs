@@ -140,12 +140,12 @@ pub struct IosCredential {
 /// While defined cross-platform, instantiated platform
 /// credentials always contain just the model for the
 /// current runtime `Platform`.
-/// 
+///
 /// Because you can create credentials for any strings,
 /// but platform handling of empty target attributes is
 /// not well defined, we have a special Invalid case
 /// which we use in this case to ensure the created
-/// credential has no functionality. 
+/// credential has no functionality.
 pub enum PlatformCredential {
     Linux(LinuxCredential),
     Win(WinCredential),
