@@ -208,7 +208,7 @@ fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // Now we know this _can_ be a UTF-16 string, so convert it to
     // as UTF-16 vector and then try to decode it.
     let mut blob_u16 = vec![0; blob.len() / 2];
-    LittleEndian::read_u16_into(&blob.to_vec(), &mut blob_u16);
+    LittleEndian::read_u16_into(blob, &mut blob_u16);
     String::from_utf16(&blob_u16).map_err(|_| ErrorCode::BadEncoding(blob.to_vec()))
 }
 

@@ -140,11 +140,18 @@ pub struct IosCredential {
 /// While defined cross-platform, instantiated platform
 /// credentials always contain just the model for the
 /// current runtime `Platform`.
+///
+/// Because you can create credentials for any strings,
+/// but platform handling of empty target attributes is
+/// not well defined, we have a special Invalid case
+/// which we use in this case to ensure the created
+/// credential has no functionality.
 pub enum PlatformCredential {
     Linux(LinuxCredential),
     Win(WinCredential),
     Mac(MacCredential),
     Ios(IosCredential),
+    Invalid,
 }
 
 impl PlatformCredential {
@@ -154,18 +161,26 @@ impl PlatformCredential {
             PlatformCredential::Win(_) => matches!(os, Platform::Windows),
             PlatformCredential::Mac(_) => matches!(os, Platform::MacOs),
             PlatformCredential::Ios(_) => matches!(os, Platform::Ios),
+            PlatformCredential::Invalid => false,
         }
     }
 }
 
 /// Create the default target credential for a keyring entry.  The caller
 /// can provide an optional target parameter to influence the mapping.
+///
+/// If any of the provided strings are empty, the credential returned is
+/// invalid, to prevent it being used.  This is because platform behavior
+/// around empty strings for attributes is undefined.
 pub fn default_target(
     platform: &Platform,
     target: Option<&str>,
     service: &str,
     username: &str,
 ) -> PlatformCredential {
+    if service.is_empty() || username.is_empty() || target.unwrap_or("none").is_empty() {
+        return PlatformCredential::Invalid;
+    }
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     let custom = if target.is_none() {
         "entry"

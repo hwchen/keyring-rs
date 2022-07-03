@@ -18,7 +18,7 @@ To use this library in your project add the following to your `Cargo.toml` file:
 keyring = "1"
 ```
 
-This will give you access to the `keyring` crate in your code. Now you can use  the `Entry::new` function to create a new keyring entry. The `new` function expects a `service` name and an `username` which together identify the entry.
+This will give you access to the `keyring` crate in your code. Now you can use  the `Entry::new` function to create a new keyring entry. The `new` function expects a non-empty `service` name and a non-empty `username` which together identify the entry.
 
 Passwords can be added to an entry using its `set_password` method.  They can then be read back using the `get_password` method, and deleted using the `delete_password` method.  (The persistence of the `Entry` is determined via Rust rules, so deleting the password doesn't delete the entry, but it does delete the underlying platform credential which was used to store the password.)
 
@@ -56,6 +56,12 @@ The keychain-rs project contains a sample application (`cli`) and a sample libra
 The application is a command-line interface to the keychain.  This can be a great way to explore how the library is used, and it allows experimentation with the use of different service names, usernames, and targets.  When run in "singly verbose" mode (-v), it outputs the retrieved credentials on each `get` run.  When run in "doubly verbose" mode (-vv), it also outputs any errors returned.  This can be a great way to see which errors result from which conditions on each platform.
 
 The sample library is a full exercise of all the iOS functionality; it's meant to be loaded into an iOS test harness such as the one found in [this project](https://github.com/brotskydotcom/rust-on-ios). While the library can be compiled and linked to on macOS as well, doing so doesn't provide any advantages over using standard Rust tests.
+
+## Known Issues
+
+Because credentials identified with empty service, user, or target names are handled inconsistently at the platform layer, the library had inconsistent (and arguably buggy - see [#86](https://github.com/hwchen/keyring-rs/issues/86)) behavior in this case.  As of version 1.2, this inconsistency was eliminated by having the library always fail on access when using credentials created with empty strings via `new` or `new_with_target`.  The prior platform-specific behavior can still be accessed, however, by using `new_with_credential` to produce the same credential that would have been produced before the change.
+
+A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
 
 ## Dev Notes
 
