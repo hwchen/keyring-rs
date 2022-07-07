@@ -11,16 +11,16 @@ edition = "2018"
 exclude = [".github/"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "2.6.1"
+security-framework = "2.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-security-framework = "2.6.1"
+security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = "2.0.1"
+secret-service = "2.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-byteorder = "1.2.1"
+byteorder = "1.2"
 winapi = { version =  "0.3", features = ["wincred", "winerror", "errhandlingapi", "minwindef"] }
 
 [[example]]
@@ -31,6 +31,6 @@ crate-type = ["staticlib"]
 [dev-dependencies]
 clap = { version = "3", features = ["derive", "wrap_help"] }
 rpassword = "5.0"
-rand = "0.8.4"
-doc-comment = "0.3.3"
-whoami = "1.2.0"
+rand = "0.8"
+doc-comment = "0.3"
+whoami = "1.2"
