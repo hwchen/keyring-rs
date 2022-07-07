@@ -21,7 +21,7 @@ jobs:
           sudo apt install -y build-essential gnome-keyring
 
       - name: Fetch head
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Rust Toolchain (stable)
         uses: actions-rs/toolchain@v1
