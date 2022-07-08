@@ -1,5 +1,5 @@
 use clap::Parser;
-use rpassword::read_password_from_tty;
+use rpassword::prompt_password;
 
 extern crate keyring;
 use keyring::{Entry, Error};
@@ -65,7 +65,7 @@ fn execute_args(args: &Cli) {
             password: Some(password),
         } => execute_set_password(&username, args.verbose, &entry, password),
         Command::Set { password: None } => {
-            if let Ok(password) = read_password_from_tty(Some("Password: ")) {
+            if let Ok(password) = prompt_password("Password: ") {
                 execute_set_password(&username, args.verbose, &entry, &password)
             } else {
                 eprintln!("(Failed to read password, so none set.)")
