@@ -30,7 +30,7 @@ crate-type = ["staticlib"]
 
 [dev-dependencies]
 clap = { version = "3", features = ["derive", "wrap_help"] }
-rpassword = "6.0"
+rpassword = "7.0"
 rand = "0.8"
 doc-comment = "0.3"
 whoami = "1.2"
