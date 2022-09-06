@@ -68,6 +68,10 @@ A better way to handle empty strings (and other problematic argument values) wou
 * We build using GitHub CI.
 * Each tag is built on Ubuntu x64, Win 10 x64, and Mac intel x64.  The `cli` example executable is posted for all platforms with the tag.
 
+### Headless Linux
+
+If you are trying to use keyring on a headless linux box, be aware that there are known issues with getting dbus and secret-service and the gnome keyring to work properly in headless environments.  For a quick workaround, look at how this project's [CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml) uses the [linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script; a similar solution is also documented in the [Python Keyring docs](https://pypi.org/project/keyring/) (search for "Using Keyring on headless Linux systems").  For an excellent treatment of all the headless dbus issues, see [this answer on ServerFault](https://serverfault.com/a/906224/79617).
+
 ## License
 
 Licensed under either of
