@@ -1,4 +1,4 @@
-use keyring::{credential::default_target, platform, Entry, Error};
+use keyring::{Entry, Error};
 
 doc_comment::doctest!("../README.md");
 

@@ -9,16 +9,20 @@ Defines a platform-independent error model.
 /// More details, if relevant, are contained in the associated value,
 /// which may be platform-specific.
 pub enum Error {
+    /// This indicates that there is a program error and invalid
+    /// arguments were specified to a keyring call.  The attached
+    /// (English) string is meant to be read by the client developer.
+    InvalidArgument(String),
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
     /// be retrieved from the attached platform error.
-    PlatformFailure(crate::platform::Error),
+    PlatformFailure(Box<dyn std::error::Error>),
     /// This indicates that the underlying secure storage
     /// holding saved items could not be accessed.  Typically this
     /// is because of access rules in the platform; for example, it
     /// might be that the credential store is locked.  The underlying
     /// platform error will typically give the reason.
-    NoStorageAccess(crate::platform::Error),
+    NoStorageAccess(Box<dyn std::error::Error>),
     /// This indicates that there is no underlying credential
     /// entry in the platform for this entry.  Either one was
     /// never set, or it was deleted.
@@ -33,10 +37,6 @@ pub enum Error {
     /// attached values give the name of the attribute and
     /// the platform length limit that was exceeded.
     TooLong(String, u32),
-    /// This indicates that the credential provided
-    /// to `Entry::new_with_credential` was for
-    /// a different platform than the one in use.
-    WrongCredentialPlatform,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -44,8 +44,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::WrongCredentialPlatform => {
-                write!(f, "CredentialMapper value doesn't match this platform")
+            Error::InvalidArgument(s) => {
+                write!(f, "Invalid argument: {}", s)
             }
             Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {}", err),
             Error::NoStorageAccess(err) => {
@@ -65,8 +65,8 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::PlatformFailure(err) => Some(err),
-            Error::NoStorageAccess(err) => Some(err),
+            Error::PlatformFailure(err) => Some(err.as_ref()),
+            Error::NoStorageAccess(err) => Some(err.as_ref()),
             _ => None,
         }
     }

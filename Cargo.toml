@@ -6,9 +6,12 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "1.2.0"
-edition = "2018"
+version = "2.0.0-alpha.1"
+edition = "2021"
 exclude = [".github/"]
+
+[dependencies]
+lazy_static = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2.6"

@@ -22,6 +22,17 @@ pub fn platform() -> Platform {
     Platform::Windows
 }
 
+/// Windows has only one credential store, and each credential is identified
+/// by a single string called the "target name".  But generic credentials
+/// also have three pieces of metadata with suggestive names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct WinCredential {
+    pub username: String,
+    pub target_name: String,
+    pub target_alias: String,
+    pub comment: String,
+}
+
 #[derive(Debug)]
 pub struct Error(u32); // Windows error codes are long ints
 
@@ -41,6 +52,78 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
+    }
+}
+
+/// Create the default target credential for a keyring entry.  The caller
+/// can provide an optional target parameter to influence the mapping.
+///
+/// If any of the provided strings are empty, the credential returned is
+/// invalid, to prevent it being used.  This is because platform behavior
+/// around empty strings for attributes is undefined.
+pub fn default_target(
+    platform: &Platform,
+    target: Option<&str>,
+    service: &str,
+    username: &str,
+) -> PlatformCredential {
+    if service.is_empty() || username.is_empty() || target.unwrap_or("none").is_empty() {
+        return PlatformCredential::Invalid;
+    }
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    let custom = if target.is_none() {
+        "entry"
+    } else {
+        "custom entry"
+    };
+    let metadata = format!(
+        "keyring-rs v{} {} for service '{}', user '{}'",
+        VERSION, custom, service, username
+    );
+    match platform {
+        Platform::Linux => PlatformCredential::Linux(LinuxCredential {
+            collection: target.unwrap_or("default").to_string(),
+            attributes: HashMap::from([
+                ("service".to_string(), service.to_string()),
+                ("username".to_string(), username.to_string()),
+                ("application".to_string(), "rust-keyring".to_string()),
+            ]),
+            label: metadata,
+        }),
+        Platform::Windows => {
+            if let Some(keychain) = target {
+                PlatformCredential::Win(WinCredential {
+                    // Note: Since Windows doesn't support multiple keychains,
+                    // and since it's nice for clients to have control over
+                    // the target_name directly, we use the `keychain` value
+                    // as the target name if it's specified non-default.
+                    username: username.to_string(),
+                    target_name: keychain.to_string(),
+                    target_alias: String::new(),
+                    comment: metadata,
+                })
+            } else {
+                PlatformCredential::Win(WinCredential {
+                    // Note: default concatenation of user and service name is
+                    // used because windows uses target_name as sole identifier.
+                    // See the README for more rationale.  Also see this issue
+                    // for Python: https://github.com/jaraco/keyring/issues/47
+                    username: username.to_string(),
+                    target_name: format!("{}.{}", username, service),
+                    target_alias: String::new(),
+                    comment: metadata,
+                })
+            }
+        }
+        Platform::MacOs => PlatformCredential::Mac(MacCredential {
+            domain: target.into(),
+            service: service.to_string(),
+            account: username.to_string(),
+        }),
+        Platform::Ios => PlatformCredential::Ios(IosCredential {
+            service: service.to_string(),
+            account: username.to_string(),
+        }),
     }
 }
 
