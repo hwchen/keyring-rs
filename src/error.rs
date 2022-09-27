@@ -2,6 +2,13 @@
 
 Defines a platform-independent error model.
 
+There is an escape hatch here for surfacing platform-specific
+error information returned by the platform-specific storage provider,
+but (like all credential-related data) the concrete objects returned
+must be both Send and Sync so credentials remain Send + Sync.
+(Since most platform errors are integer error codes, this requirement
+is not much of a burden on the platform-specific store providers.)
+
  */
 
 #[derive(Debug)]
@@ -16,13 +23,13 @@ pub enum Error {
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
     /// be retrieved from the attached platform error.
-    PlatformFailure(Box<dyn std::error::Error>),
+    PlatformFailure(Box<dyn std::error::Error + Send + Sync>),
     /// This indicates that the underlying secure storage
     /// holding saved items could not be accessed.  Typically this
     /// is because of access rules in the platform; for example, it
     /// might be that the credential store is locked.  The underlying
     /// platform error will typically give the reason.
-    NoStorageAccess(Box<dyn std::error::Error>),
+    NoStorageAccess(Box<dyn std::error::Error + Send + Sync>),
     /// This indicates that there is no underlying credential
     /// entry in the platform for this entry.  Either one was
     /// never set, or it was deleted.

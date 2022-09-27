@@ -1,9 +1,12 @@
+use common::generate_random_string;
 use keyring::{Entry, Error};
+
+mod common;
 
 #[test]
 fn test_create_then_move() {
-    let name = "test_create_then_move";
-    let entry = Entry::new(name, name).unwrap();
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name).unwrap();
     let test = move || {
         let password = "test ascii password";
         entry
@@ -37,8 +40,8 @@ fn test_create_then_move() {
 
 #[test]
 fn test_create_set_then_move() {
-    let name = "test_create_set_then_move";
-    let entry = Entry::new(name, name).expect("Can't create entry");
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";
     entry
         .set_password(password)
@@ -65,7 +68,7 @@ fn test_create_set_then_move() {
 fn test_simultaneous_create_set_move() {
     let mut handles = vec![];
     for i in 0..10 {
-        let name = format!("entry{}", i);
+        let name = format!("{}-{}", generate_random_string(), i);
         let entry = Entry::new(&name, &name).expect("Can't create entry");
         entry.set_password(&name).expect("Can't set ascii password");
         let test = move || {

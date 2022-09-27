@@ -45,13 +45,7 @@ impl CredentialApi for MacCredential {
     }
 }
 
-pub struct MacCredentialBuilder {}
-
-pub fn default_credential_builder() -> Box<CredentialBuilder> {
-    Box::new(MacCredentialBuilder {})
-}
-
-impl CredentialBuilderApi for MacCredentialBuilder {
+impl MacCredential {
     /// Create the platform credential for a Mac keychain entry.
     ///
     /// A target string is interpreted as the keychain to use for the entry.
@@ -60,7 +54,7 @@ impl CredentialBuilderApi for MacCredentialBuilder {
     /// This is because Mac platform behavior around empty strings for attributes
     /// is that they act as wildcards, so there is no way to look up a specific
     /// credential that has an empty service or user string.
-    fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
+    fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<MacCredential> {
         if service.is_empty() {
             return Err(ErrorCode::InvalidArgument(
                 "service cannot be empty".to_string(),
@@ -76,11 +70,26 @@ impl CredentialBuilderApi for MacCredentialBuilder {
         } else {
             MacKeychainDomain::User
         };
-        Ok(Box::new(MacCredential {
+        Ok(MacCredential {
             domain,
             service: service.to_string(),
             account: user.to_string(),
-        }))
+        })
+    }
+}
+
+pub struct MacCredentialBuilder {}
+
+pub fn default_credential_builder() -> Box<CredentialBuilder> {
+    Box::new(MacCredentialBuilder {})
+}
+
+impl CredentialBuilderApi for MacCredentialBuilder {
+    fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
+        match MacCredential::new_with_target(target, service, user) {
+            Ok(credential) => Ok(Box::new(credential)),
+            Err(err) => Err(err),
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -153,5 +162,147 @@ fn decode_error(err: Error) -> ErrorCode {
         -25295 => ErrorCode::NoStorageAccess(Box::new(err)), // errSecInvalidKeychain
         -25300 => ErrorCode::NoEntry,                        // errSecItemNotFound
         _ => ErrorCode::PlatformFailure(Box::new(err)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MacCredential;
+    use crate::{tests::generate_random_string, Credential, Entry, Error};
+
+    fn entry_new(service: &str, user: &str) -> Entry {
+        match MacCredential::new_with_target(None, service, user) {
+            Ok(credential) => {
+                let credential: Box<Credential> = Box::new(credential);
+                Entry::new_with_credential(credential)
+            }
+            Err(err) => {
+                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
+            }
+        }
+    }
+
+    #[test]
+    fn test_invalid_parameter() {
+        let credential = MacCredential::new_with_target(None, "", "user");
+        assert!(
+            matches!(credential, Err(Error::InvalidArgument(_))),
+            "Created credential with empty service"
+        );
+        let credential = MacCredential::new_with_target(None, "service", "");
+        assert!(
+            matches!(credential, Err(Error::InvalidArgument(_))),
+            "Created entry with empty user"
+        );
+        let credential = MacCredential::new_with_target(Some(""), "service", "user");
+        assert!(
+            matches!(credential, Err(Error::InvalidArgument(_))),
+            "Created entry with empty target"
+        );
+    }
+
+    #[test]
+    fn test_missing_entry() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Missing entry has password"
+        )
+    }
+
+    #[test]
+    fn test_empty_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let in_pass = "";
+        entry
+            .set_password(in_pass)
+            .expect("Can't set empty password");
+        let out_pass = entry.get_password().expect("Can't get empty password");
+        assert_eq!(
+            in_pass, out_pass,
+            "Retrieved and set empty passwords don't match"
+        );
+        entry.delete_password().expect("Can't delete password");
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Able to read a deleted password"
+        )
+    }
+
+    #[test]
+    fn test_round_trip_ascii_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "test ascii password";
+        entry
+            .set_password(password)
+            .expect("Can't set ascii password");
+        let stored_password = entry.get_password().expect("Can't get ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete ascii password");
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Able to read a deleted ascii password"
+        )
+    }
+
+    #[test]
+    fn test_round_trip_non_ascii_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "このきれいな花は桜です";
+        entry
+            .set_password(password)
+            .expect("Can't set non-ascii password");
+        let stored_password = entry.get_password().expect("Can't get non-ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set non-ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete non-ascii password");
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Able to read a deleted non-ascii password"
+        )
+    }
+
+    #[test]
+    fn test_update() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "test ascii password";
+        entry
+            .set_password(password)
+            .expect("Can't set initial ascii password");
+        let stored_password = entry.get_password().expect("Can't get ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set initial ascii passwords don't match"
+        );
+        let password = "このきれいな花は桜です";
+        entry
+            .set_password(password)
+            .expect("Can't update ascii with non-ascii password");
+        let stored_password = entry.get_password().expect("Can't get non-ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and updated non-ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete updated password");
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Able to read a deleted updated password"
+        )
     }
 }

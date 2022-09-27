@@ -190,135 +190,15 @@ impl Entry {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_invalid_parameter() {
-        let entry = Entry::new("", "user");
-        assert!(
-            matches!(entry, Err(Error::InvalidArgument(_))),
-            "Created entry with empty service"
-        );
-        let entry = Entry::new("service", "");
-        assert!(
-            matches!(entry, Err(Error::InvalidArgument(_))),
-            "Created entry with empty user"
-        );
-        let entry = Entry::new_with_target("", "service", "user");
-        assert!(
-            matches!(entry, Err(Error::InvalidArgument(_))),
-            "Created entry with empty target"
-        );
-    }
-
-    #[test]
-    fn test_missing_entry() {
-        let name = generate_random_string();
-        let entry = Entry::new(&name, &name).expect("Can't create entry");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Missing entry has password"
-        )
-    }
-
-    #[test]
-    fn test_empty_password() {
-        let name = generate_random_string();
-        let entry = Entry::new(&name, &name).expect("Can't create entry");
-        let in_pass = "";
-        entry
-            .set_password(in_pass)
-            .expect("Can't set empty password");
-        let out_pass = entry.get_password().expect("Can't get empty password");
-        assert_eq!(
-            in_pass, out_pass,
-            "Retrieved and set empty passwords don't match"
-        );
-        entry.delete_password().expect("Can't delete password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted password"
-        )
-    }
-
-    #[test]
-    fn test_round_trip_ascii_password() {
-        let name = generate_random_string();
-        let entry = Entry::new(&name, &name).expect("Can't create entry");
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted ascii password"
-        )
-    }
-
-    #[test]
-    fn test_round_trip_non_ascii_password() {
-        let name = generate_random_string();
-        let entry = Entry::new(&name, &name).expect("Can't create entry");
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't set non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete non-ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted non-ascii password"
-        )
-    }
-
-    #[test]
-    fn test_update() {
-        let name = generate_random_string();
-        let entry = Entry::new(&name, &name).expect("Can't create entry");
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set initial ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set initial ascii passwords don't match"
-        );
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't update ascii with non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and updated non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete updated password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted updated password"
-        )
-    }
-
     doc_comment::doctest!("../README.md");
 
-    fn generate_random_string() -> String {
+    /// When tests fail, they leave keys behind, and those keys
+    /// have to be cleaned up before the tests can be run again
+    /// in order to avoid bad results.  So it's a lot easier just
+    /// to have tests use a random string for key names to avoid
+    /// the conflicts, and then do any needed cleanup once everything
+    /// is working correctly.  So we export this function for tests to use.
+    pub fn generate_random_string() -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
         use rand::{distributions::Alphanumeric, thread_rng, Rng};
