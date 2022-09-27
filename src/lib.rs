@@ -108,6 +108,7 @@ pub use error::{Error, Result};
 
 pub mod credential;
 pub mod error;
+#[cfg(feature = "mock")]
 pub mod mock;
 
 // Default platform-specific implementations
@@ -119,7 +120,7 @@ mod default;
 
 #[derive(Default, Debug)]
 struct EntryBuilder {
-    inner: Option<Box<dyn CredentialBuilder>>,
+    inner: Option<Box<CredentialBuilder>>,
 }
 
 static mut DEFAULT_BUILDER: EntryBuilder = EntryBuilder { inner: None };
@@ -131,7 +132,7 @@ static mut DEFAULT_BUILDER: EntryBuilder = EntryBuilder { inner: None };
 /// set it once before you create any credentials and leave it alone.
 /// Use `entry_with_credential` if you are using multiple credential stores
 /// and want precise control over which credential is in which store.
-pub fn set_default_credential_builder(new: Box<dyn CredentialBuilder>) {
+pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
     unsafe {
         DEFAULT_BUILDER.inner = Some(new);
     }
@@ -149,7 +150,7 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
 
 #[derive(Debug)]
 pub struct Entry {
-    inner: Box<dyn Credential>,
+    inner: Box<Credential>,
 }
 
 impl Entry {
@@ -166,7 +167,7 @@ impl Entry {
     }
 
     /// Create an entry that uses the given platform credential for storage.
-    pub fn new_with_credential(credential: Box<dyn Credential>) -> Entry {
+    pub fn new_with_credential(credential: Box<Credential>) -> Entry {
         Entry { inner: credential }
     }
 

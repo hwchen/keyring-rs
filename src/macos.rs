@@ -1,7 +1,7 @@
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
 
-use super::credential::{Credential, CredentialBuilder};
+use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
 
 pub use security_framework::base::Error;
@@ -17,7 +17,7 @@ pub struct MacCredential {
     account: String,
 }
 
-impl Credential for MacCredential {
+impl CredentialApi for MacCredential {
     fn set_password(&self, password: &str) -> Result<()> {
         get_keychain(self)?
             .set_generic_password(&self.service, &self.account, password.as_bytes())
@@ -47,11 +47,11 @@ impl Credential for MacCredential {
 
 pub struct MacCredentialBuilder {}
 
-pub fn default_credential_builder() -> Box<dyn CredentialBuilder> {
+pub fn default_credential_builder() -> Box<CredentialBuilder> {
     Box::new(MacCredentialBuilder {})
 }
 
-impl CredentialBuilder for MacCredentialBuilder {
+impl CredentialBuilderApi for MacCredentialBuilder {
     /// Create the platform credential for a Mac keychain entry.
     ///
     /// A target string is interpreted as the keychain to use for the entry.
@@ -60,12 +60,7 @@ impl CredentialBuilder for MacCredentialBuilder {
     /// This is because Mac platform behavior around empty strings for attributes
     /// is that they act as wildcards, so there is no way to look up a specific
     /// credential that has an empty service or user string.
-    fn build(
-        &self,
-        target: Option<&str>,
-        service: &str,
-        user: &str,
-    ) -> Result<Box<dyn Credential>> {
+    fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
         if service.is_empty() {
             return Err(ErrorCode::InvalidArgument(
                 "service cannot be empty".to_string(),
