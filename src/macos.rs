@@ -54,7 +54,7 @@ impl MacCredential {
     /// This is because Mac platform behavior around empty strings for attributes
     /// is that they act as wildcards, so there is no way to look up a specific
     /// credential that has an empty service or user string.
-    fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<MacCredential> {
+    fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         if service.is_empty() {
             return Err(ErrorCode::InvalidArgument(
                 "service cannot be empty".to_string(),
@@ -70,7 +70,7 @@ impl MacCredential {
         } else {
             MacKeychainDomain::User
         };
-        Ok(MacCredential {
+        Ok(Self {
             domain,
             service: service.to_string(),
             account: user.to_string(),
