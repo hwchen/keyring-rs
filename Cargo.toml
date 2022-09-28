@@ -10,9 +10,6 @@ version = "2.0.0-alpha.1"
 edition = "2021"
 exclude = [".github/"]
 
-[features]
-mock = []
-
 [dependencies]
 lazy_static = "1"
 
@@ -36,7 +33,7 @@ crate-type = ["staticlib"]
 
 [dev-dependencies]
 clap = { version = "3", features = ["derive", "wrap_help"] }
-rpassword = "6.0"
+rpassword = "7.0"
 rand = "0.8"
 doc-comment = "0.3"
 whoami = "1.2"
