@@ -108,7 +108,6 @@ pub use error::{Error, Result};
 
 pub mod credential;
 pub mod error;
-#[cfg(feature = "mock")]
 pub mod mock;
 
 // Default platform-specific implementations
@@ -116,7 +115,7 @@ pub mod mock;
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "ios", path = "ios.rs")]
-mod default;
+pub mod default;
 
 #[derive(Default, Debug)]
 struct EntryBuilder {
