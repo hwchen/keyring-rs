@@ -149,7 +149,7 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
 
 #[derive(Debug)]
 pub struct Entry {
-    inner: Box<Credential>,
+    pub inner: Box<Credential>,
 }
 
 impl Entry {
@@ -197,14 +197,18 @@ mod tests {
     /// to have tests use a random string for key names to avoid
     /// the conflicts, and then do any needed cleanup once everything
     /// is working correctly.  So we export this function for tests to use.
-    pub fn generate_random_string() -> String {
+    pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
         use rand::{distributions::Alphanumeric, thread_rng, Rng};
         thread_rng()
             .sample_iter(&Alphanumeric)
-            .take(30)
+            .take(len)
             .map(char::from)
             .collect()
+    }
+
+    pub fn generate_random_string() -> String {
+        generate_random_string_of_len(30)
     }
 }

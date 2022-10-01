@@ -1,9 +1,8 @@
 use byteorder::{ByteOrder, LittleEndian};
 use std::iter::once;
 use std::mem::MaybeUninit;
-use std::slice;
 use std::str;
-use winapi::shared::minwindef::FILETIME;
+use winapi::shared::minwindef::{DWORD, FILETIME};
 use winapi::shared::winerror::{
     ERROR_BAD_USERNAME, ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER, ERROR_NOT_FOUND,
     ERROR_NO_SUCH_LOGON_SESSION,
@@ -15,129 +14,31 @@ use winapi::um::wincred::{
     CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
 };
 
-use crate::credential::WinCredential;
-use crate::{Error as ErrorCode, Platform, PlatformCredential, Result};
-
-pub fn platform() -> Platform {
-    Platform::Windows
-}
+use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::error::{Error as ErrorCode, Result};
 
 /// Windows has only one credential store, and each credential is identified
 /// by a single string called the "target name".  But generic credentials
 /// also have three pieces of metadata with suggestive names.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct WinCredential {
+pub struct WinCredential {
     pub username: String,
     pub target_name: String,
     pub target_alias: String,
     pub comment: String,
 }
 
-#[derive(Debug)]
-pub struct Error(u32); // Windows error codes are long ints
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.0 {
-            ERROR_NO_SUCH_LOGON_SESSION => write!(f, "Windows ERROR_NO_SUCH_LOGON_SESSION"),
-            ERROR_NOT_FOUND => write!(f, "Windows ERROR_NOT_FOUND"),
-            ERROR_BAD_USERNAME => write!(f, "Windows ERROR_BAD_USERNAME"),
-            ERROR_INVALID_FLAGS => write!(f, "Windows ERROR_INVALID_FLAGS"),
-            ERROR_INVALID_PARAMETER => write!(f, "Windows ERROR_INVALID_PARAMETER"),
-            err => write!(f, "Windows error code {}", err),
-        }
-    }
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        None
-    }
-}
-
-/// Create the default target credential for a keyring entry.  The caller
-/// can provide an optional target parameter to influence the mapping.
-///
-/// If any of the provided strings are empty, the credential returned is
-/// invalid, to prevent it being used.  This is because platform behavior
-/// around empty strings for attributes is undefined.
-pub fn default_target(
-    platform: &Platform,
-    target: Option<&str>,
-    service: &str,
-    username: &str,
-) -> PlatformCredential {
-    if service.is_empty() || username.is_empty() || target.unwrap_or("none").is_empty() {
-        return PlatformCredential::Invalid;
-    }
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
-    let custom = if target.is_none() {
-        "entry"
-    } else {
-        "custom entry"
-    };
-    let metadata = format!(
-        "keyring-rs v{} {} for service '{}', user '{}'",
-        VERSION, custom, service, username
-    );
-    match platform {
-        Platform::Linux => PlatformCredential::Linux(LinuxCredential {
-            collection: target.unwrap_or("default").to_string(),
-            attributes: HashMap::from([
-                ("service".to_string(), service.to_string()),
-                ("username".to_string(), username.to_string()),
-                ("application".to_string(), "rust-keyring".to_string()),
-            ]),
-            label: metadata,
-        }),
-        Platform::Windows => {
-            if let Some(keychain) = target {
-                PlatformCredential::Win(WinCredential {
-                    // Note: Since Windows doesn't support multiple keychains,
-                    // and since it's nice for clients to have control over
-                    // the target_name directly, we use the `keychain` value
-                    // as the target name if it's specified non-default.
-                    username: username.to_string(),
-                    target_name: keychain.to_string(),
-                    target_alias: String::new(),
-                    comment: metadata,
-                })
-            } else {
-                PlatformCredential::Win(WinCredential {
-                    // Note: default concatenation of user and service name is
-                    // used because windows uses target_name as sole identifier.
-                    // See the README for more rationale.  Also see this issue
-                    // for Python: https://github.com/jaraco/keyring/issues/47
-                    username: username.to_string(),
-                    target_name: format!("{}.{}", username, service),
-                    target_alias: String::new(),
-                    comment: metadata,
-                })
-            }
-        }
-        Platform::MacOs => PlatformCredential::Mac(MacCredential {
-            domain: target.into(),
-            service: service.to_string(),
-            account: username.to_string(),
-        }),
-        Platform::Ios => PlatformCredential::Ios(IosCredential {
-            service: service.to_string(),
-            account: username.to_string(),
-        }),
-    }
-}
-
-// DWORD is u32
-// LPCWSTR is *const u16
-// BOOL is i32 (false = 0, true = 1)
-// PCREDENTIALW = *mut CREDENTIALW
-pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
-    if let PlatformCredential::Win(map) = map {
-        validate_attributes(map, password)?;
-        let mut username = to_wstr(&map.username);
-        let mut target_name = to_wstr(&map.target_name);
-        let mut target_alias = to_wstr(&map.target_alias);
-        let mut comment = to_wstr(&map.comment);
+impl CredentialApi for WinCredential {
+    // DWORD is u32
+    // LPCWSTR is *const u16
+    // BOOL is i32 (false = 0, true = 1)
+    // PCREDENTIALW = *mut CREDENTIALW
+    fn set_password(&self, password: &str) -> Result<()> {
+        self.validate_attributes(password)?;
+        let mut username = to_wstr(&self.username);
+        let mut target_name = to_wstr(&self.target_name);
+        let mut target_alias = to_wstr(&self.target_alias);
+        let mut comment = to_wstr(&self.comment);
         // Password strings are converted to UTF-16, because that's the native
         // charset for Windows strings.  This allows editing of the password in
         // the Windows native UI.  But the storage for the credential is actually
@@ -172,116 +73,200 @@ pub fn set_password(map: &PlatformCredential, password: &str) -> Result<()> {
             UserName: username.as_mut_ptr(),
         };
         // raw pointer to credential, is coerced from &mut
-        let pcredential: PCREDENTIALW = &mut credential;
+        let p_credential: PCREDENTIALW = &mut credential;
         // Call windows API
-        match unsafe { CredWriteW(pcredential, 0) } {
+        match unsafe { CredWriteW(p_credential, 0) } {
             0 => Err(decode_error()),
             _ => Ok(()),
         }
-    } else {
-        Err(ErrorCode::WrongCredentialPlatform)
     }
-}
 
-pub fn get_password(map: &mut PlatformCredential) -> Result<String> {
-    if let PlatformCredential::Win(map) = map {
-        validate_attributes(map, "")?;
-        let target_name = to_wstr(&map.target_name);
-        // passing uninitialized pcredential.
-        // Should be ok; it's freed by a windows api call CredFree.
-        let mut pcredential = MaybeUninit::uninit();
-        let cred_type = CRED_TYPE_GENERIC;
-        let result =
-            unsafe { CredReadW(target_name.as_ptr(), cred_type, 0, pcredential.as_mut_ptr()) };
-        match result {
-            0 => Err(decode_error()),
-            _ => {
-                let pcredential = unsafe { pcredential.assume_init() };
-                // Dereferencing pointer to credential
-                let credential: CREDENTIALW = unsafe { *pcredential };
-                decode_attributes(map, &credential);
-                let password = extract_password(&credential);
-                // Free the credential
-                unsafe {
-                    CredFree(pcredential as *mut _);
-                }
-                password
-            }
-        }
-    } else {
-        Err(ErrorCode::WrongCredentialPlatform)
+    fn get_password(&self) -> Result<String> {
+        self.extract_from_platform(extract_password)
     }
-}
 
-pub fn delete_password(map: &PlatformCredential) -> Result<()> {
-    if let PlatformCredential::Win(map) = map {
-        validate_attributes(map, "")?;
-        let target_name = to_wstr(&map.target_name);
+    fn delete_password(&self) -> Result<()> {
+        self.validate_attributes("")?;
+        let target_name = to_wstr(&self.target_name);
         let cred_type = CRED_TYPE_GENERIC;
         match unsafe { CredDeleteW(target_name.as_ptr(), cred_type, 0) } {
             0 => Err(decode_error()),
             _ => Ok(()),
         }
-    } else {
-        Err(ErrorCode::WrongCredentialPlatform)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
-fn validate_attributes(map: &WinCredential, password: &str) -> Result<()> {
-    if map.username.len() > CRED_MAX_USERNAME_LENGTH as usize {
-        return Err(ErrorCode::TooLong(
-            String::from("username"),
-            CRED_MAX_USERNAME_LENGTH,
-        ));
-    }
-    if map.target_name.len() > CRED_MAX_GENERIC_TARGET_NAME_LENGTH as usize {
-        return Err(ErrorCode::TooLong(
-            String::from("target name"),
-            CRED_MAX_GENERIC_TARGET_NAME_LENGTH,
-        ));
-    }
-    if map.target_alias.len() > CRED_MAX_STRING_LENGTH as usize {
-        return Err(ErrorCode::TooLong(
-            String::from("target alias"),
-            CRED_MAX_STRING_LENGTH,
-        ));
-    }
-    if map.comment.len() > CRED_MAX_STRING_LENGTH as usize {
-        return Err(ErrorCode::TooLong(
-            String::from("comment"),
-            CRED_MAX_STRING_LENGTH,
-        ));
-    }
-    if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
-        return Err(ErrorCode::TooLong(
-            String::from("password"),
-            CRED_MAX_CREDENTIAL_BLOB_SIZE,
-        ));
-    }
-    Ok(())
-}
-
-fn decode_error() -> ErrorCode {
-    match unsafe { GetLastError() } {
-        ERROR_NOT_FOUND => ErrorCode::NoEntry,
-        ERROR_NO_SUCH_LOGON_SESSION => {
-            ErrorCode::NoStorageAccess(Error(ERROR_NO_SUCH_LOGON_SESSION))
+impl WinCredential {
+    fn validate_attributes(&self, password: &str) -> Result<()> {
+        if self.username.len() > CRED_MAX_USERNAME_LENGTH as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("username"),
+                CRED_MAX_USERNAME_LENGTH,
+            ));
         }
-        err => ErrorCode::PlatformFailure(Error(err)),
+        if self.target_name.is_empty() {
+            return Err(ErrorCode::Invalid(
+                "target".to_string(),
+                "cannot be empty".to_string(),
+            ));
+        }
+        if self.target_name.len() > CRED_MAX_GENERIC_TARGET_NAME_LENGTH as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("target"),
+                CRED_MAX_GENERIC_TARGET_NAME_LENGTH,
+            ));
+        }
+        if self.target_alias.len() > CRED_MAX_STRING_LENGTH as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("target alias"),
+                CRED_MAX_STRING_LENGTH,
+            ));
+        }
+        if self.comment.len() > CRED_MAX_STRING_LENGTH as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("comment"),
+                CRED_MAX_STRING_LENGTH,
+            ));
+        }
+        if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("password"),
+                CRED_MAX_CREDENTIAL_BLOB_SIZE,
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn get_credential(&self) -> Result<Self> {
+        self.extract_from_platform(Self::extract_credential)
+    }
+
+    fn extract_from_platform<F, T>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&CREDENTIALW) -> Result<T>,
+    {
+        self.validate_attributes("")?;
+        let mut p_credential = MaybeUninit::uninit();
+        // at this point, p_credential is just a pointer to nowhere.
+        // The allocation happens in the `CredReadW` call below.
+        let result = {
+            let cred_type = CRED_TYPE_GENERIC;
+            let target_name = to_wstr(&self.target_name);
+            unsafe {
+                CredReadW(
+                    target_name.as_ptr(),
+                    cred_type,
+                    0,
+                    p_credential.as_mut_ptr(),
+                )
+            }
+        };
+        match result {
+            0 => {
+                // `CredReadW` failed, so no allocation has been done, so no free needs to be done
+                Err(decode_error())
+            }
+            _ => {
+                // `CredReadW` succeeded, so p_credential points at an allocated credential.
+                // To do anything with it, we need to cast it to the right type.  That takes two steps:
+                // first we remove the "uninitialized" guard from around it, then we reinterpret it as a
+                // pointer to the right structure type.
+                let p_credential = unsafe { p_credential.assume_init() };
+                let w_credential: CREDENTIALW = unsafe { *p_credential };
+                // Now we can apply the passed extractor function to the credential.
+                let result = f(&w_credential);
+                // Finally, we free the allocated credential.
+                unsafe {
+                    CredFree(p_credential as *mut _);
+                }
+                result
+            }
+        }
+    }
+
+    fn extract_credential(w_credential: &CREDENTIALW) -> Result<Self> {
+        Ok(Self {
+            username: unsafe { from_wstr(w_credential.UserName) },
+            target_name: unsafe { from_wstr(w_credential.TargetName) },
+            target_alias: unsafe { from_wstr(w_credential.TargetAlias) },
+            comment: unsafe { from_wstr(w_credential.Comment) },
+        })
+    }
+
+    pub fn new_with_target(
+        target: Option<&str>,
+        service: &str,
+        user: &str,
+    ) -> Result<WinCredential> {
+        const VERSION: &str = env!("CARGO_PKG_VERSION");
+        let metadata = format!(
+            "keyring-rs v{} for service '{}', user '{}'",
+            VERSION, service, user
+        );
+        let credential = if let Some(target) = target {
+            // if target.is_empty() {
+            //     return Err(ErrorCode::Invalid(
+            //         "target".to_string(),
+            //         "cannot be empty".to_string(),
+            //     ));
+            // }
+            Self {
+                // On Windows, the target name is all that's used to
+                // search for the credential, so we allow clients to
+                // specify it if they want a different convention.
+                username: user.to_string(),
+                target_name: target.to_string(),
+                target_alias: String::new(),
+                comment: metadata,
+            }
+        } else {
+            Self {
+                // Note: default concatenation of user and service name is
+                // used because windows uses target_name as sole identifier.
+                // See the module docs for more rationale.  Also see this issue
+                // for Python: https://github.com/jaraco/keyring/issues/47
+                //
+                // Note that it's OK to have an empty user or service name,
+                // because the format for the target name will not be empty.
+                // But it's certainly not recommended.
+                username: user.to_string(),
+                target_name: format!("{}.{}", user, service),
+                target_alias: String::new(),
+                comment: metadata,
+            }
+        };
+        credential.validate_attributes("")?;
+        Ok(credential)
     }
 }
 
-fn decode_attributes(map: &mut WinCredential, credential: &CREDENTIALW) {
-    map.username = unsafe { from_wstr(credential.UserName) };
-    map.comment = unsafe { from_wstr(credential.Comment) };
-    map.target_alias = unsafe { from_wstr(credential.TargetAlias) };
+pub struct WinCredentialBuilder {}
+
+pub fn default_credential_builder() -> Box<CredentialBuilder> {
+    Box::new(WinCredentialBuilder {})
+}
+
+impl CredentialBuilderApi for WinCredentialBuilder {
+    fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
+        Ok(Box::new(WinCredential::new_with_target(
+            target, service, user,
+        )?))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
-    let blob = unsafe { slice::from_raw_parts(blob_pointer, blob_len) };
+    let blob = unsafe { std::slice::from_raw_parts(blob_pointer, blob_len) };
     // 3rd parties may write credential data with an odd number of bytes,
     // so we make sure that we don't try to decode those as utf16
     if blob.len() % 2 != 0 {
@@ -314,10 +299,64 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     String::from_utf16_lossy(slice)
 }
 
+#[derive(Debug)]
+pub struct Error(u32); // Windows error codes are long ints
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.0 {
+            ERROR_NO_SUCH_LOGON_SESSION => write!(f, "Windows ERROR_NO_SUCH_LOGON_SESSION"),
+            ERROR_NOT_FOUND => write!(f, "Windows ERROR_NOT_FOUND"),
+            ERROR_BAD_USERNAME => write!(f, "Windows ERROR_BAD_USERNAME"),
+            ERROR_INVALID_FLAGS => write!(f, "Windows ERROR_INVALID_FLAGS"),
+            ERROR_INVALID_PARAMETER => write!(f, "Windows ERROR_INVALID_PARAMETER"),
+            err => write!(f, "Windows error code {}", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        None
+    }
+}
+
+fn decode_error() -> ErrorCode {
+    match unsafe { GetLastError() } {
+        ERROR_NOT_FOUND => ErrorCode::NoEntry,
+        ERROR_NO_SUCH_LOGON_SESSION => {
+            ErrorCode::NoStorageAccess(wrap(ERROR_NO_SUCH_LOGON_SESSION))
+        }
+        err => ErrorCode::PlatformFailure(wrap(err)),
+    }
+}
+
+fn wrap(code: DWORD) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(Error(code))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr::null_mut;
+
+    use crate::tests::{generate_random_string, generate_random_string_of_len};
+    use crate::{Credential, Entry};
+
+    fn entry_new(service: &str, user: &str) -> Entry {
+        entry_new_with_target(None, service, user)
+    }
+
+    fn entry_new_with_target(target: Option<&str>, service: &str, user: &str) -> Entry {
+        match WinCredential::new_with_target(target, service, user) {
+            Ok(credential) => {
+                let credential: Box<Credential> = Box::new(credential);
+                Entry::new_with_credential(credential)
+            }
+            Err(err) => {
+                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
+            }
+        }
+    }
 
     #[test]
     fn test_bad_password() {
@@ -351,16 +390,16 @@ mod tests {
         CREDENTIALW {
             Flags: 0,
             Type: CRED_TYPE_GENERIC,
-            TargetName: null_mut(),
-            Comment: null_mut(),
+            TargetName: std::ptr::null_mut(),
+            Comment: std::ptr::null_mut(),
             LastWritten: last_written,
             CredentialBlobSize: password.len() as u32,
             CredentialBlob: password.as_mut_ptr(),
             Persist: CRED_PERSIST_ENTERPRISE,
             AttributeCount: attribute_count,
             Attributes: attributes,
-            TargetAlias: null_mut(),
-            UserName: null_mut(),
+            TargetAlias: std::ptr::null_mut(),
+            UserName: std::ptr::null_mut(),
         }
     }
 
@@ -379,7 +418,7 @@ mod tests {
             ("comment", CRED_MAX_STRING_LENGTH),
             ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE),
         ] {
-            let long_string = generate_random_string(1 + len as usize);
+            let long_string = generate_random_string_of_len(1 + len as usize);
             let mut bad_cred = cred.clone();
             let mut password = "password";
             match attr {
@@ -390,8 +429,9 @@ mod tests {
                 "password" => password = &long_string,
                 other => panic!("unexpected attribute: {}", other),
             }
-            let map = PlatformCredential::Win(bad_cred);
-            validate_attribute_too_long(set_password(&map, password), attr, len);
+            let credential: Box<Credential> = Box::new(bad_cred);
+            let entry = Entry::new_with_credential(credential);
+            validate_attribute_too_long(entry.set_password(password), attr, len);
         }
     }
 
@@ -401,19 +441,169 @@ mod tests {
                 assert_eq!(&arg, attr, "Error names wrong attribute");
                 assert_eq!(val, len, "Error names wrong limit");
             }
-            Err(other) => panic!("Err not 'username too long': {}", other),
+            Err(other) => panic!("Error is not '{} too long': {}", attr, other),
             Ok(_) => panic!("No error when {} too long", attr),
         }
     }
 
-    fn generate_random_string(len: usize) -> String {
-        // from the Rust Cookbook:
-        // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-        use rand::{distributions::Alphanumeric, thread_rng, Rng};
-        thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(len)
-            .map(char::from)
-            .collect()
+    #[test]
+    fn test_invalid_parameter() {
+        let credential = WinCredential::new_with_target(None, "", "");
+        assert!(
+            credential.is_err(),
+            "Secret service doesn't allow empty attributes"
+        );
+        assert!(
+            credential.is_ok(),
+            "Secret service does allow empty attributes"
+        );
+        assert!(
+            matches!(credential, Err(ErrorCode::Invalid(_, _))),
+            "Created credential with empty service"
+        );
+        let credential = WinCredential::new_with_target(None, "service", "");
+        assert!(
+            matches!(credential, Err(ErrorCode::Invalid(_, _))),
+            "Created entry with empty user"
+        );
+        let credential = WinCredential::new_with_target(Some(""), "service", "user");
+        assert!(
+            matches!(credential, Err(ErrorCode::Invalid(_, _))),
+            "Created entry with empty target"
+        );
+    }
+
+    #[test]
+    fn test_missing_entry() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        assert!(
+            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
+            "Missing entry has password"
+        )
+    }
+
+    #[test]
+    fn test_empty_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let in_pass = "";
+        entry
+            .set_password(in_pass)
+            .expect("Can't set empty password");
+        let out_pass = entry.get_password().expect("Can't get empty password");
+        assert_eq!(
+            in_pass, out_pass,
+            "Retrieved and set empty passwords don't match"
+        );
+        entry.delete_password().expect("Can't delete password");
+        assert!(
+            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
+            "Able to read a deleted password"
+        )
+    }
+
+    #[test]
+    fn test_round_trip_ascii_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "test ascii password";
+        entry
+            .set_password(password)
+            .expect("Can't set ascii password");
+        let stored_password = entry.get_password().expect("Can't get ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete ascii password");
+        assert!(
+            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
+            "Able to read a deleted ascii password"
+        )
+    }
+
+    #[test]
+    fn test_round_trip_non_ascii_password() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "このきれいな花は桜です";
+        entry
+            .set_password(password)
+            .expect("Can't set non-ascii password");
+        let stored_password = entry.get_password().expect("Can't get non-ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set non-ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete non-ascii password");
+        assert!(
+            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
+            "Able to read a deleted non-ascii password"
+        )
+    }
+
+    #[test]
+    fn test_update() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "test ascii password";
+        entry
+            .set_password(password)
+            .expect("Can't set initial ascii password");
+        let stored_password = entry.get_password().expect("Can't get ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and set initial ascii passwords don't match"
+        );
+        let password = "このきれいな花は桜です";
+        entry
+            .set_password(password)
+            .expect("Can't update ascii with non-ascii password");
+        let stored_password = entry.get_password().expect("Can't get non-ascii password");
+        assert_eq!(
+            stored_password, password,
+            "Retrieved and updated non-ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete updated password");
+        assert!(
+            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
+            "Able to read a deleted updated password"
+        )
+    }
+
+    #[test]
+    fn test_get_credential() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "test get password";
+        entry
+            .set_password(password)
+            .expect("Can't set test get password");
+        let credential: &WinCredential = entry
+            .inner
+            .as_any()
+            .downcast_ref()
+            .expect("Not a windows credential");
+        let actual = credential.get_credential().expect("Can't read credential");
+        assert_eq!(
+            actual.target_name, credential.target_name,
+            "Target names don't match"
+        );
+        assert_eq!(
+            actual.target_alias, credential.target_alias,
+            "Target aliases don't match"
+        );
+        assert_eq!(
+            actual.username, credential.username,
+            "Usernames don't match"
+        );
+        assert_eq!(actual.comment, credential.comment, "Comments don't match");
     }
 }

@@ -16,10 +16,6 @@ is not much of a burden on the platform-specific store providers.)
 /// More details, if relevant, are contained in the associated value,
 /// which may be platform-specific.
 pub enum Error {
-    /// This indicates that there is a program error and invalid
-    /// arguments were specified to a keyring call.  The attached
-    /// (English) string is meant to be read by the client developer.
-    InvalidArgument(String),
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
     /// be retrieved from the attached platform error.
@@ -44,6 +40,11 @@ pub enum Error {
     /// attached values give the name of the attribute and
     /// the platform length limit that was exceeded.
     TooLong(String, u32),
+    /// This indicates that one of the entry's required credential
+    /// attributes was invalid.  The
+    /// attached value gives the name of the attribute
+    /// and the reason it's invalid.
+    Invalid(String, String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -51,9 +52,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::InvalidArgument(s) => {
-                write!(f, "Invalid argument: {}", s)
-            }
             Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {}", err),
             Error::NoStorageAccess(err) => {
                 write!(f, "Couldn't access platform secure storage: {}", err)
@@ -65,6 +63,9 @@ impl std::fmt::Display for Error {
                 "Attribute '{}' is longer than platform limit of {} chars",
                 name, len
             ),
+            Error::Invalid(attr, reason) => {
+                write!(f, "Attribute {} is invalid: {}", attr, reason)
+            }
         }
     }
 }

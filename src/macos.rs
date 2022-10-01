@@ -1,10 +1,9 @@
+pub use security_framework::base::Error;
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
-
-pub use security_framework::base::Error;
 
 /// MacOS supports multiple OS-provided credential stores, and used to support creating
 /// arbitrary new credential stores (but that has been deprecated).  Credentials on
@@ -12,9 +11,9 @@ pub use security_framework::base::Error;
 /// opaque once set and is only used in the Keychain UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MacCredential {
-    domain: MacKeychainDomain,
-    service: String,
-    account: String,
+    pub domain: MacKeychainDomain,
+    pub service: String,
+    pub account: String,
 }
 
 impl CredentialApi for MacCredential {
@@ -54,15 +53,17 @@ impl MacCredential {
     /// This is because Mac platform behavior around empty strings for attributes
     /// is that they act as wildcards, so there is no way to look up a specific
     /// credential that has an empty service or user string.
-    fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+    pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         if service.is_empty() {
-            return Err(ErrorCode::InvalidArgument(
-                "service cannot be empty".to_string(),
+            return Err(ErrorCode::Invalid(
+                "service".to_string(),
+                "cannot be empty".to_string(),
             ));
         }
         if user.is_empty() {
-            return Err(ErrorCode::InvalidArgument(
-                "user cannot be empty".to_string(),
+            return Err(ErrorCode::Invalid(
+                "user".to_string(),
+                "cannot be empty".to_string(),
             ));
         }
         let domain = if let Some(target) = target {
@@ -86,10 +87,9 @@ pub fn default_credential_builder() -> Box<CredentialBuilder> {
 
 impl CredentialBuilderApi for MacCredentialBuilder {
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        match MacCredential::new_with_target(target, service, user) {
-            Ok(credential) => Ok(Box::new(credential)),
-            Err(err) => Err(err),
-        }
+        Ok(Box::new(MacCredential::new_with_target(
+            target, service, user,
+        )?))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -100,7 +100,7 @@ impl CredentialBuilderApi for MacCredentialBuilder {
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// There are four pre-defined Mac keychains.  Now that file-based keychains are
 /// deprecated, those are the only domains that can be accessed.
-enum MacKeychainDomain {
+pub enum MacKeychainDomain {
     User,
     System,
     Common,
@@ -131,10 +131,10 @@ impl std::str::FromStr for MacKeychainDomain {
             "system" => Ok(MacKeychainDomain::System),
             "common" => Ok(MacKeychainDomain::Common),
             "dynamic" => Ok(MacKeychainDomain::Dynamic),
-            _ => Err(ErrorCode::InvalidArgument(format!(
-                "Target ({}) must be one of User, System, Common, or Dynamic",
-                s
-            ))),
+            _ => Err(ErrorCode::Invalid(
+                "target".to_string(),
+                format!("'{}' is not User, System, Common, or Dynamic", s),
+            )),
         }
     }
 }
@@ -167,8 +167,9 @@ fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use super::MacCredential;
     use crate::{tests::generate_random_string, Credential, Entry, Error};
+
+    use super::MacCredential;
 
     fn entry_new(service: &str, user: &str) -> Entry {
         match MacCredential::new_with_target(None, service, user) {
@@ -186,17 +187,17 @@ mod tests {
     fn test_invalid_parameter() {
         let credential = MacCredential::new_with_target(None, "", "user");
         assert!(
-            matches!(credential, Err(Error::InvalidArgument(_))),
+            matches!(credential, Err(Error::Invalid(_, _))),
             "Created credential with empty service"
         );
         let credential = MacCredential::new_with_target(None, "service", "");
         assert!(
-            matches!(credential, Err(Error::InvalidArgument(_))),
+            matches!(credential, Err(Error::Invalid(_, _))),
             "Created entry with empty user"
         );
         let credential = MacCredential::new_with_target(Some(""), "service", "user");
         assert!(
-            matches!(credential, Err(Error::InvalidArgument(_))),
+            matches!(credential, Err(Error::Invalid(_, _))),
             "Created entry with empty target"
         );
     }

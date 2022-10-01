@@ -228,9 +228,12 @@ mod tests {
             .as_any()
             .downcast_ref()
             .expect("Downcast failed");
-        mock.set_error(Error::InvalidArgument("mock error".to_string()));
+        mock.set_error(Error::Invalid(
+            "mock error".to_string(),
+            "is an error".to_string(),
+        ));
         assert!(
-            matches!(entry.set_password(password), Err(Error::InvalidArgument(_))),
+            matches!(entry.set_password(password), Err(Error::Invalid(_, _))),
             "set: No error"
         );
         entry
