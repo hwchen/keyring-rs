@@ -45,6 +45,16 @@ impl CredentialApi for MacCredential {
 }
 
 impl MacCredential {
+    /// Construct a credential from the underlying platform credential
+    /// On Mac, this is basically a no-op, because we don't keep any extra attributes.
+    /// But at least we make sure the underlying platform credential exists.
+    pub fn get_credential(&self) -> Result<Self> {
+        let (_, _) =
+            find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
+                .map_err(decode_error)?;
+        Ok(self.clone())
+    }
+
     /// Create the platform credential for a Mac keychain entry.
     ///
     /// A target string is interpreted as the keychain to use for the entry.
@@ -167,7 +177,10 @@ fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::generate_random_string, Credential, Entry, Error};
+    use crate::{
+        tests::{generate_random_string, test_round_trip},
+        Credential, Entry, Error,
+    };
 
     use super::MacCredential;
 
@@ -216,94 +229,50 @@ mod tests {
     fn test_empty_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let in_pass = "";
-        entry
-            .set_password(in_pass)
-            .expect("Can't set empty password");
-        let out_pass = entry.get_password().expect("Can't get empty password");
-        assert_eq!(
-            in_pass, out_pass,
-            "Retrieved and set empty passwords don't match"
-        );
-        entry.delete_password().expect("Can't delete password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted password"
-        )
+        test_round_trip("empty password", &entry, "");
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted ascii password"
-        )
+        test_round_trip("ascii password", &entry, "test ascii password");
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't set non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete non-ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted non-ascii password"
-        )
+        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
     }
 
     #[test]
     fn test_update() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set initial ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set initial ascii passwords don't match"
+        test_round_trip("initial ascii password", &entry, "test ascii password");
+        test_round_trip(
+            "updated non-ascii password",
+            &entry,
+            "このきれいな花は桜です",
         );
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't update ascii with non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and updated non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete updated password");
+    }
+
+    #[test]
+    fn test_get_credential() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let credential: &MacCredential = entry
+            .get_credential()
+            .downcast_ref()
+            .expect("Not a mac credential");
         assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted updated password"
-        )
+            credential.get_credential().is_err(),
+            "Platform credential shouldn't exist yet!"
+        );
+        entry
+            .set_password("test get password")
+            .expect("Can't set password for get_credential");
+        assert!(credential.get_credential().is_ok())
     }
 }

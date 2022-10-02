@@ -61,7 +61,7 @@ impl CredentialApi for LinuxCredential {
 }
 
 impl LinuxCredential {
-    /// Read the label on the underlying credential
+    /// Construct a credential from the underlying platform credential
     pub fn get_credential(&self) -> Result<Self> {
         let mut result = self.clone();
         let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
