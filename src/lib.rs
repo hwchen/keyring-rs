@@ -193,7 +193,32 @@ impl Entry {
 
 #[cfg(test)]
 mod tests {
+    use super::{Entry, Error};
     doc_comment::doctest!("../README.md");
+
+    /// A basic round-trip unit test given an entry and a password.
+    /// This is the core of the tests used in every platform store module.
+    pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
+        entry
+            .set_password(in_pass)
+            .unwrap_or_else(|err| panic!("Can't set password for {case}: {err:?}"));
+        let out_pass = entry
+            .get_password()
+            .unwrap_or_else(|err| panic!("Can't get password for {case}: {err:?}"));
+        assert_eq!(
+            in_pass, out_pass,
+            "Passwords don't match for {}: set='{}', get='{}'",
+            case, in_pass, out_pass
+        );
+        entry
+            .delete_password()
+            .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Read deleted password for {}",
+            case
+        );
+    }
 
     /// When tests fail, they leave keys behind, and those keys
     /// have to be cleaned up before the tests can be run again

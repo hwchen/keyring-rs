@@ -55,7 +55,6 @@ impl CredentialApi for WinCredential {
             dwLowDateTime: 0,
             dwHighDateTime: 0,
         };
-        // TODO: Allow setting attributes on Windows credentials
         let attribute_count = 0;
         let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
         let mut credential = CREDENTIALW {
@@ -104,7 +103,7 @@ impl WinCredential {
     fn validate_attributes(&self, password: &str) -> Result<()> {
         if self.username.len() > CRED_MAX_USERNAME_LENGTH as usize {
             return Err(ErrorCode::TooLong(
-                String::from("username"),
+                String::from("user"),
                 CRED_MAX_USERNAME_LENGTH,
             ));
         }
@@ -339,7 +338,7 @@ fn wrap(code: DWORD) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use super::*;
 
-    use crate::tests::{generate_random_string, generate_random_string_of_len};
+    use crate::tests::{generate_random_string, generate_random_string_of_len, test_round_trip};
     use crate::{Credential, Entry};
 
     fn entry_new(service: &str, user: &str) -> Entry {
@@ -360,15 +359,37 @@ mod tests {
 
     #[test]
     fn test_bad_password() {
+        fn make_platform_credential(password: &mut Vec<u8>) -> CREDENTIALW {
+            let last_written = FILETIME {
+                dwLowDateTime: 0,
+                dwHighDateTime: 0,
+            };
+            let attribute_count = 0;
+            let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+            CREDENTIALW {
+                Flags: 0,
+                Type: CRED_TYPE_GENERIC,
+                TargetName: std::ptr::null_mut(),
+                Comment: std::ptr::null_mut(),
+                LastWritten: last_written,
+                CredentialBlobSize: password.len() as u32,
+                CredentialBlob: password.as_mut_ptr(),
+                Persist: CRED_PERSIST_ENTERPRISE,
+                AttributeCount: attribute_count,
+                Attributes: attributes,
+                TargetAlias: std::ptr::null_mut(),
+                UserName: std::ptr::null_mut(),
+            }
+        }
         // the first malformed sequence can't be UTF-16 because it has an odd number of bytes.
         // the second malformed sequence has a first surrogate marker (0xd800) without a matching
         // companion (it's taken from the String::fromUTF16 docs).
-        let odd_bytes = b"1".to_vec();
+        let mut odd_bytes = b"1".to_vec();
         let malformed_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
         let mut malformed_bytes: Vec<u8> = vec![0; malformed_utf16.len() * 2];
         LittleEndian::write_u16_into(&malformed_utf16, &mut malformed_bytes);
-        for bytes in [&odd_bytes, &malformed_bytes] {
-            let credential = make_platform_credential(bytes.clone());
+        for bytes in [&mut odd_bytes, &mut malformed_bytes] {
+            let credential = make_platform_credential(bytes);
             match extract_password(&credential) {
                 Err(ErrorCode::BadEncoding(str)) => assert_eq!(&str, bytes),
                 Err(other) => panic!(
@@ -380,31 +401,18 @@ mod tests {
         }
     }
 
-    fn make_platform_credential(mut password: Vec<u8>) -> CREDENTIALW {
-        let last_written = FILETIME {
-            dwLowDateTime: 0,
-            dwHighDateTime: 0,
-        };
-        let attribute_count = 0;
-        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
-        CREDENTIALW {
-            Flags: 0,
-            Type: CRED_TYPE_GENERIC,
-            TargetName: std::ptr::null_mut(),
-            Comment: std::ptr::null_mut(),
-            LastWritten: last_written,
-            CredentialBlobSize: password.len() as u32,
-            CredentialBlob: password.as_mut_ptr(),
-            Persist: CRED_PERSIST_ENTERPRISE,
-            AttributeCount: attribute_count,
-            Attributes: attributes,
-            TargetAlias: std::ptr::null_mut(),
-            UserName: std::ptr::null_mut(),
-        }
-    }
-
     #[test]
-    fn test_bad_inputs() {
+    fn test_validate_attributes() {
+        fn validate_attribute_too_long(result: Result<()>, attr: &str, len: u32) {
+            match result {
+                Err(ErrorCode::TooLong(arg, val)) => {
+                    assert_eq!(&arg, attr, "Error names wrong attribute");
+                    assert_eq!(val, len, "Error names wrong limit");
+                }
+                Err(other) => panic!("Error is not '{} too long': {}", attr, other),
+                Ok(_) => panic!("No error when {} too long", attr),
+            }
+        }
         let cred = WinCredential {
             username: "username".to_string(),
             target_name: "target_name".to_string(),
@@ -412,8 +420,8 @@ mod tests {
             comment: "comment".to_string(),
         };
         for (attr, len) in [
-            ("username", CRED_MAX_USERNAME_LENGTH),
-            ("target name", CRED_MAX_GENERIC_TARGET_NAME_LENGTH),
+            ("user", CRED_MAX_USERNAME_LENGTH),
+            ("target", CRED_MAX_GENERIC_TARGET_NAME_LENGTH),
             ("target alias", CRED_MAX_STRING_LENGTH),
             ("comment", CRED_MAX_STRING_LENGTH),
             ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE),
@@ -422,55 +430,33 @@ mod tests {
             let mut bad_cred = cred.clone();
             let mut password = "password";
             match attr {
-                "username" => bad_cred.username = long_string.clone(),
-                "target name" => bad_cred.target_name = long_string.clone(),
+                "user" => bad_cred.username = long_string.clone(),
+                "target" => bad_cred.target_name = long_string.clone(),
                 "target alias" => bad_cred.target_alias = long_string.clone(),
                 "comment" => bad_cred.comment = long_string.clone(),
                 "password" => password = &long_string,
                 other => panic!("unexpected attribute: {}", other),
             }
-            let credential: Box<Credential> = Box::new(bad_cred);
-            let entry = Entry::new_with_credential(credential);
-            validate_attribute_too_long(entry.set_password(password), attr, len);
-        }
-    }
-
-    fn validate_attribute_too_long(result: Result<()>, attr: &str, len: u32) {
-        match result {
-            Err(ErrorCode::TooLong(arg, val)) => {
-                assert_eq!(&arg, attr, "Error names wrong attribute");
-                assert_eq!(val, len, "Error names wrong limit");
-            }
-            Err(other) => panic!("Error is not '{} too long': {}", attr, other),
-            Ok(_) => panic!("No error when {} too long", attr),
+            validate_attribute_too_long(bad_cred.validate_attributes(password), attr, len);
         }
     }
 
     #[test]
     fn test_invalid_parameter() {
-        let credential = WinCredential::new_with_target(None, "", "");
-        assert!(
-            credential.is_err(),
-            "Secret service doesn't allow empty attributes"
-        );
-        assert!(
-            credential.is_ok(),
-            "Secret service does allow empty attributes"
-        );
-        assert!(
-            matches!(credential, Err(ErrorCode::Invalid(_, _))),
-            "Created credential with empty service"
-        );
-        let credential = WinCredential::new_with_target(None, "service", "");
-        assert!(
-            matches!(credential, Err(ErrorCode::Invalid(_, _))),
-            "Created entry with empty user"
-        );
         let credential = WinCredential::new_with_target(Some(""), "service", "user");
         assert!(
             matches!(credential, Err(ErrorCode::Invalid(_, _))),
             "Created entry with empty target"
         );
+    }
+
+    #[test]
+    fn test_empty_service_and_user() {
+        let name = generate_random_string();
+        let in_pass = "doesn't matter";
+        test_round_trip("empty user", &entry_new(&name, ""), in_pass);
+        test_round_trip("empty service", &entry_new("", &name), in_pass);
+        test_round_trip("empty service & user", &entry_new("", ""), in_pass);
     }
 
     #[test]
@@ -487,95 +473,33 @@ mod tests {
     fn test_empty_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let in_pass = "";
-        entry
-            .set_password(in_pass)
-            .expect("Can't set empty password");
-        let out_pass = entry.get_password().expect("Can't get empty password");
-        assert_eq!(
-            in_pass, out_pass,
-            "Retrieved and set empty passwords don't match"
-        );
-        entry.delete_password().expect("Can't delete password");
-        assert!(
-            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
-            "Able to read a deleted password"
-        )
+        test_round_trip("empty password", &entry, "");
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
-            "Able to read a deleted ascii password"
-        )
+        test_round_trip("ascii password", &entry, "test ascii password");
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't set non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete non-ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
-            "Able to read a deleted non-ascii password"
-        )
+        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
     }
 
     #[test]
     fn test_update() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set initial ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set initial ascii passwords don't match"
+        test_round_trip("initial ascii password", &entry, "test ascii password");
+        test_round_trip(
+            "updated non-ascii password",
+            &entry,
+            "このきれいな花は桜です",
         );
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't update ascii with non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and updated non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete updated password");
-        assert!(
-            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
-            "Able to read a deleted updated password"
-        )
     }
 
     #[test]
@@ -587,11 +511,14 @@ mod tests {
             .set_password(password)
             .expect("Can't set test get password");
         let credential: &WinCredential = entry
-            .inner
-            .as_any()
+            .get_credential()
             .downcast_ref()
             .expect("Not a windows credential");
         let actual = credential.get_credential().expect("Can't read credential");
+        assert_eq!(
+            actual.username, credential.username,
+            "Usernames don't match"
+        );
         assert_eq!(
             actual.target_name, credential.target_name,
             "Target names don't match"
@@ -599,10 +526,6 @@ mod tests {
         assert_eq!(
             actual.target_alias, credential.target_alias,
             "Target aliases don't match"
-        );
-        assert_eq!(
-            actual.username, credential.username,
-            "Usernames don't match"
         );
         assert_eq!(actual.comment, credential.comment, "Comments don't match");
     }

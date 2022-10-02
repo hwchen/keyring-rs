@@ -172,7 +172,7 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::generate_random_string, Credential, Entry, Error};
+    use crate::{tests::generate_random_string, tests::test_round_trip, Credential, Entry, Error};
 
     use super::LinuxCredential;
 
@@ -186,28 +186,6 @@ mod tests {
                 panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
             }
         }
-    }
-
-    fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
-        entry
-            .set_password(in_pass)
-            .unwrap_or_else(|err| panic!("Can't set password for {case}: {err:?}"));
-        let out_pass = entry
-            .get_password()
-            .unwrap_or_else(|err| panic!("Can't get password for {case}: {err:?}"));
-        assert_eq!(
-            in_pass, out_pass,
-            "Passwords don't match for {}: set='{}', get='{}'",
-            case, in_pass, out_pass
-        );
-        entry
-            .delete_password()
-            .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Read deleted password for {}",
-            case
-        )
     }
 
     #[test]
