@@ -188,6 +188,28 @@ mod tests {
         }
     }
 
+    fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
+        entry
+            .set_password(in_pass)
+            .unwrap_or_else(|err| panic!("Can't set password for {case}: {err:?}"));
+        let out_pass = entry
+            .get_password()
+            .unwrap_or_else(|err| panic!("Can't get password for {case}: {err:?}"));
+        assert_eq!(
+            in_pass, out_pass,
+            "Passwords don't match for {}: set='{}', get='{}'",
+            case, in_pass, out_pass
+        );
+        entry
+            .delete_password()
+            .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Read deleted password for {}",
+            case
+        )
+    }
+
     #[test]
     fn test_invalid_parameter() {
         let credential = LinuxCredential::new_with_target(Some(""), "service", "user");
@@ -195,6 +217,15 @@ mod tests {
             matches!(credential, Err(Error::Invalid(_, _))),
             "Created entry with empty target"
         );
+    }
+
+    #[test]
+    fn test_empty_service_and_user() {
+        let name = generate_random_string();
+        let in_pass = "doesn't matter";
+        test_round_trip("empty user", &entry_new(&name, ""), in_pass);
+        test_round_trip("empty service", &entry_new("", &name), in_pass);
+        test_round_trip("empty service & user", &entry_new("", ""), in_pass);
     }
 
     #[test]
@@ -211,115 +242,54 @@ mod tests {
     fn test_empty_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let in_pass = "";
-        entry
-            .set_password(in_pass)
-            .expect("Can't set empty password");
-        let out_pass = entry.get_password().expect("Can't get empty password");
-        assert_eq!(
-            in_pass, out_pass,
-            "Retrieved and set empty passwords don't match"
-        );
-        entry.delete_password().expect("Can't delete password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted password"
-        )
+        test_round_trip("empty password", &entry, "");
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted ascii password"
-        )
+        test_round_trip("ascii password", &entry, "test ascii password");
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't set non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete non-ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted non-ascii password"
-        )
+        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
     }
 
     #[test]
     fn test_update() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set initial ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set initial ascii passwords don't match"
+        test_round_trip("initial ascii password", &entry, "test ascii password");
+        test_round_trip(
+            "updated non-ascii password",
+            &entry,
+            "このきれいな花は桜です",
         );
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't update ascii with non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and updated non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete updated password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted updated password"
-        )
     }
 
     #[test]
     fn test_get_credential() {
         let name = generate_random_string();
         let entry = entry_new(&name, &name);
-        let password = "test get password";
         entry
-            .set_password(password)
-            .expect("Can't set test get password");
+            .set_password("test get password")
+            .expect("Can't set password for get_credential");
         let credential: &LinuxCredential = entry
-            .inner
-            .as_any()
+            .get_credential()
             .downcast_ref()
             .expect("Not a linux credential");
         let actual = credential.get_credential().expect("Can't read credential");
         assert_eq!(actual.label, credential.label, "Labels don't match");
-        assert_eq!(
-            actual.attributes, credential.attributes,
-            "Attributes don't match"
-        )
+        for (key, value) in &credential.attributes {
+            assert_eq!(
+                actual.attributes.get(key).expect("Missing attribute"),
+                value,
+                "Attribute mismatch"
+            )
+        }
     }
 }

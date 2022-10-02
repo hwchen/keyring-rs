@@ -149,7 +149,7 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
 
 #[derive(Debug)]
 pub struct Entry {
-    pub inner: Box<Credential>,
+    inner: Box<Credential>,
 }
 
 impl Entry {
@@ -184,6 +184,10 @@ impl Entry {
     /// Delete the password for this entry.
     pub fn delete_password(&self) -> Result<()> {
         self.inner.delete_password()
+    }
+
+    pub fn get_credential(&self) -> &dyn std::any::Any {
+        self.inner.as_any()
     }
 }
 
