@@ -29,7 +29,7 @@ path = "examples/ios.rs"
 crate-type = ["staticlib"]
 
 [dev-dependencies]
-clap = { version = "3", features = ["derive", "wrap_help"] }
+clap = { version = "4", features = ["derive", "wrap_help"] }
 rpassword = "6.0"
 rand = "0.8"
 doc-comment = "0.3"
