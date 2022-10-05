@@ -528,5 +528,9 @@ mod tests {
             "Target aliases don't match"
         );
         assert_eq!(actual.comment, credential.comment, "Comments don't match");
+        entry
+            .delete_password()
+            .expect("Couldn't delete get-credential");
+        assert!(matches!(entry.get_password(), Err(ErrorCode::NoEntry)));
     }
 }

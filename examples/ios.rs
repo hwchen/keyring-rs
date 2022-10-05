@@ -103,5 +103,7 @@ fn test_get_credential() {
     entry
         .set_password("test get password")
         .expect("Can't set password for get_credential");
-    assert!(credential.get_credential().is_ok())
+    assert!(credential.get_credential().is_ok());
+    entry.delete_password().unwrap();
+    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }

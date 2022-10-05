@@ -269,5 +269,9 @@ mod tests {
                 "Attribute mismatch"
             )
         }
+        entry
+            .delete_password()
+            .expect("Couldn't delete get-credential");
+        assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 }

@@ -27,7 +27,7 @@ byteorder = "1.2"
 winapi = { version =  "0.3", features = ["wincred", "winerror", "errhandlingapi", "minwindef"] }
 
 [[example]]
-name = "ios"
+name = "iostest"
 path = "examples/ios.rs"
 crate-type = ["staticlib"]
 
