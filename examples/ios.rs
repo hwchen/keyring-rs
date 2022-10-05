@@ -2,11 +2,32 @@ use keyring::{Entry, Error};
 
 #[no_mangle]
 extern "C" fn test() {
+    test_invalid_parameter();
     test_empty_keyring();
     test_empty_password_input();
     test_round_trip_ascii_password();
     test_round_trip_non_ascii_password();
     test_update_password();
+    #[cfg(target_os = "ios")]
+    test_get_credential();
+}
+
+fn test_invalid_parameter() {
+    let entry = Entry::new("", "user");
+    assert!(
+        matches!(entry, Err(Error::Invalid(_, _))),
+        "Created entry with empty service"
+    );
+    let entry = Entry::new("service", "");
+    assert!(
+        matches!(entry, Err(Error::Invalid(_, _))),
+        "Created entry with empty user"
+    );
+    let entry = Entry::new_with_target("test", "service", "user");
+    assert!(
+        matches!(entry, Err(Error::Invalid(_, _))),
+        "Created entry with non-default target"
+    );
 }
 
 fn test_empty_keyring() {
@@ -64,4 +85,23 @@ fn test_update_password() {
     assert_eq!(stored_password, password);
     entry.delete_password().unwrap();
     assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+}
+
+#[cfg(target_os = "ios")]
+fn test_get_credential() {
+    use keyring::default::IosCredential;
+    let name = "test_get_credential".to_string();
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
+    let credential: &IosCredential = entry
+        .get_credential()
+        .downcast_ref()
+        .expect("Not a mac credential");
+    assert!(
+        credential.get_credential().is_err(),
+        "Platform credential shouldn't exist yet!"
+    );
+    entry
+        .set_password("test get password")
+        .expect("Can't set password for get_credential");
+    assert!(credential.get_credential().is_ok())
 }

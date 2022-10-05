@@ -193,11 +193,14 @@ impl Entry {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_os = "ios"))]
     use super::{Entry, Error};
+    #[cfg(not(target_os = "ios"))]
     doc_comment::doctest!("../README.md");
 
     /// A basic round-trip unit test given an entry and a password.
     /// This is the core of the tests used in every platform store module.
+    #[cfg(not(target_os = "ios"))]
     pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
         entry
             .set_password(in_pass)
