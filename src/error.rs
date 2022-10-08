@@ -2,6 +2,13 @@
 
 Defines a platform-independent error model.
 
+There is an escape hatch here for surfacing platform-specific
+error information returned by the platform-specific storage provider,
+but (like all credential-related data) the concrete objects returned
+must be both Send and Sync so credentials remain Send + Sync.
+(Since most platform errors are integer error codes, this requirement
+is not much of a burden on the platform-specific store providers.)
+
  */
 
 #[derive(Debug)]
@@ -12,13 +19,13 @@ pub enum Error {
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
     /// be retrieved from the attached platform error.
-    PlatformFailure(crate::platform::Error),
+    PlatformFailure(Box<dyn std::error::Error + Send + Sync>),
     /// This indicates that the underlying secure storage
     /// holding saved items could not be accessed.  Typically this
     /// is because of access rules in the platform; for example, it
     /// might be that the credential store is locked.  The underlying
     /// platform error will typically give the reason.
-    NoStorageAccess(crate::platform::Error),
+    NoStorageAccess(Box<dyn std::error::Error + Send + Sync>),
     /// This indicates that there is no underlying credential
     /// entry in the platform for this entry.  Either one was
     /// never set, or it was deleted.
@@ -33,10 +40,11 @@ pub enum Error {
     /// attached values give the name of the attribute and
     /// the platform length limit that was exceeded.
     TooLong(String, u32),
-    /// This indicates that the credential provided
-    /// to `Entry::new_with_credential` was for
-    /// a different platform than the one in use.
-    WrongCredentialPlatform,
+    /// This indicates that one of the entry's required credential
+    /// attributes was invalid.  The
+    /// attached value gives the name of the attribute
+    /// and the reason it's invalid.
+    Invalid(String, String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -44,9 +52,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::WrongCredentialPlatform => {
-                write!(f, "CredentialMapper value doesn't match this platform")
-            }
             Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {}", err),
             Error::NoStorageAccess(err) => {
                 write!(f, "Couldn't access platform secure storage: {}", err)
@@ -58,6 +63,9 @@ impl std::fmt::Display for Error {
                 "Attribute '{}' is longer than platform limit of {} chars",
                 name, len
             ),
+            Error::Invalid(attr, reason) => {
+                write!(f, "Attribute {} is invalid: {}", attr, reason)
+            }
         }
     }
 }
@@ -65,8 +73,8 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::PlatformFailure(err) => Some(err),
-            Error::NoStorageAccess(err) => Some(err),
+            Error::PlatformFailure(err) => Some(err.as_ref()),
+            Error::NoStorageAccess(err) => Some(err.as_ref()),
             _ => None,
         }
     }

@@ -55,10 +55,12 @@ fn execute_args(args: &Cli) {
     } else {
         whoami::username()
     };
-    let entry = if let Some(target) = args.target.as_ref() {
+    let entry = if let Some(target) = &args.target {
         Entry::new_with_target(target, &args.service, &username)
+            .unwrap_or_else(|err| panic!("Couldn't create entry: {:?}", err))
     } else {
         Entry::new(&args.service, &username)
+            .unwrap_or_else(|err| panic!("Couldn't create entry: {:?}", err))
     };
     match &args.command {
         Command::Set {
@@ -71,7 +73,7 @@ fn execute_args(args: &Cli) {
                 eprintln!("(Failed to read password, so none set.)")
             }
         }
-        Command::Get => execute_get_password_and_credential(&username, args.verbose, &entry),
+        Command::Get => execute_get_password(&username, args.verbose, &entry),
         Command::Delete => execute_delete_password(&username, args.verbose, &entry),
     }
 }
@@ -88,19 +90,13 @@ fn execute_set_password(username: &str, verbose: u8, entry: &Entry, password: &s
     }
 }
 
-fn execute_get_password_and_credential(username: &str, verbose: u8, entry: &Entry) {
-    match entry.get_password_and_credential() {
-        Ok((password, credential)) => {
+fn execute_get_password(username: &str, verbose: u8, entry: &Entry) {
+    match entry.get_password() {
+        Ok(password) => {
             println!("The password for user '{}' is '{}'", username, &password);
-            if verbose > 0 {
-                println!("Credential is: {:?}", credential)
-            }
         }
         Err(Error::NoEntry) => {
             eprintln!("(No password found for user '{}')", username);
-            if verbose > 1 {
-                eprintln!("Error details: {:?}", Error::NoEntry);
-            }
         }
         Err(err) => {
             eprintln!("Couldn't get password for user '{}': {}", username, err);

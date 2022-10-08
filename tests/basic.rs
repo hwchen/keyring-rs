@@ -1,23 +1,32 @@
-use keyring::{credential::default_target, platform, Entry, Error};
+use common::generate_random_string;
+use keyring::{Entry, Error};
 
-doc_comment::doctest!("../README.md");
+mod common;
 
 #[test]
-fn test_empty_keyring() {
+fn test_missing_entry() {
     let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
-    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Missing entry has password"
+    )
 }
 
 #[test]
-fn test_empty_password_input() {
+fn test_empty_password() {
     let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
     let in_pass = "";
-    entry.set_password(in_pass).unwrap();
-    let out_pass = entry.get_password().unwrap();
-    assert_eq!(in_pass, out_pass);
-    entry.delete_password().unwrap();
+    entry
+        .set_password(in_pass)
+        .expect("Can't set empty password");
+    let out_pass = entry.get_password().expect("Can't get empty password");
+    assert_eq!(
+        in_pass, out_pass,
+        "Retrieved and set empty passwords don't match"
+    );
+    entry.delete_password().expect("Can't delete password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted password"
@@ -27,84 +36,74 @@ fn test_empty_password_input() {
 #[test]
 fn test_round_trip_ascii_password() {
     let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";
-    entry.set_password(password).unwrap();
-    let stored_password = entry.get_password().unwrap();
-    assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
-    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+    entry
+        .set_password(password)
+        .expect("Can't set ascii password");
+    let stored_password = entry.get_password().expect("Can't get ascii password");
+    assert_eq!(
+        stored_password, password,
+        "Retrieved and set ascii passwords don't match"
+    );
+    entry
+        .delete_password()
+        .expect("Can't delete ascii password");
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Able to read a deleted ascii password"
+    )
 }
 
 #[test]
 fn test_round_trip_non_ascii_password() {
     let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "このきれいな花は桜です";
-    entry.set_password(password).unwrap();
-    let stored_password = entry.get_password().unwrap();
-    assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
-    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+    entry
+        .set_password(password)
+        .expect("Can't set non-ascii password");
+    let stored_password = entry.get_password().expect("Can't get non-ascii password");
+    assert_eq!(
+        stored_password, password,
+        "Retrieved and set non-ascii passwords don't match"
+    );
+    entry
+        .delete_password()
+        .expect("Can't delete non-ascii password");
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Able to read a deleted non-ascii password"
+    )
 }
 
 #[test]
 fn test_update() {
     let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";
-    entry.set_password(password).unwrap();
-    let stored_password = entry.get_password().unwrap();
-    assert_eq!(stored_password, password);
+    entry
+        .set_password(password)
+        .expect("Can't set initial ascii password");
+    let stored_password = entry.get_password().expect("Can't get ascii password");
+    assert_eq!(
+        stored_password, password,
+        "Retrieved and set initial ascii passwords don't match"
+    );
     let password = "このきれいな花は桜です";
-    entry.set_password(password).unwrap();
-    let stored_password = entry.get_password().unwrap();
-    assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
-    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
-}
-
-#[test]
-fn test_independent_credential_and_password() {
-    let name = generate_random_string();
-    let entry = Entry::new(&name, &name);
-    let password = "このきれいな花は桜です";
-    entry.set_password(password).unwrap();
-    let (stored_password, credential1) = entry.get_password_and_credential().unwrap();
-    assert_eq!(stored_password, password);
-    let password = "test ascii password";
-    entry.set_password(password).unwrap();
-    let (stored_password, credential2) = entry.get_password_and_credential().unwrap();
-    assert_eq!(stored_password, password);
-    assert_eq!(credential1, credential2);
-    entry.delete_password().unwrap();
+    entry
+        .set_password(password)
+        .expect("Can't update ascii with non-ascii password");
+    let stored_password = entry.get_password().expect("Can't get non-ascii password");
+    assert_eq!(
+        stored_password, password,
+        "Retrieved and updated non-ascii passwords don't match"
+    );
+    entry
+        .delete_password()
+        .expect("Can't delete updated password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
-        "Able to read a deleted password"
+        "Able to read a deleted updated password"
     )
-}
-
-#[test]
-fn test_same_target() {
-    let name = generate_random_string();
-    let entry1 = Entry::new(&name, &name);
-    let credential = default_target(&platform(), None, &name, &name);
-    let entry2 = Entry::new_with_credential(&credential).unwrap();
-    let password1 = generate_random_string();
-    entry1.set_password(&password1).unwrap();
-    let password2 = entry2.get_password().unwrap();
-    assert_eq!(password2, password1);
-    entry1.delete_password().unwrap();
-    assert!(matches!(entry2.delete_password(), Err(Error::NoEntry)))
-}
-
-fn generate_random_string() -> String {
-    // from the Rust Cookbook:
-    // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-    use rand::{distributions::Alphanumeric, thread_rng, Rng};
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(30)
-        .map(char::from)
-        .collect()
 }

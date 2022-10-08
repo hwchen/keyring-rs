@@ -1,3 +1,10 @@
+## Version 2.0
+- Introduce traits for pluggable store implementations.
+- Add a `mock` store.
+
+## Version 1.2
+- introduce protection against the use of empty arguments
+
 ## Version 1.1.2
 - replace `structopt` with new, improved `clap` that incoporates all of the same functionality.
 

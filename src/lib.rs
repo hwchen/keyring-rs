@@ -2,13 +2,57 @@
 
 # Keyring
 
-This is a cross-platform library that does storage and retrieval of passwords (and other credential-like secrets) in the underlying platform secure store. A top-level introduction to the library's usage, as well as a small code sample, may be found in [the library's entry on crates.io](https://crates.io/crates/keyring). Currently supported platforms are Linux, Windows, MacOS, and iOS.
+This is a cross-platform library that does storage and retrieval of passwords
+(and other credential-like secrets) in an underlying platform-specific secure store.
+A top-level introduction to the library's usage, as well as a small code sample,
+may be found in [the library's entry on crates.io](https://crates.io/crates/keyring).
+Currently supported platforms are
+Linux,
+Windows,
+and iOS/MacOS.
 
 ## Design
 
-This module uses platform-native credential managers: secret service on Linux, the Credential Manager on Windows, and the Secure Keychain on Mac and iOS.  Each entry constructed with `Entry::new(service, username)` is mapped to a credential using platform-specific conventions described below.
+This crate has a very simple, platform-independent model of a keystore:
+it's an API that provides persistent storage for any number of credentials.
+Each credential is identified by a <service, username> pair of UTF-8 strings.
+Each credential can store a single UTF-8 string as its password.
+There is no platform-independent notion of a keystore being locked or unlocked.
+There is a platform-independent notion of a credential having platform-specific
+metadata that can be read (but not written) via this crate's API.
 
-To facilitate interoperability with third-party software, there are alternate constructors for keyring entries - `Entry::new_with_target` and `Entry::new_with_credential` - that use different conventions to map entries to credentials. In addition, the `get_password_and_credential` method on an entry can be used retrieve the underlying credential data along with the password.
+This crate runs on several different platforms, each of which has one
+or more actual secure storage implementations.  Each of these
+implementations has its own model---generally a much richer one than
+this crate's---for what constitutes a secure credential.  It is
+these platform-specific implementations that provide persistent storage.
+
+This crate's simple model for credentials is embodied in the `Credential`
+trait.  Each secure storage implementation implements this trait.  This
+crate then implements a concrete `Entry` class that can read and write
+platform-specific concrete objects via their `Credential` implementations.
+
+## Pluggable Platform Stores
+
+Clients of this crate can provide their own platform-specific credential storage implementations.
+They do so by providing a concrete object that implements the `Credential` trait.  They can then
+construct an `Entry` in that store by passing that object type to the `Entry::new_with_store` call.
+Or they can construct the platform credential themselves and construct an `Entry` that wraps it
+by using the `Entry::new_with_credential` call.
+
+## Default Platform Stores
+
+For ease of use, this module provides a default credential storage implementation on each platform:
+secure-store on Linux, the Credential Manager on Windows, and Keychain Services on Mac and iOS.
+Each entry constructed with `Entry::new(service, username)` is mapped to an underlying credential
+using the default store for the platform and conventions described below.
+
+To facilitate interoperability with third-party software that use the default secure stores,
+there is an alternate constructor for keyring entries---`Entry::new_with_target`---that
+allows clients to influence the mapping from service and username to an underlying
+platform credential.  If more control than that is needed, clients can access the underlying
+platform store directly and use `Entry::new_with_credential` to wrap the platform credential
+in an entry.
 
 ### Linux
 
@@ -59,180 +103,144 @@ Because credentials identified with empty service, user, or target names are han
 A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
 
  */
-pub mod credential;
-pub mod error;
-
-use credential::{Platform, PlatformCredential};
+pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
 
-/// return the runtime `Platform` so cross-platform
-/// code can know what kind of credential is in use.
-pub fn platform() -> Platform {
-    platform::platform()
-}
+pub mod credential;
+pub mod error;
+pub mod mock;
 
-// Platform-specific implementations
+// Default platform-specific implementations
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
 #[cfg_attr(target_os = "windows", path = "windows.rs")]
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "ios", path = "ios.rs")]
-mod platform;
+pub mod default;
+
+#[derive(Default, Debug)]
+struct EntryBuilder {
+    inner: Option<Box<CredentialBuilder>>,
+}
+
+static mut DEFAULT_BUILDER: EntryBuilder = EntryBuilder { inner: None };
+
+/// Set the credential builder used by default to create entries.
+///
+/// This sets a mutable static, so it's inherently unsafe.
+/// Do not use it to be switching back and forth between builders;
+/// set it once before you create any credentials and leave it alone.
+/// Use `entry_with_credential` if you are using multiple credential stores
+/// and want precise control over which credential is in which store.
+pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
+    unsafe {
+        DEFAULT_BUILDER.inner = Some(new);
+    }
+}
+
+fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> Result<Entry> {
+    let default = default::default_credential_builder();
+    let builder = match unsafe { DEFAULT_BUILDER.inner.as_ref() } {
+        None => &default,
+        Some(builder) => builder,
+    };
+    let credential = builder.build(target, service, user)?;
+    Ok(Entry { inner: credential })
+}
 
 #[derive(Debug)]
 pub struct Entry {
-    target: PlatformCredential,
+    inner: Box<Credential>,
 }
 
 impl Entry {
     /// Create an entry for the given service and username.
-    /// This maps to a target credential in the default keychain.
-    ///
-    /// This call never fails, because there is no actual platform access
-    /// performed when the credential object is created.  But if you specify
-    /// empty strings for any of the arguments, any attempt to use the
-    /// credential will fail with a `NoEntry` error.  And if you specify a
-    /// string that exceeds platform limits, you will get a `TooLong` error.
-    pub fn new(service: &str, username: &str) -> Entry {
-        Entry {
-            target: credential::default_target(&platform(), None, service, username),
-        }
+    /// The default credential builder is used.
+    pub fn new(service: &str, user: &str) -> Result<Entry> {
+        build_default_credential(None, service, user)
     }
 
     /// Create an entry for the given target, service, and username.
-    /// On Linux and Mac, the target is interpreted as naming the collection/keychain
-    /// to store the credential.  On Windows, the target is used directly as
-    /// the _target name_ of the credential.
-    ///
-    /// This call never fails, because there is no actual platform access
-    /// performed when the credential object is created.  But if you specify
-    /// empty strings for any of the arguments, any attempt to use the
-    /// credential will fail with a `NoEntry` error.  And if you specify a
-    /// string that exceeds platform limits, you will get a `TooLong` error.
-    pub fn new_with_target(target: &str, service: &str, username: &str) -> Entry {
-        Entry {
-            target: credential::default_target(&platform(), Some(target), service, username),
-        }
+    /// The default credential builder is used.
+    pub fn new_with_target(target: &str, service: &str, user: &str) -> Result<Entry> {
+        build_default_credential(Some(target), service, user)
     }
 
-    /// Create an entry that uses the given credential for storage.  Callers can use
-    /// their own algorithm to produce a platform-specific credential spec for the
-    /// given service and username and then call this entry with that value.
-    ///
-    /// This call never fails, because there is no actual platform access
-    /// performed when the credential object is created.  But if you specify
-    /// a platform credential that contains empty or invalid attributes, you
-    /// may get errors or surprises when attempting to use the credential.
-    pub fn new_with_credential(target: &PlatformCredential) -> Result<Entry> {
-        if target.matches_platform(&platform()) {
-            Ok(Entry {
-                target: target.clone(),
-            })
-        } else {
-            Err(Error::WrongCredentialPlatform)
-        }
+    /// Create an entry that uses the given platform credential for storage.
+    pub fn new_with_credential(credential: Box<Credential>) -> Entry {
+        Entry { inner: credential }
     }
 
-    /// Set the password for this entry.  Any other platform-specific
-    /// annotations are determined by the mapper that was used
-    /// to create the credential.
+    /// Set the password for this entry.
     pub fn set_password(&self, password: &str) -> Result<()> {
-        self.validate_or_no_entry()?;
-        platform::set_password(&self.target, password)
+        self.inner.set_password(password)
     }
 
     /// Retrieve the password saved for this entry.
     /// Returns a `NoEntry` error is there isn't one.
     pub fn get_password(&self) -> Result<String> {
-        self.validate_or_no_entry()?;
-        let mut map = self.target.clone();
-        platform::get_password(&mut map)
+        self.inner.get_password()
     }
 
-    /// Retrieve the password and all the other fields
-    /// set in the platform-specific credential.  This
-    /// allows retrieving metadata on the credential that
-    /// were saved by external applications.
-    pub fn get_password_and_credential(&self) -> Result<(String, PlatformCredential)> {
-        self.validate_or_no_entry()?;
-        let mut map = self.target.clone();
-        let password = platform::get_password(&mut map)?;
-        Ok((password, map))
-    }
-
-    /// Delete the password for this entry.  (Although the entry
-    /// itself follows the Rust structure lifecycle, deleting
-    /// the password deletes the platform credential from secure storage.)
+    /// Delete the password for this entry.
     pub fn delete_password(&self) -> Result<()> {
-        platform::delete_password(&self.target)
+        self.inner.delete_password()
     }
 
-    /// Validate the arguments given to credential create were not empty.  If they were,
-    /// return a NoEntry generic error to prevent the user using the credential.
-    fn validate_or_no_entry(&self) -> Result<()> {
-        match self.target {
-            PlatformCredential::Invalid => Err(Error::NoEntry),
-            _ => Ok(()),
-        }
+    pub fn get_credential(&self) -> &dyn std::any::Any {
+        self.inner.as_any()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::credential::default_target;
+    #[cfg(not(target_os = "ios"))]
+    use super::{Entry, Error};
+    #[cfg(not(target_os = "ios"))]
+    doc_comment::doctest!("../README.md");
 
-    #[test]
-    fn test_invalid_credential_creation() {
-        let entry = Entry::new("service", "");
-        assert!(matches!(entry.target, PlatformCredential::Invalid));
-        assert!(entry.set_password("foo").is_err());
-        assert!(entry.get_password().is_err());
-        assert!(entry.get_password_and_credential().is_err());
-        let entry = Entry::new("", "username");
-        assert!(matches!(entry.target, PlatformCredential::Invalid));
-        let entry = Entry::new_with_target("", "service", "username");
-        assert!(matches!(entry.target, PlatformCredential::Invalid));
-        let result = Entry::new_with_credential(&PlatformCredential::Invalid);
-        assert!(result.is_err());
+    /// A basic round-trip unit test given an entry and a password.
+    /// This is the core of the tests used in every platform store module.
+    #[cfg(not(target_os = "ios"))]
+    pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
+        entry
+            .set_password(in_pass)
+            .unwrap_or_else(|err| panic!("Can't set password for {case}: {err:?}"));
+        let out_pass = entry
+            .get_password()
+            .unwrap_or_else(|err| panic!("Can't get password for {case}: {err:?}"));
+        assert_eq!(
+            in_pass, out_pass,
+            "Passwords don't match for {}: set='{}', get='{}'",
+            case, in_pass, out_pass
+        );
+        entry
+            .delete_password()
+            .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Read deleted password for {}",
+            case
+        );
     }
 
-    #[test]
-    fn test_default_initial_and_retrieved_map() {
-        let name = generate_random_string();
-        let expected_target = default_target(&platform(), None, &name, &name);
-        let entry = Entry::new(&name, &name);
-        assert_eq!(entry.target, expected_target);
-        entry.set_password("ignored").unwrap();
-        let (_, target) = entry.get_password_and_credential().unwrap();
-        assert_eq!(target, expected_target);
-        // don't leave password around.
-        entry.delete_password().unwrap();
-    }
-
-    #[test]
-    fn test_targeted_initial_and_retrieved_map() {
-        let name = generate_random_string();
-        let expected_target = default_target(&platform(), Some(&name), &name, &name);
-        let entry = Entry::new_with_target(&name, &name, &name);
-        assert_eq!(entry.target, expected_target);
-        // can only test targeted credentials on Windows
-        if matches!(platform(), Platform::Windows) {
-            entry.set_password("ignored").unwrap();
-            let (_, target) = entry.get_password_and_credential().unwrap();
-            assert_eq!(target, expected_target);
-            // don't leave password around.
-            entry.delete_password().unwrap();
-        }
-    }
-
-    fn generate_random_string() -> String {
+    /// When tests fail, they leave keys behind, and those keys
+    /// have to be cleaned up before the tests can be run again
+    /// in order to avoid bad results.  So it's a lot easier just
+    /// to have tests use a random string for key names to avoid
+    /// the conflicts, and then do any needed cleanup once everything
+    /// is working correctly.  So we export this function for tests to use.
+    pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
         use rand::{distributions::Alphanumeric, thread_rng, Rng};
         thread_rng()
             .sample_iter(&Alphanumeric)
-            .take(30)
+            .take(len)
             .map(char::from)
             .collect()
+    }
+
+    pub fn generate_random_string() -> String {
+        generate_random_string_of_len(30)
     }
 }
