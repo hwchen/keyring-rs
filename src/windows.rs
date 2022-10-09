@@ -338,23 +338,11 @@ fn wrap(code: DWORD) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use super::*;
 
-    use crate::tests::{generate_random_string, generate_random_string_of_len, test_round_trip};
-    use crate::{Credential, Entry};
+    use crate::tests::{generate_random_string, generate_random_string_of_len};
+    use crate::Entry;
 
     fn entry_new(service: &str, user: &str) -> Entry {
-        entry_new_with_target(None, service, user)
-    }
-
-    fn entry_new_with_target(target: Option<&str>, service: &str, user: &str) -> Entry {
-        match WinCredential::new_with_target(target, service, user) {
-            Ok(credential) => {
-                let credential: Box<Credential> = Box::new(credential);
-                Entry::new_with_credential(credential)
-            }
-            Err(err) => {
-                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
-            }
-        }
+        crate::tests::entry_from_constructor(WinCredential::new_with_target, service, user)
     }
 
     #[test]
@@ -452,54 +440,32 @@ mod tests {
 
     #[test]
     fn test_empty_service_and_user() {
-        let name = generate_random_string();
-        let in_pass = "doesn't matter";
-        test_round_trip("empty user", &entry_new(&name, ""), in_pass);
-        test_round_trip("empty service", &entry_new("", &name), in_pass);
-        test_round_trip("empty service & user", &entry_new("", ""), in_pass);
+        crate::tests::test_empty_service_and_user(entry_new);
     }
 
     #[test]
     fn test_missing_entry() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        assert!(
-            matches!(entry.get_password(), Err(ErrorCode::NoEntry)),
-            "Missing entry has password"
-        )
+        crate::tests::test_missing_entry(entry_new);
     }
 
     #[test]
     fn test_empty_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("empty password", &entry, "");
+        crate::tests::test_empty_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("ascii password", &entry, "test ascii password");
+        crate::tests::test_round_trip_ascii_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
+        crate::tests::test_round_trip_non_ascii_password(entry_new);
     }
 
     #[test]
     fn test_update() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("initial ascii password", &entry, "test ascii password");
-        test_round_trip(
-            "updated non-ascii password",
-            &entry,
-            "このきれいな花は桜です",
-        );
+        crate::tests::test_update(entry_new);
     }
 
     #[test]

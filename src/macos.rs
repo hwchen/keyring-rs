@@ -177,23 +177,12 @@ fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        tests::{generate_random_string, test_round_trip},
-        Credential, Entry, Error,
-    };
+    use crate::{tests::generate_random_string, Entry, Error};
 
     use super::MacCredential;
 
     fn entry_new(service: &str, user: &str) -> Entry {
-        match MacCredential::new_with_target(None, service, user) {
-            Ok(credential) => {
-                let credential: Box<Credential> = Box::new(credential);
-                Entry::new_with_credential(credential)
-            }
-            Err(err) => {
-                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
-            }
-        }
+        crate::tests::entry_from_constructor(MacCredential::new_with_target, service, user)
     }
 
     #[test]
@@ -217,45 +206,27 @@ mod tests {
 
     #[test]
     fn test_missing_entry() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Missing entry has password"
-        )
+        crate::tests::test_missing_entry(entry_new);
     }
 
     #[test]
     fn test_empty_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("empty password", &entry, "");
+        crate::tests::test_empty_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("ascii password", &entry, "test ascii password");
+        crate::tests::test_round_trip_ascii_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
+        crate::tests::test_round_trip_non_ascii_password(entry_new);
     }
 
     #[test]
     fn test_update() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        test_round_trip("initial ascii password", &entry, "test ascii password");
-        test_round_trip(
-            "updated non-ascii password",
-            &entry,
-            "このきれいな花は桜です",
-        );
+        crate::tests::test_update(entry_new);
     }
 
     #[test]
@@ -271,12 +242,12 @@ mod tests {
             "Platform credential shouldn't exist yet!"
         );
         entry
-            .set_password("test get password")
+            .set_password("test get_credential")
             .expect("Can't set password for get_credential");
         assert!(credential.get_credential().is_ok());
         entry
             .delete_password()
-            .expect("Couldn't delete get-credential");
+            .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 }

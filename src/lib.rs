@@ -192,15 +192,33 @@ impl Entry {
 }
 
 #[cfg(test)]
+doc_comment::doctest!("../README.md");
+
+#[cfg(test)]
+/// There are no actual tests in this module.
+/// Instead, it contains generics that each keystore invokes in their tests,
+/// passing their store-specific parameters for the generic ones.
+//
+// Since iOS doesn't use any of these generics, we allow dead code.
+#[allow(dead_code)]
 mod tests {
-    #[cfg(not(target_os = "ios"))]
-    use super::{Entry, Error};
-    #[cfg(not(target_os = "ios"))]
-    doc_comment::doctest!("../README.md");
+    use super::{credential::CredentialApi, Entry, Error, Result};
+
+    /// Create a platform-specific credential given the constructor, service, and user
+    pub fn entry_from_constructor<F, T>(f: F, service: &str, user: &str) -> Entry
+    where
+        F: FnOnce(Option<&str>, &str, &str) -> Result<T>,
+        T: 'static + CredentialApi + Send + Sync,
+    {
+        match f(None, service, user) {
+            Ok(credential) => Entry::new_with_credential(Box::new(credential)),
+            Err(err) => {
+                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
+            }
+        }
+    }
 
     /// A basic round-trip unit test given an entry and a password.
-    /// This is the core of the tests used in every platform store module.
-    #[cfg(not(target_os = "ios"))]
     pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
         entry
             .set_password(in_pass)
@@ -242,5 +260,69 @@ mod tests {
 
     pub fn generate_random_string() -> String {
         generate_random_string_of_len(30)
+    }
+
+    pub fn test_empty_service_and_user<F>(f: F)
+    where
+        F: Fn(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let in_pass = "doesn't matter";
+        test_round_trip("empty user", &f(&name, ""), in_pass);
+        test_round_trip("empty service", &f("", &name), in_pass);
+        test_round_trip("empty service & user", &f("", ""), in_pass);
+    }
+
+    pub fn test_missing_entry<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Missing entry has password"
+        )
+    }
+
+    pub fn test_empty_password<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        test_round_trip("empty password", &entry, "");
+    }
+
+    pub fn test_round_trip_ascii_password<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        test_round_trip("ascii password", &entry, "test ascii password");
+    }
+
+    pub fn test_round_trip_non_ascii_password<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
+    }
+
+    pub fn test_update<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        test_round_trip("initial ascii password", &entry, "test ascii password");
+        test_round_trip(
+            "updated non-ascii password",
+            &entry,
+            "このきれいな花は桜です",
+        );
     }
 }
