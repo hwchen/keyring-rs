@@ -11,13 +11,13 @@ use super::error::{decode_password, Error as ErrorCode, Result};
 /// of attributes, and each can have "label" metadata for use in
 /// graphical editors.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LinuxCredential {
+pub struct SsCredential {
     pub collection: String,
     pub attributes: HashMap<String, String>,
     pub label: String,
 }
 
-impl CredentialApi for LinuxCredential {
+impl CredentialApi for SsCredential {
     fn set_password(&self, password: &str) -> Result<()> {
         let ss = SecretService::new(EncryptionType::Dh).map_err(platform_failure)?;
         let collection = self.get_collection(&ss)?;
@@ -60,7 +60,7 @@ impl CredentialApi for LinuxCredential {
     }
 }
 
-impl LinuxCredential {
+impl SsCredential {
     /// Construct a credential from the underlying platform credential
     pub fn get_credential(&self) -> Result<Self> {
         let mut result = self.clone();
@@ -126,15 +126,15 @@ impl LinuxCredential {
     }
 }
 
-pub struct LinuxCredentialBuilder {}
+pub struct SsCredentialBuilder {}
 
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
-    Box::new(LinuxCredentialBuilder {})
+    Box::new(SsCredentialBuilder {})
 }
 
-impl CredentialBuilderApi for LinuxCredentialBuilder {
+impl CredentialBuilderApi for SsCredentialBuilder {
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        Ok(Box::new(LinuxCredential::new_with_target(
+        Ok(Box::new(SsCredential::new_with_target(
             target, service, user,
         )?))
     }
@@ -174,15 +174,15 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use crate::{tests::generate_random_string, Entry, Error};
 
-    use super::LinuxCredential;
+    use super::SsCredential;
 
     fn entry_new(service: &str, user: &str) -> Entry {
-        crate::tests::entry_from_constructor(LinuxCredential::new_with_target, service, user)
+        crate::tests::entry_from_constructor(SsCredential::new_with_target, service, user)
     }
 
     #[test]
     fn test_invalid_parameter() {
-        let credential = LinuxCredential::new_with_target(Some(""), "service", "user");
+        let credential = SsCredential::new_with_target(Some(""), "service", "user");
         assert!(
             matches!(credential, Err(Error::Invalid(_, _))),
             "Created entry with empty target"
@@ -226,7 +226,7 @@ mod tests {
         entry
             .set_password("test get credential")
             .expect("Can't set password for get_credential");
-        let credential: &LinuxCredential = entry
+        let credential: &SsCredential = entry
             .get_credential()
             .downcast_ref()
             .expect("Not a linux credential");

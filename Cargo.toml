@@ -10,6 +10,11 @@ version = "2.0.0-alpha.1"
 edition = "2021"
 exclude = [".github/"]
 
+[features]
+default = ["linux-secret-service"]
+linux-secret-service = []
+linux-keyutils = []
+
 [dependencies]
 lazy_static = "1"
 
@@ -21,6 +26,7 @@ security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = "2.0"
+linux-keyutils = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1.2"

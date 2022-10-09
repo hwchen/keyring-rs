@@ -103,19 +103,36 @@ Because credentials identified with empty service, user, or target names are han
 A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
 
  */
-pub use credential::{Credential, CredentialBuilder};
-pub use error::{Error, Result};
-
 pub mod credential;
 pub mod error;
 pub mod mock;
 
-// Default platform-specific implementations
-#[cfg_attr(target_os = "linux", path = "linux.rs")]
-#[cfg_attr(target_os = "windows", path = "windows.rs")]
-#[cfg_attr(target_os = "macos", path = "macos.rs")]
-#[cfg_attr(target_os = "ios", path = "ios.rs")]
-pub mod default;
+// Included keystore implementations
+#[cfg(target_os = "ios")]
+pub mod ios;
+#[cfg(target_os = "linux")]
+pub mod keyutils;
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "linux")]
+pub mod secret_service;
+#[cfg(target_os = "windows")]
+pub mod windows;
+
+// Set the default keystore on each platform
+#[cfg(target_os = "ios")]
+use ios as default;
+#[cfg(all(target_os = "linux", feature = "linux-keyutils"))]
+use keyutils as default;
+#[cfg(target_os = "macos")]
+use macos as default;
+#[cfg(all(target_os = "linux", feature = "linux-secret-service"))]
+use secret_service as default;
+#[cfg(target_os = "windows")]
+use windows as default;
+
+pub use credential::{Credential, CredentialBuilder};
+pub use error::{Error, Result};
 
 #[derive(Default, Debug)]
 struct EntryBuilder {
