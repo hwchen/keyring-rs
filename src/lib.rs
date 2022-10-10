@@ -251,8 +251,9 @@ mod tests {
         entry
             .delete_password()
             .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
+        let password = entry.get_password();
         assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
+            matches!(password, Err(Error::NoEntry)),
             "Read deleted password for {}",
             case
         );

@@ -135,7 +135,10 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
 
 fn decode_error(err: KeyError) -> ErrorCode {
     match err {
-        KeyError::KeyDoesNotExist | KeyError::AccessDenied => ErrorCode::NoEntry,
+        KeyError::KeyDoesNotExist
+        | KeyError::AccessDenied
+        | KeyError::KeyRevoked
+        | KeyError::KeyExpired => ErrorCode::NoEntry,
         KeyError::InvalidDescription => ErrorCode::Invalid(
             "description".to_string(),
             "rejected by platform".to_string(),
