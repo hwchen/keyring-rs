@@ -1,6 +1,6 @@
 //! Example implementation of the keyring crate's trait interface
 //! using linux-keyutils
-use linux_keyutils::{KeyRing, KeyRingIdentifier};
+use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -27,9 +27,15 @@ impl CredentialApi for KeyutilsCredential {
     /// This will overwrite the entry if it already exists since
     /// it's using `add_key` under the hood.
     fn set_password(&self, password: &str) -> Result<()> {
+        if password.is_empty() {
+            return Err(ErrorCode::Invalid(
+                "password".to_string(),
+                "cannot be empty".to_string(),
+            ));
+        }
         self.inner
             .add_key(&self.description, password)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+            .map_err(decode_error)?;
         Ok(())
     }
 
@@ -39,15 +45,10 @@ impl CredentialApi for KeyutilsCredential {
     /// to a utf8 Rust string.
     fn get_password(&self) -> Result<String> {
         // Verify that the key exists and is valid
-        let key = self
-            .inner
-            .search(&self.description)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+        let key = self.inner.search(&self.description).map_err(decode_error)?;
         // Read in the key (making sure we have enough room)
         let mut buffer = vec![0u8; 65535];
-        let len = key
-            .read(&mut buffer)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+        let len = key.read(&mut buffer).map_err(decode_error)?;
         unsafe {
             buffer.set_len(len);
         }
@@ -62,13 +63,9 @@ impl CredentialApi for KeyutilsCredential {
     /// searches.
     fn delete_password(&self) -> Result<()> {
         // Verify that the key exists and is valid
-        let key = self
-            .inner
-            .search(&self.description)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+        let key = self.inner.search(&self.description).map_err(decode_error)?;
         // Invalidate the key immediately
-        key.invalidate()
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+        key.invalidate().map_err(decode_error)?;
         Ok(())
     }
 
@@ -85,21 +82,29 @@ impl KeyutilsCredential {
     /// This is basically a no-op, because we don't keep any extra attributes.
     /// But at least we make sure the underlying platform credential exists.
     pub fn get_credential(&self) -> Result<Self> {
-        self.inner
-            .search(&self.description)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?;
+        self.inner.search(&self.description).map_err(decode_error)?;
         Ok(self.clone())
     }
 
     /// Create the platform credential for a Keyutils entry.
     ///
     /// A target string is interpreted as the KeyRing to use for the entry.
-    pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Box<Self>> {
+    pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         // Construct the credential with a URI-style description
-        Ok(Box::new(Self {
-            inner: keyring_from_target(target)?,
-            description: format!("keyring-rs:{}@{}", user, service),
-        }))
+        let inner = KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
+        let description = if let Some(target) = target {
+            if target.is_empty() {
+                return Err(ErrorCode::Invalid(
+                    "target".to_string(),
+                    "cannot be empty".to_string(),
+                ));
+            } else {
+                target.to_string()
+            }
+        } else {
+            format!("keyring-rs:{}@{}", user, service)
+        };
+        Ok(Self { inner, description })
     }
 }
 
@@ -108,13 +113,19 @@ impl KeyutilsCredential {
 #[derive(Debug, Copy, Clone)]
 struct KeyutilsCredentialBuilder {}
 
+pub fn default_credential_builder() -> Box<CredentialBuilder> {
+    Box::new(KeyutilsCredentialBuilder {})
+}
+
 /// A keyutils credential builder based off the persistent user-session
 /// keyring.
 impl CredentialBuilderApi for KeyutilsCredentialBuilder {
     /// Attempt to access the persistent user-session keyring. The
     /// keyring::Entry will be invalid until Entry::set_password is set.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        KeyutilsCredential::new_with_target(target, service, user)
+        Ok(Box::new(KeyutilsCredential::new_with_target(
+            target, service, user,
+        )?))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -122,34 +133,27 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
     }
 }
 
-fn keyring_from_target(target: Option<&str>) -> Result<KeyRing> {
-    match target.unwrap_or("UserSession") {
-        "UserSession" => Ok(KeyRing::get_persistent(KeyRingIdentifier::UserSession)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?),
-        "UserSession.transient" => Ok(KeyRing::from_special_id(
-            KeyRingIdentifier::UserSession,
-            true,
-        )
-        .map_err(|e| ErrorCode::PlatformFailure(e.into()))?),
-        "Session" => KeyRing::get_persistent(KeyRingIdentifier::Session)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?,
-        "Session.transient" => Ok(KeyRing::from_special_id(KeyRingIdentifier::Session, true)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?),
-        "User" => KeyRing::get_persistent(KeyRingIdentifier::User)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?,
-        "User.transient" => Ok(KeyRing::from_special_id(KeyRingIdentifier::User, true)
-            .map_err(|e| ErrorCode::PlatformFailure(e.into()))?),
-        _ => Err(ErrorCode::Invalid(
-            "target".to_string(),
-            "must be one of User, Session, or UserSession, optionally followed by .transient"
-                .to_string(),
-        )),
+fn decode_error(err: KeyError) -> ErrorCode {
+    match err {
+        KeyError::KeyDoesNotExist | KeyError::AccessDenied => ErrorCode::NoEntry,
+        KeyError::InvalidDescription => ErrorCode::Invalid(
+            "description".to_string(),
+            "rejected by platform".to_string(),
+        ),
+        KeyError::InvalidArguments => {
+            ErrorCode::Invalid("password".to_string(), "rejected by platform".to_string())
+        }
+        other => ErrorCode::PlatformFailure(wrap(other)),
     }
+}
+
+fn wrap(err: KeyError) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(err)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{tests::generate_random_string, tests::test_round_trip, Credential, Entry, Error};
+    use crate::{tests::generate_random_string, Entry, Error};
 
     use super::KeyutilsCredential;
 
@@ -178,7 +182,11 @@ mod tests {
 
     #[test]
     fn test_empty_password() {
-        crate::tests::test_empty_password(entry_new);
+        let entry = entry_new("empty password service", "empty password user");
+        assert!(
+            matches!(entry.set_password(""), Err(Error::Invalid(_, _))),
+            "Able to set empty password"
+        );
     }
 
     #[test]
