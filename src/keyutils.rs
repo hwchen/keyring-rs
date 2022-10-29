@@ -33,9 +33,17 @@ impl CredentialApi for KeyutilsCredential {
                 "cannot be empty".to_string(),
             ));
         }
-        self.inner
+
+        // Add to the persistent keyring
+        let key = self
+            .inner
             .add_key(&self.description, password)
             .map_err(decode_error)?;
+
+        // Directly link to the Session keyring as well
+        let session =
+            KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
+        session.link_key(key).map_err(decode_error)?;
         Ok(())
     }
 
@@ -46,12 +54,10 @@ impl CredentialApi for KeyutilsCredential {
     fn get_password(&self) -> Result<String> {
         // Verify that the key exists and is valid
         let key = self.inner.search(&self.description).map_err(decode_error)?;
+
         // Read in the key (making sure we have enough room)
-        let mut buffer = vec![0u8; 65535];
-        let len = key.read(&mut buffer).map_err(decode_error)?;
-        unsafe {
-            buffer.set_len(len);
-        }
+        let buffer = key.read_to_vec().map_err(decode_error)?;
+
         // Attempt utf-8 conversion
         decode_password(buffer)
     }
