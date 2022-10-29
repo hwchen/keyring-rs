@@ -1,9 +1,8 @@
 //! Example implementation of the keyring crate's trait interface
 //! using linux-keyutils
-use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
-
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
+use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
 /// Since the CredentialBuilderApi::build method does not provide
 /// an initial secret, this wraps a linux_keyutils::KeyRing instead
@@ -36,7 +35,7 @@ impl CredentialApi for KeyutilsCredential {
             ));
         }
 
-        // Add to the persistent keyring
+        // Add to the session keyring
         let key = self
             .session
             .add_key(&self.description, password)
@@ -114,6 +113,7 @@ impl KeyutilsCredential {
         // Link the persistent keyring to the session
         let persistent =
             KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
+
         // Construct the credential with a URI-style description
         let description = if let Some(target) = target {
             if target.is_empty() {
