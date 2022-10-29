@@ -15,8 +15,10 @@ use super::error::{decode_password, Error as ErrorCode, Result};
 /// set_password is called.
 #[derive(Debug, Clone)]
 pub struct KeyutilsCredential {
-    /// Host keyring
-    pub inner: KeyRing,
+    /// Host session keyring
+    pub session: KeyRing,
+    /// Host persistent keyring
+    pub persistent: KeyRing,
     /// Description of the key entry
     pub description: String,
 }
@@ -36,14 +38,12 @@ impl CredentialApi for KeyutilsCredential {
 
         // Add to the persistent keyring
         let key = self
-            .inner
+            .session
             .add_key(&self.description, password)
             .map_err(decode_error)?;
 
-        // Directly link to the Session keyring as well
-        let session =
-            KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
-        session.link_key(key).map_err(decode_error)?;
+        // Directly link to the persistent keyring as well
+        self.persistent.link_key(key).map_err(decode_error)?;
         Ok(())
     }
 
@@ -53,7 +53,13 @@ impl CredentialApi for KeyutilsCredential {
     /// to a utf8 Rust string.
     fn get_password(&self) -> Result<String> {
         // Verify that the key exists and is valid
-        let key = self.inner.search(&self.description).map_err(decode_error)?;
+        let key = self
+            .session
+            .search(&self.description)
+            .map_err(decode_error)?;
+
+        // Directly link to the persistent keyring as well
+        self.persistent.link_key(key).map_err(decode_error)?;
 
         // Read in the key (making sure we have enough room)
         let buffer = key.read_to_vec().map_err(decode_error)?;
@@ -69,7 +75,10 @@ impl CredentialApi for KeyutilsCredential {
     /// searches.
     fn delete_password(&self) -> Result<()> {
         // Verify that the key exists and is valid
-        let key = self.inner.search(&self.description).map_err(decode_error)?;
+        let key = self
+            .session
+            .search(&self.description)
+            .map_err(decode_error)?;
         // Invalidate the key immediately
         key.invalidate().map_err(decode_error)?;
         Ok(())
@@ -88,7 +97,9 @@ impl KeyutilsCredential {
     /// This is basically a no-op, because we don't keep any extra attributes.
     /// But at least we make sure the underlying platform credential exists.
     pub fn get_credential(&self) -> Result<Self> {
-        self.inner.search(&self.description).map_err(decode_error)?;
+        self.session
+            .search(&self.description)
+            .map_err(decode_error)?;
         Ok(self.clone())
     }
 
@@ -96,8 +107,14 @@ impl KeyutilsCredential {
     ///
     /// A target string is interpreted as the KeyRing to use for the entry.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        // Obtain the session keyring
+        let session =
+            KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
+
+        // Link the persistent keyring to the session
+        let persistent =
+            KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
         // Construct the credential with a URI-style description
-        let inner = KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
         let description = if let Some(target) = target {
             if target.is_empty() {
                 return Err(ErrorCode::Invalid(
@@ -110,7 +127,11 @@ impl KeyutilsCredential {
         } else {
             format!("keyring-rs:{}@{}", user, service)
         };
-        Ok(Self { inner, description })
+        Ok(Self {
+            session,
+            persistent,
+            description,
+        })
     }
 }
 
