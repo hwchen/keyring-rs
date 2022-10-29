@@ -57,7 +57,14 @@ impl CredentialApi for KeyutilsCredential {
             .search(&self.description)
             .map_err(decode_error)?;
 
-        // Directly link to the persistent keyring as well
+        // Directly re-link to the session keyring
+        // If a logout occured, it will only be linked to the
+        // persistent keyring, and needs to be added again.
+        self.session.link_key(key).map_err(decode_error)?;
+
+        // Directly re-link to the persistent keyring
+        // If it expired, it will only be linked to the
+        // session keyring, and needs to be added again.
         self.persistent.link_key(key).map_err(decode_error)?;
 
         // Read in the key (making sure we have enough room)
@@ -78,6 +85,7 @@ impl CredentialApi for KeyutilsCredential {
             .session
             .search(&self.description)
             .map_err(decode_error)?;
+
         // Invalidate the key immediately
         key.invalidate().map_err(decode_error)?;
         Ok(())
