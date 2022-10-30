@@ -123,17 +123,15 @@ impl KeyutilsCredential {
             KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
 
         // Construct the credential with a URI-style description
-        let description = if let Some(target) = target {
-            if target.is_empty() {
+        let description = match target {
+            Some(value) if value.is_empty() => {
                 return Err(ErrorCode::Invalid(
                     "target".to_string(),
                     "cannot be empty".to_string(),
                 ));
-            } else {
-                target.to_string()
             }
-        } else {
-            format!("keyring-rs:{}@{}", user, service)
+            Some(value) => value.to_string(),
+            None => format!("keyring-rs:{}@{}", user, service),
         };
         Ok(Self {
             session,
