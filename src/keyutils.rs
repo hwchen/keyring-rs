@@ -1,9 +1,8 @@
 //! Example implementation of the keyring crate's trait interface
 //! using linux-keyutils
-use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
-
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
+use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
 /// Since the CredentialBuilderApi::build method does not provide
 /// an initial secret, this wraps a linux_keyutils::KeyRing instead
@@ -15,8 +14,10 @@ use super::error::{decode_password, Error as ErrorCode, Result};
 /// set_password is called.
 #[derive(Debug, Clone)]
 pub struct KeyutilsCredential {
-    /// Host keyring
-    pub inner: KeyRing,
+    /// Host session keyring
+    pub session: KeyRing,
+    /// Host persistent keyring
+    pub persistent: KeyRing,
     /// Description of the key entry
     pub description: String,
 }
@@ -33,9 +34,15 @@ impl CredentialApi for KeyutilsCredential {
                 "cannot be empty".to_string(),
             ));
         }
-        self.inner
+
+        // Add to the session keyring
+        let key = self
+            .session
             .add_key(&self.description, password)
             .map_err(decode_error)?;
+
+        // Directly link to the persistent keyring as well
+        self.persistent.link_key(key).map_err(decode_error)?;
         Ok(())
     }
 
@@ -45,13 +52,24 @@ impl CredentialApi for KeyutilsCredential {
     /// to a utf8 Rust string.
     fn get_password(&self) -> Result<String> {
         // Verify that the key exists and is valid
-        let key = self.inner.search(&self.description).map_err(decode_error)?;
+        let key = self
+            .session
+            .search(&self.description)
+            .map_err(decode_error)?;
+
+        // Directly re-link to the session keyring
+        // If a logout occured, it will only be linked to the
+        // persistent keyring, and needs to be added again.
+        self.session.link_key(key).map_err(decode_error)?;
+
+        // Directly re-link to the persistent keyring
+        // If it expired, it will only be linked to the
+        // session keyring, and needs to be added again.
+        self.persistent.link_key(key).map_err(decode_error)?;
+
         // Read in the key (making sure we have enough room)
-        let mut buffer = vec![0u8; 65535];
-        let len = key.read(&mut buffer).map_err(decode_error)?;
-        unsafe {
-            buffer.set_len(len);
-        }
+        let buffer = key.read_to_vec().map_err(decode_error)?;
+
         // Attempt utf-8 conversion
         decode_password(buffer)
     }
@@ -63,7 +81,11 @@ impl CredentialApi for KeyutilsCredential {
     /// searches.
     fn delete_password(&self) -> Result<()> {
         // Verify that the key exists and is valid
-        let key = self.inner.search(&self.description).map_err(decode_error)?;
+        let key = self
+            .session
+            .search(&self.description)
+            .map_err(decode_error)?;
+
         // Invalidate the key immediately
         key.invalidate().map_err(decode_error)?;
         Ok(())
@@ -82,7 +104,9 @@ impl KeyutilsCredential {
     /// This is basically a no-op, because we don't keep any extra attributes.
     /// But at least we make sure the underlying platform credential exists.
     pub fn get_credential(&self) -> Result<Self> {
-        self.inner.search(&self.description).map_err(decode_error)?;
+        self.session
+            .search(&self.description)
+            .map_err(decode_error)?;
         Ok(self.clone())
     }
 
@@ -90,21 +114,30 @@ impl KeyutilsCredential {
     ///
     /// A target string is interpreted as the KeyRing to use for the entry.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        // Obtain the session keyring
+        let session =
+            KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
+
+        // Link the persistent keyring to the session
+        let persistent =
+            KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
+
         // Construct the credential with a URI-style description
-        let inner = KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
-        let description = if let Some(target) = target {
-            if target.is_empty() {
+        let description = match target {
+            Some(value) if value.is_empty() => {
                 return Err(ErrorCode::Invalid(
                     "target".to_string(),
                     "cannot be empty".to_string(),
                 ));
-            } else {
-                target.to_string()
             }
-        } else {
-            format!("keyring-rs:{}@{}", user, service)
+            Some(value) => value.to_string(),
+            None => format!("keyring-rs:{}@{}", user, service),
         };
-        Ok(Self { inner, description })
+        Ok(Self {
+            session,
+            persistent,
+            description,
+        })
     }
 }
 
