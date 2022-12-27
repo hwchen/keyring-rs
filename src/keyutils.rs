@@ -58,7 +58,7 @@ impl CredentialApi for KeyutilsCredential {
             .map_err(decode_error)?;
 
         // Directly re-link to the session keyring
-        // If a logout occured, it will only be linked to the
+        // If a logout occurred, it will only be linked to the
         // persistent keyring, and needs to be added again.
         self.session.link_key(key).map_err(decode_error)?;
 

@@ -6,7 +6,7 @@
 - introduce protection against the use of empty arguments
 
 ## Version 1.1.2
-- replace `structopt` with new, improved `clap` that incoporates all of the same functionality.
+- replace `structopt` with new, improved `clap` that incorporates all of the same functionality.
 
 ## Version 1.1.1
 - no functional updates, just documentation improvements
@@ -47,7 +47,7 @@
 ## Version 0.10.0
 - ability to access named keychains in macos (nagasunilt)
 
-## Verion 0.9.0
+## Version 0.9.0
 - upgrade security-framework 0.3.0 -> 0.4.2
 - upgrade secret-service 1.0.0 -> 1.1.0 (updates hkdf dep, fixes error handling related to missing collection)
 
