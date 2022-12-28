@@ -115,7 +115,7 @@ use macos as default;
 use windows as default;
 
 // Set the default keystore on each platform
-#[cfg(all(target_os = "linux", feature = "linux-secret-service"))]
+#[cfg(all(target_os = "linux", not(feature = "linux-keyutils")))]
 use crate::secret_service as default;
 
 pub mod credential;

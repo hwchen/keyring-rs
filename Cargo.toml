@@ -6,13 +6,16 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 edition = "2021"
 exclude = [".github/"]
 
 [features]
-default = ["linux-secret-service"]
-linux-secret-service = []
+default = ["linux-secret-service-rt-async-io-crypto-rust"]
+linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
+linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
+linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
+linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
 linux-keyutils = []
 
 [dependencies]
@@ -25,7 +28,7 @@ security-framework = "2.6"
 security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = "2.0"
+secret-service = { git = "https://github.com/hwchen/secret-service-rs.git", version = "3" }
 linux-keyutils = { version = "0.2", features = ["std"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
