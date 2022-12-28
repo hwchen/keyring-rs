@@ -103,6 +103,8 @@ Because credentials identified with empty service, user, or target names are han
 A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
 
  */
+#[cfg(all(target_os = "linux", not(feature = "linux-keyutils")))]
+use crate::secret_service as default;
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
 #[cfg(target_os = "ios")]
@@ -113,10 +115,6 @@ use keyutils as default;
 use macos as default;
 #[cfg(target_os = "windows")]
 use windows as default;
-
-// Set the default keystore on each platform
-#[cfg(all(target_os = "linux", not(feature = "linux-keyutils")))]
-use crate::secret_service as default;
 
 pub mod credential;
 pub mod error;
@@ -139,26 +137,31 @@ struct EntryBuilder {
     inner: Option<Box<CredentialBuilder>>,
 }
 
-static mut DEFAULT_BUILDER: EntryBuilder = EntryBuilder { inner: None };
+static DEFAULT_BUILDER: std::sync::RwLock<EntryBuilder> =
+    std::sync::RwLock::new(EntryBuilder { inner: None });
 
 /// Set the credential builder used by default to create entries.
 ///
-/// This sets a mutable static, so it's inherently unsafe.
-/// Do not use it to be switching back and forth between builders;
-/// set it once before you create any credentials and leave it alone.
-/// Use `entry_with_credential` if you are using multiple credential stores
-/// and want precise control over which credential is in which store.
+/// This is really meant for use by clients who bring their own credential
+/// store and want to use it everywhere.  If you are using multiple credential
+/// stores and want precise control over which credential is in which store,
+/// then use `entry_with_credential`.
+///
+/// This will block waiting for all other threads creating credentials
+/// to complete what they are doing.
 pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
-    unsafe {
-        DEFAULT_BUILDER.inner = Some(new);
-    }
+    let mut guard = DEFAULT_BUILDER.write().unwrap();
+    guard.inner = Some(new);
 }
 
 fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> Result<Entry> {
-    let default = default::default_credential_builder();
-    let builder = match unsafe { DEFAULT_BUILDER.inner.as_ref() } {
-        None => &default,
+    lazy_static::lazy_static! {
+        static ref DEFAULT: Box<CredentialBuilder> = default::default_credential_builder();
+    }
+    let guard = DEFAULT_BUILDER.read().unwrap();
+    let builder = match guard.inner.as_ref() {
         Some(builder) => builder,
+        None => &DEFAULT,
     };
     let credential = builder.build(target, service, user)?;
     Ok(Entry { inner: credential })

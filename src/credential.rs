@@ -48,5 +48,5 @@ impl std::fmt::Debug for CredentialBuilder {
 /// Credential Builders must be Sync so they can be invoked from
 /// multiple threads simultaneously.  Although no one expects a
 /// Credential Builder to be passed from one thread to another,
-/// they are usually singletons, so making them Send should be easy.
+/// they are usually objects, so Send should be easy.
 pub type CredentialBuilder = dyn CredentialBuilderApi + Send + Sync;
