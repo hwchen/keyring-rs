@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-pub use secret_service::Error;
-use secret_service::{Collection, EncryptionType, SecretService};
+use secret_service::blocking::{Collection, SecretService};
+pub use secret_service::{EncryptionType, Error, Item};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -19,7 +19,7 @@ pub struct SsCredential {
 
 impl CredentialApi for SsCredential {
     fn set_password(&self, password: &str) -> Result<()> {
-        let ss = SecretService::new(EncryptionType::Dh).map_err(platform_failure)?;
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
         let collection = self.get_collection(&ss)?;
         collection
             .create_item(
@@ -34,23 +34,29 @@ impl CredentialApi for SsCredential {
     }
 
     fn get_password(&self) -> Result<String> {
-        let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(decode_error)?;
         let collection = self.get_collection(&ss)?;
         let search = collection
             .search_items(self.attributes())
             .map_err(decode_error)?;
-        let item = search.get(0).ok_or(ErrorCode::NoEntry)?;
+        let item = search.first().ok_or(ErrorCode::NoEntry)?;
+        if item.is_locked().map_err(decode_error)? {
+            item.unlock().map_err(decode_error)?;
+        }
         let bytes = item.get_secret().map_err(decode_error)?;
         decode_password(bytes)
     }
 
     fn delete_password(&self) -> Result<()> {
-        let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(decode_error)?;
         let collection = self.get_collection(&ss)?;
         let search = collection
             .search_items(self.attributes())
             .map_err(decode_error)?;
-        let item = search.get(0).ok_or(ErrorCode::NoEntry)?;
+        let item = search.first().ok_or(ErrorCode::NoEntry)?;
+        if item.is_locked().map_err(decode_error)? {
+            item.unlock().map_err(decode_error)?;
+        }
         item.delete().map_err(decode_error)?;
         Ok(())
     }
@@ -64,12 +70,15 @@ impl SsCredential {
     /// Construct a credential from the underlying platform credential
     pub fn get_credential(&self) -> Result<Self> {
         let mut result = self.clone();
-        let ss = SecretService::new(EncryptionType::Dh).map_err(decode_error)?;
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(decode_error)?;
         let collection = self.get_collection(&ss)?;
         let search = collection
             .search_items(self.attributes())
             .map_err(decode_error)?;
-        let item = search.get(0).ok_or(ErrorCode::NoEntry)?;
+        let item = search.first().ok_or(ErrorCode::NoEntry)?;
+        if item.is_locked().map_err(decode_error)? {
+            item.unlock().map_err(decode_error)?;
+        }
         result.attributes = item.get_attributes().map_err(decode_error)?;
         result.label = item.get_label().map_err(decode_error)?;
         Ok(result)
@@ -148,13 +157,13 @@ fn decode_error(err: Error) -> ErrorCode {
     match err {
         Error::Crypto(_) => platform_failure(err),
         Error::Zbus(_) => platform_failure(err),
-        Error::ZbusMsg(_) => platform_failure(err),
         Error::ZbusFdo(_) => platform_failure(err),
         Error::Zvariant(_) => platform_failure(err),
         Error::Locked => no_access(err),
         Error::NoResult => no_access(err),
-        Error::Parse => platform_failure(err),
         Error::Prompt => no_access(err),
+        Error::Unavailable => platform_failure(err),
+        _ => platform_failure(err),
     }
 }
 

@@ -15,6 +15,10 @@ is not much of a burden on the platform-specific store providers.)
 /// Each variant of the `Error` enum provides a summary of the error.
 /// More details, if relevant, are contained in the associated value,
 /// which may be platform-specific.
+///
+/// Because future releases may add variants to this enum, clients should
+/// always be prepared for that.
+#[non_exhaustive]
 pub enum Error {
     /// This indicates runtime failure in the underlying
     /// platform storage system.  The details of the failure can
