@@ -103,34 +103,40 @@ Because credentials identified with empty service, user, or target names are han
 A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
 
  */
-#[cfg(all(target_os = "linux", not(feature = "linux-keyutils")))]
-use crate::secret_service as default;
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
-#[cfg(target_os = "ios")]
-use ios as default;
-#[cfg(all(target_os = "linux", feature = "linux-keyutils"))]
+
+// Included keystore implementations and default choice thereof.
+// It would be really nice if we could conditionalize multiple declarations,
+// but we can't so we have to repeat the conditional on each one.
+
+#[cfg(target_os = "linux")]
+pub mod keyutils;
+#[cfg(all(target_os = "linux", not(feature = "linux-no-secret-service")))]
+pub mod secret_service;
+#[cfg(all(target_os = "linux", not(feature = "linux-default-keyutils")))]
+use crate::secret_service as default;
+#[cfg(all(target_os = "linux", feature = "linux-default-keyutils"))]
 use keyutils as default;
-#[cfg(target_os = "macos")]
-use macos as default;
+
+#[cfg(target_os = "windows")]
+pub mod windows;
 #[cfg(target_os = "windows")]
 use windows as default;
+
+#[cfg(target_os = "macos")]
+pub mod macos;
+#[cfg(target_os = "macos")]
+use macos as default;
+
+#[cfg(target_os = "ios")]
+pub mod ios;
+#[cfg(target_os = "ios")]
+use ios as default;
 
 pub mod credential;
 pub mod error;
 pub mod mock;
-
-// Included keystore implementations
-#[cfg(target_os = "ios")]
-pub mod ios;
-#[cfg(target_os = "linux")]
-pub mod keyutils;
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "linux")]
-pub mod secret_service;
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 #[derive(Default, Debug)]
 struct EntryBuilder {

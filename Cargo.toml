@@ -11,12 +11,13 @@ edition = "2021"
 exclude = [".github/"]
 
 [features]
-default = ["linux-secret-service-rt-async-io-crypto-rust"]
-linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
-linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
-linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
-linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
-linux-keyutils = []
+default = ["linux-default-secret-service-rt-async-io-crypto-rust"]
+linux-default-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
+linux-default-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
+linux-default-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
+linux-default-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
+linux-no-secret-service = ["linux-default-keyutils"]
+linux-default-keyutils = []
 
 [dependencies]
 lazy_static = "1"
@@ -28,7 +29,7 @@ security-framework = "2.6"
 security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { git = "https://github.com/hwchen/secret-service-rs.git", version = "3" }
+secret-service = { git = "https://github.com/hwchen/secret-service-rs.git", version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
