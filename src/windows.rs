@@ -131,7 +131,9 @@ impl WinCredential {
                 CRED_MAX_STRING_LENGTH,
             ));
         }
-        if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
+        // We're going to store the password as UTF-16, so make sure to consider its length as UTF-16.
+        // `encode_utf16` gives us the count of `u16`s, so we multiply by 2 to get the number of bytes.
+        if password.encode_utf16().count() * 2 > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
             return Err(ErrorCode::TooLong(
                 String::from("password"),
                 CRED_MAX_CREDENTIAL_BLOB_SIZE,
