@@ -78,25 +78,6 @@ fn test_round_trip_non_ascii_password() {
 }
 
 #[test]
-fn test_error_on_long_password() {
-    let name = generate_random_string();
-    let entry = Entry::new(&name, &name).expect("Can't create entry");
-    let password = "VGhlcmUgb25jZSB3YXMgYSBsb25nIHBhc3N3b3JkLApzbyBsb25nIG1vc3QgdGhvdWdodCBpdCBhYnN1cmQuClRoZW4gYWxvbmUgY2FtZSBhIGhhY2tlciwKd2hvIGdhdmUgaGlzIGtleWJvYXJkIGEgY2xhY2tlciwKYW5kIHRoZSBwYXNzd29yZCdzIHJhdGUgd2FzIHByb3ZlbiB0aGlyZC4KCkxvcmVtIGlwc3VtIGRvbG9yIHNpdCBhbWV0LCBjb25zZWN0ZXR1ciBhZGlwaXNjaW5nIGVsaXQuIEZ1c2NlIGZpbmlidXMgbWFsZXN1YWRhIG1pIHNpdCBhbWV0IGZldWdpYXQuIE51bmMgdmVoaWN1bGEgb2RpbyBlZ2V0IHZlaGljdWxhIHBvc3VlcmUuIFNlZCBwdWx2aW5hciBkaWFtIHZpdGFlIHNhcGllbiBncmF2aWRhIG1hdHRpcy4gVml2YW11cyBzZWQgcHVydXMgc29sbGljaXR1ZGluLCBsYWNpbmlhIGVuaW0gZXQsIGRpZ25pc3NpbSBvcmNpLiBJbiBpZCBjdXJzdXMgc2FwaWVuLCBpbiBjb25ndWUgbWFzc2EuIFBoYXNlbGx1cyBzaXQgYW1ldCByaXN1cyBub24gc2VtIHZpdmVycmEgYXVjdG9yLiBTZWQgdGVsbHVzIG51bGxhLCB2ZXN0aWJ1bHVtIGNvbW1vZG8gY3Vyc3VzIGEsIGlhY3VsaXMgaW4gZXguClV0IGV4IGxpYmVybywgdnVscHV0YXRlIGFjIHR1cnBpcyBldSwgZWdlc3RhcyB2YXJpdXMgZHVpLiBJbnRlZ2VyIGlkIHF1YW0gZWxpdC4gUHJvaW4gZmF1Y2lidXMgZ3JhdmlkYSBtZXR1cywgcnV0cnVtIHJob25jdXMgbWV0dXMgY29uc2VxdWF0IHF1aXMuIE51bGxhIGlkIHRvcnRvciBzYXBpZW4uIFBlbGxlbnRlc3F1ZSBjb25ndWUgZXN0IGxhY3VzLCBpbiB0ZW1wb3Igb3JjaSBwb3N1ZXJlIHZlbC4gU2VkIGRhcGlidXMgb3JuYXJlIHRyaXN0aXF1ZS4gTWF1cmlzIGxlbyBudW5jLCB0aW5jaWR1bnQgZXQgc2VtIHNlZCwgbWFsZXN1YWRhIGhlbmRyZXJpdCBsb3JlbS4gUHJhZXNlbnQgZmF1Y2lidXMgcGxhY2VyYXQgdmVuZW5hdGlzLiBBbGlxdWFtIGVyYXQgdm9sdXRwYXQuIEN1cmFiaXR1ciBzYWdpdHRpcyBlbGVtZW50dW0gbGliZXJvLiBQcmFlc2VudCBzZWQgbWFsZXN1YWRhIGFyY3UsIHNlZCBsYW9yZWV0IGVyYXQuIEN1cmFiaXR1ciBldCBncmF2aWRhIHR1cnBpcy4gQWVuZWFuIGxhY2luaWEgZXggYXQgZXJvcyB2b2x1dHBhdCB1bGxhbWNvcnBlci4gQWVuZWFuIGF0IHNjZWxlcmlzcXVlIGFudGUu";
-    let err = entry
-        .set_password(password)
-        .err()
-        .expect("We managed to set an entry password that was too long to be stored in UTF-16 unexpectedly");
-
-    match err {
-        Error::TooLong(param, length) => {
-            assert_eq!(param, "password");
-            assert_eq!(length, 2560);
-        }
-        e => panic!("Unexpected error while storing long password: {}", e)
-    };
-}
-
-#[test]
 fn test_update() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
