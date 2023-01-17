@@ -131,7 +131,9 @@ impl WinCredential {
                 CRED_MAX_STRING_LENGTH,
             ));
         }
-        if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
+        // We're going to store the password as UTF-16, so make sure to consider its length as UTF-16.
+        // `encode_utf16` gives us the count of `u16`s, so we multiply by 2 to get the number of bytes.
+        if password.encode_utf16().count() * 2 > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
             return Err(ErrorCode::TooLong(
                 String::from("password"),
                 CRED_MAX_CREDENTIAL_BLOB_SIZE,
@@ -412,7 +414,7 @@ mod tests {
             ("target", CRED_MAX_GENERIC_TARGET_NAME_LENGTH),
             ("target alias", CRED_MAX_STRING_LENGTH),
             ("comment", CRED_MAX_STRING_LENGTH),
-            ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE),
+            ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE / 2),
         ] {
             let long_string = generate_random_string_of_len(1 + len as usize);
             let mut bad_cred = cred.clone();
@@ -425,8 +427,30 @@ mod tests {
                 "password" => password = &long_string,
                 other => panic!("unexpected attribute: {}", other),
             }
-            validate_attribute_too_long(bad_cred.validate_attributes(password), attr, len);
+            let expected_length = if attr == "password" { len * 2 } else { len };
+            validate_attribute_too_long(
+                bad_cred.validate_attributes(password),
+                attr,
+                expected_length,
+            );
         }
+    }
+
+    #[test]
+    fn test_password_valid_only_after_conversion_to_utf16() {
+        let cred = WinCredential {
+            username: "username".to_string(),
+            target_name: "target_name".to_string(),
+            target_alias: "target_alias".to_string(),
+            comment: "comment".to_string(),
+        };
+
+        let len = CRED_MAX_CREDENTIAL_BLOB_SIZE / 2;
+        let password: String = (0..len).map(|_| "笑").collect();
+
+        assert!(password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize);
+        cred.validate_attributes(&password)
+            .expect("Password of appropriate length in UTF16 was invalid");
     }
 
     #[test]
