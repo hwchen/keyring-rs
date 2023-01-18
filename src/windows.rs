@@ -169,7 +169,7 @@ fn validate_attributes(map: &WinCredential, password: &str) -> Result<()> {
             CRED_MAX_STRING_LENGTH,
         ));
     }
-    if password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
+    if password.encode_utf16().count() * 2 > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
         return Err(ErrorCode::TooLong(
             String::from("password"),
             CRED_MAX_CREDENTIAL_BLOB_SIZE,
@@ -294,7 +294,7 @@ mod tests {
             ("target name", CRED_MAX_GENERIC_TARGET_NAME_LENGTH),
             ("target alias", CRED_MAX_STRING_LENGTH),
             ("comment", CRED_MAX_STRING_LENGTH),
-            ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE),
+            ("password", CRED_MAX_CREDENTIAL_BLOB_SIZE / 2),
         ] {
             let long_string = generate_random_string(1 + len as usize);
             let mut bad_cred = cred.clone();
@@ -307,8 +307,9 @@ mod tests {
                 "password" => password = &long_string,
                 other => panic!("unexpected attribute: {}", other),
             }
+            let expected_length = if attr == "password" { len * 2 } else { len };
             let map = PlatformCredential::Win(bad_cred);
-            validate_attribute_too_long(set_password(&map, password), attr, len);
+            validate_attribute_too_long(set_password(&map, password), attr, expected_length);
         }
     }
 
