@@ -181,9 +181,7 @@ impl WinCredential {
                 // Now we can apply the passed extractor function to the credential.
                 let result = f(&w_credential);
                 // Finally, we free the allocated credential.
-                unsafe {
-                    CredFree(p_credential as *mut _);
-                }
+                unsafe { CredFree(p_credential as *mut _) };
                 result
             }
         }
