@@ -1,3 +1,9 @@
+## Version 1.2.1
+- password length was not validated correctly on Windows (#85)
+
+## Version 1.2
+- don't allow empty strings for service or user in entries.
+
 ## Version 1.1.2
 - replace `structopt` with new, improved `clap` that incoporates all of the same functionality.
 
