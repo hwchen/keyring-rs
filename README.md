@@ -1,5 +1,5 @@
 ## Keyring-rs
-[![CI](https://github.com/hwchen/keyring-rs/workflows/ci/badge.svg)](https://github.com/hwchen/keyring-rs/actions?query=workflow%3Aci)
+[![CI](https://github.com/hwchen/keyring-rs/actions/workflows/build.yaml/badge.svg)](https://github.com/hwchen/keyring-rs/actions?query=workflow%3Abuild)
 [![Crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
 [![API Documentation on docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
 
