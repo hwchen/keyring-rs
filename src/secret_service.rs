@@ -135,10 +135,39 @@ impl SsCredential {
     }
 }
 
-pub struct SsCredentialBuilder {}
+#[derive(Debug)]
+pub struct SsCredentialBuilder {
+    name: String,
+    target: TargetUsage,
+    search: SearchType,
+}
+
+#[derive(Debug, Clone)]
+pub enum TargetUsage {
+    CollectionOnly,
+    AttributeOnly,
+    CollectionAndAttribute,
+}
+
+#[derive(Debug, Clone)]
+pub enum SearchType {
+    Collection,
+    Everywhere(TargetAttributeHandling),
+}
+
+#[derive(Debug, Clone)]
+pub enum TargetAttributeHandling {
+    Prefer,
+    Require,
+    DontCare,
+}
 
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
-    Box::new(SsCredentialBuilder {})
+    Box::new(SsCredentialBuilder {
+        name: "SsDefault".to_string(),
+        target: TargetUsage::CollectionOnly,
+        search: SearchType::Collection,
+    })
 }
 
 impl CredentialBuilderApi for SsCredentialBuilder {
@@ -150,6 +179,28 @@ impl CredentialBuilderApi for SsCredentialBuilder {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+impl SsCredentialBuilder {
+    pub fn new_with_options(name: &str, target: &TargetUsage, search: &SearchType) -> Self {
+        Self {
+            name: name.to_string(),
+            target: target.clone(),
+            search: search.clone(),
+        }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn target(&self) -> TargetUsage {
+        self.target.clone()
+    }
+
+    pub fn search(&self) -> SearchType {
+        self.search.clone()
     }
 }
 
