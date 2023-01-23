@@ -11,6 +11,8 @@ is not much of a burden on the platform-specific store providers.)
 
  */
 
+use crate::Credential;
+
 #[derive(Debug)]
 /// Each variant of the `Error` enum provides a summary of the error.
 /// More details, if relevant, are contained in the associated value,
@@ -49,6 +51,9 @@ pub enum Error {
     /// attached value gives the name of the attribute
     /// and the reason it's invalid.
     Invalid(String, String),
+    /// This indicates that there is more than one credential found in the store
+    /// that matches the entry.  Its value is a vector of the matching credentials.
+    Ambiguous(Vec<Box<Credential>>),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -69,6 +74,14 @@ impl std::fmt::Display for Error {
             ),
             Error::Invalid(attr, reason) => {
                 write!(f, "Attribute {} is invalid: {}", attr, reason)
+            }
+            Error::Ambiguous(items) => {
+                write!(
+                    f,
+                    "Entry is matched by {} credendials: {:?}",
+                    items.len(),
+                    items
+                )
             }
         }
     }

@@ -1,6 +1,11 @@
 ## Version 2.0
-- Introduce traits for pluggable store implementations.
-- Add a `mock` store.
+- Introduce traits for pluggable credential-store implementations.
+- Add a `mock` credential store for easy cross-platform client testing.
+- Add optional service-level search in secret-service.
+- Add the kernel keyring as a linux credential store.
+
+## Version 1.2.1
+- password length was not validated correctly on Windows (#85)
 
 ## Version 1.2
 - introduce protection against the use of empty arguments

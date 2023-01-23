@@ -14,6 +14,7 @@ fn test_missing_entry() {
 }
 
 #[test]
+#[cfg(all(target_os = "linux", not(feature = "linux-default-keyutils")))]
 fn test_empty_password() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");

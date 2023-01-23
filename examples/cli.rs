@@ -59,16 +59,16 @@ fn execute_args(args: &Cli) {
     match &args.command {
         Command::Set {
             password: Some(password),
-        } => execute_set_password(&args, &entry, password),
+        } => execute_set_password(args, &entry, password),
         Command::Set { password: None } => {
             if let Ok(password) = prompt_password("Password: ") {
-                execute_set_password(&args, &entry, &password)
+                execute_set_password(args, &entry, &password)
             } else {
                 eprintln!("(Failed to read password, so none set.)")
             }
         }
-        Command::Get => execute_get_password(&args, &entry),
-        Command::Delete => execute_delete_password(&args, &entry),
+        Command::Get => execute_get_password(args, &entry),
+        Command::Delete => execute_delete_password(args, &entry),
     }
 }
 
