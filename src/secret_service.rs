@@ -248,11 +248,18 @@ mod tests {
 
     use super::SsCredential;
 
-    fn entry_new(service: &str, user: &str) -> Entry {
+    fn entry_new_false(service: &str, user: &str) -> Entry {
         fn new_false(target: Option<&str>, service: &str, user: &str) -> Result<SsCredential> {
             SsCredential::new_with_target(false, target, service, user)
         }
         crate::tests::entry_from_constructor(new_false, service, user)
+    }
+
+    fn entry_new_true(service: &str, user: &str) -> Entry {
+        fn new_true(target: Option<&str>, service: &str, user: &str) -> Result<SsCredential> {
+            SsCredential::new_with_target(true, target, service, user)
+        }
+        crate::tests::entry_from_constructor(new_true, service, user)
     }
 
     #[test]
@@ -266,57 +273,128 @@ mod tests {
 
     #[test]
     fn test_empty_service_and_user() {
-        crate::tests::test_empty_service_and_user(entry_new);
+        crate::tests::test_empty_service_and_user(entry_new_false);
+        crate::tests::test_empty_service_and_user(entry_new_true);
     }
 
     #[test]
     fn test_missing_entry() {
-        crate::tests::test_missing_entry(entry_new);
+        crate::tests::test_missing_entry(entry_new_false);
+        crate::tests::test_missing_entry(entry_new_true);
     }
 
     #[test]
     fn test_empty_password() {
-        crate::tests::test_empty_password(entry_new);
+        crate::tests::test_empty_password(entry_new_false);
+        crate::tests::test_empty_password(entry_new_true);
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
-        crate::tests::test_round_trip_ascii_password(entry_new);
+        crate::tests::test_round_trip_ascii_password(entry_new_false);
+        crate::tests::test_round_trip_ascii_password(entry_new_true);
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
-        crate::tests::test_round_trip_non_ascii_password(entry_new);
+        crate::tests::test_round_trip_non_ascii_password(entry_new_false);
+        crate::tests::test_round_trip_non_ascii_password(entry_new_true);
     }
 
     #[test]
     fn test_update() {
-        crate::tests::test_update(entry_new);
+        crate::tests::test_update(entry_new_false);
+        crate::tests::test_update(entry_new_true);
     }
 
     #[test]
     fn test_get_credential() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        entry
-            .set_password("test get credential")
-            .expect("Can't set password for get_credential");
-        let credential: &SsCredential = entry
-            .get_credential()
-            .downcast_ref()
-            .expect("Not a linux credential");
-        let actual = credential.get_credential().expect("Can't read credential");
-        assert_eq!(actual.label, credential.label, "Labels don't match");
-        for (key, value) in &credential.attributes {
-            assert_eq!(
-                actual.attributes.get(key).expect("Missing attribute"),
-                value,
-                "Attribute mismatch"
-            )
+        fn test_get_credential_inner(entry: Entry) {
+            entry
+                .set_password("test get credential")
+                .expect("Can't set password for get_credential");
+            let credential: &SsCredential = entry
+                .get_credential()
+                .downcast_ref()
+                .expect("Not a linux credential");
+            let actual = credential.get_credential().expect("Can't read credential");
+            assert_eq!(actual.label, credential.label, "Labels don't match");
+            for (key, value) in &credential.attributes {
+                assert_eq!(
+                    actual.attributes.get(key).expect("Missing attribute"),
+                    value,
+                    "Attribute mismatch"
+                )
+            }
+            entry
+                .delete_password()
+                .expect("Couldn't delete get-credential");
+            assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
         }
-        entry
+        let name1 = generate_random_string();
+        let entry1 = entry_new_false(&name1, &name1);
+        test_get_credential_inner(entry1);
+        let name2 = generate_random_string();
+        let entry2 = entry_new_false(&name2, &name2);
+        test_get_credential_inner(entry2);
+    }
+
+    #[test]
+    fn test_search_collection_finds_and_replaces_search_all() {
+        let name = generate_random_string();
+        let entry1 = entry_new_false(&name, &name);
+        let entry2 = entry_new_true(&name, &name);
+        let password1 = "search-collection-finds-all";
+        entry2
+            .set_password(password1)
+            .expect("Can't set s-c-f-a password");
+        let found1 = entry1
+            .get_password()
+            .expect("Search collection doesn't find all");
+        assert_eq!(found1, password1, "Collection password doesn't match all");
+        let password2 = "set-collection-replaces-existing";
+        entry1
+            .set_password(password2)
+            .expect("Search collection couldn't set password");
+        entry2
+            .get_password()
+            .expect_err("target attribute wasn't replaced!");
+        entry2
             .delete_password()
-            .expect("Couldn't delete get-credential");
-        assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+            .expect_err("Delete succeeded on search-all credential");
+        entry1
+            .delete_password()
+            .expect("Delete failed on search-collection credential");
+    }
+
+    #[test]
+    fn test_search_all_doesnt_find_collection_and_creates_new() {
+        let name = generate_random_string();
+        let entry1 = entry_new_false(&name, &name);
+        let entry2 = entry_new_true(&name, &name);
+        let password1 = "search-all-doesn't find collection";
+        entry1
+            .set_password(password1)
+            .expect("Search collection couldn't set password");
+        entry2
+            .get_password()
+            .expect_err("Search all found collection password");
+        let password2 = "search-all-creates-new";
+        entry2
+            .set_password(password2)
+            .expect("Search all couldn't set password");
+        entry1
+            .get_password()
+            .expect_err("Search collection found only one password");
+        let found = entry2
+            .get_password()
+            .expect("Search all couldn't get password");
+        assert_eq!(found, password2, "Search all found collection password");
+        entry2
+            .delete_password()
+            .expect("Delete failed on search-all credential");
+        entry1
+            .delete_password()
+            .expect("Delete failed on search-collection credential after search-all deleted");
     }
 }
