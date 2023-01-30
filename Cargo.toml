@@ -33,7 +33,7 @@ security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # TODO: switch when v3 is released
-secret-service = { version = "2", optional = true }
+secret-service = { version = "3", optional = true }
 #secret-service = { git = "https://github.com/hwchen/secret-service-rs.git", version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"] }
 
