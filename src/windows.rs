@@ -202,10 +202,7 @@ impl WinCredential {
         user: &str,
     ) -> Result<WinCredential> {
         const VERSION: &str = env!("CARGO_PKG_VERSION");
-        let metadata = format!(
-            "keyring-rs v{} for service '{}', user '{}'",
-            VERSION, service, user
-        );
+        let metadata = format!("keyring-rs v{VERSION} for service '{service}', user '{user}'");
         let credential = if let Some(target) = target {
             // if target.is_empty() {
             //     return Err(ErrorCode::Invalid(
@@ -233,7 +230,7 @@ impl WinCredential {
                 // because the format for the target name will not be empty.
                 // But it's certainly not recommended.
                 username: user.to_string(),
-                target_name: format!("{}.{}", user, service),
+                target_name: format!("{user}.{service}"),
                 target_alias: String::new(),
                 comment: metadata,
             }
@@ -309,7 +306,7 @@ impl std::fmt::Display for Error {
             ERROR_BAD_USERNAME => write!(f, "Windows ERROR_BAD_USERNAME"),
             ERROR_INVALID_FLAGS => write!(f, "Windows ERROR_INVALID_FLAGS"),
             ERROR_INVALID_PARAMETER => write!(f, "Windows ERROR_INVALID_PARAMETER"),
-            err => write!(f, "Windows error code {}", err),
+            err => write!(f, "Windows error code {err}"),
         }
     }
 }
@@ -380,11 +377,8 @@ mod tests {
             let credential = make_platform_credential(bytes);
             match extract_password(&credential) {
                 Err(ErrorCode::BadEncoding(str)) => assert_eq!(&str, bytes),
-                Err(other) => panic!(
-                    "Bad password ({:?}) decode gave wrong error: {}",
-                    bytes, other
-                ),
-                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+                Err(other) => panic!("Bad password ({bytes:?}) decode gave wrong error: {other}"),
+                Ok(s) => panic!("Bad password ({bytes:?}) decode gave results: {s:?}"),
             }
         }
     }
@@ -397,8 +391,8 @@ mod tests {
                     assert_eq!(&arg, attr, "Error names wrong attribute");
                     assert_eq!(val, len, "Error names wrong limit");
                 }
-                Err(other) => panic!("Error is not '{} too long': {}", attr, other),
-                Ok(_) => panic!("No error when {} too long", attr),
+                Err(other) => panic!("Error is not '{attr} too long': {other}"),
+                Ok(_) => panic!("No error when {attr} too long"),
             }
         }
         let cred = WinCredential {
@@ -423,7 +417,7 @@ mod tests {
                 "target alias" => bad_cred.target_alias = long_string.clone(),
                 "comment" => bad_cred.comment = long_string.clone(),
                 "password" => password = &long_string,
-                other => panic!("unexpected attribute: {}", other),
+                other => panic!("unexpected attribute: {other}"),
             }
             let expected_length = if attr == "password" { len * 2 } else { len };
             validate_attribute_too_long(
