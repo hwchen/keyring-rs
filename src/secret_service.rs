@@ -162,6 +162,7 @@ impl SsCredential {
     fn clone_from_item(&self, item: &Item) -> Result<Self> {
         let mut result = self.clone();
         result.attributes = item.get_attributes().map_err(decode_error)?;
+        result.search_all = result.attributes.get("target").is_some();
         result.label = item.get_label().map_err(decode_error)?;
         Ok(result)
     }
@@ -349,7 +350,7 @@ mod tests {
         let entry1 = entry_new_false(&name1, &name1);
         test_get_credential_inner(entry1);
         let name2 = generate_random_string();
-        let entry2 = entry_new_false(&name2, &name2);
+        let entry2 = entry_new_true(&name2, &name2);
         test_get_credential_inner(entry2);
     }
 
@@ -397,9 +398,31 @@ mod tests {
         entry2
             .set_password(password2)
             .expect("Search all couldn't set password");
-        entry1
+        let err = entry1
             .get_password()
             .expect_err("Search collection found only one password");
+        match err {
+            Error::Ambiguous(creds) => {
+                assert_eq!(creds.len(), 2, "Wrong number of found credentials");
+                let mut count = [0; 2];
+                for cred in creds {
+                    let credential: &SsCredential = cred
+                        .as_any()
+                        .downcast_ref()
+                        .expect("Not a linux credential");
+                    if credential.search_all {
+                        count[1] += 1
+                    } else {
+                        count[0] += 1
+                    }
+                }
+                assert!(
+                    count[0] == 1 && count[1] == 1,
+                    "Credentials not of different types"
+                );
+            }
+            _ => panic!("Didn't get an ambiguous error: {err}"),
+        }
         let found = entry2
             .get_password()
             .expect("Search all couldn't get password");
