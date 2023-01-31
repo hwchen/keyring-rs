@@ -143,7 +143,7 @@ impl std::str::FromStr for MacKeychainDomain {
             "dynamic" => Ok(MacKeychainDomain::Dynamic),
             _ => Err(ErrorCode::Invalid(
                 "target".to_string(),
-                format!("'{}' is not User, System, Common, or Dynamic", s),
+                format!("'{s}' is not User, System, Common, or Dynamic"),
             )),
         }
     }
