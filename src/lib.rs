@@ -254,8 +254,7 @@ mod tests {
             .unwrap_or_else(|err| panic!("Can't get password for {case}: {err:?}"));
         assert_eq!(
             in_pass, out_pass,
-            "Passwords don't match for {}: set='{}', get='{}'",
-            case, in_pass, out_pass
+            "Passwords don't match for {case}: set='{in_pass}', get='{out_pass}'",
         );
         entry
             .delete_password()
@@ -263,8 +262,7 @@ mod tests {
         let password = entry.get_password();
         assert!(
             matches!(password, Err(Error::NoEntry)),
-            "Read deleted password for {}",
-            case
+            "Read deleted password for {case}",
         );
     }
 

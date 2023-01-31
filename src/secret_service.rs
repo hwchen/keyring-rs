@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-// TODO: change to blocking for v3
-use secret_service::{Collection, Item, SecretService};
-// use secret_service::blocking::{Collection, Item, SecretService};
+use secret_service::blocking::{Collection, Item, SecretService};
 pub use secret_service::{EncryptionType, Error};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
@@ -22,9 +20,7 @@ pub struct SsCredential {
 
 impl CredentialApi for SsCredential {
     fn set_password(&self, password: &str) -> Result<()> {
-        // TODO: change to connect for v3
-        let ss = SecretService::new(EncryptionType::Dh).map_err(platform_failure)?;
-        // let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
         let collection = self.get_collection(&ss)?;
         collection
             .create_item(
@@ -108,10 +104,13 @@ impl SsCredential {
         F: FnOnce(&Item) -> Result<T>,
         T: Sized,
     {
-        // TODO: change to connect for v3
-        let ss = SecretService::new(EncryptionType::Dh).map_err(platform_failure)?;
-        // let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
-        let map_only_item = |search: &Vec<Item>| -> Result<T> {
+        let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
+        enum YesNoMaybe {
+            Yes,
+            No,
+            Maybe,
+        }
+        let map_only_item = |search: &Vec<Item>, unlock: YesNoMaybe| -> Result<T> {
             let item = match search.len() {
                 0 => return Err(ErrorCode::NoEntry),
                 1 => &search[0],
@@ -124,22 +123,38 @@ impl SsCredential {
                     return Err(ErrorCode::Ambiguous(creds));
                 }
             };
-            if item.is_locked().map_err(decode_error)? {
-                item.unlock().map_err(decode_error)?;
+            match unlock {
+                YesNoMaybe::Yes => item.unlock().map_err(decode_error)?,
+                YesNoMaybe::No => {}
+                YesNoMaybe::Maybe => {
+                    if item.is_locked().map_err(decode_error)? {
+                        item.unlock().map_err(decode_error)?;
+                    }
+                }
             }
             f(item)
         };
         if self.search_all {
-            // TODO: change to locked/unlocked return val in v3
-            let attributes: Vec<(&str, &str)> = self.search_attributes().into_iter().collect();
+            let attributes: HashMap<&str, &str> = self.search_attributes().into_iter().collect();
             let search = ss.search_items(attributes).map_err(decode_error)?;
-            map_only_item(&search)
+            if search.locked.is_empty() {
+                map_only_item(&search.unlocked, YesNoMaybe::No)
+            } else if search.unlocked.is_empty() {
+                map_only_item(&search.locked, YesNoMaybe::Yes)
+            } else {
+                let all = search
+                    .locked
+                    .into_iter()
+                    .chain(search.unlocked.into_iter())
+                    .collect();
+                map_only_item(&all, YesNoMaybe::Maybe)
+            }
         } else {
             let collection = self.get_collection(&ss)?;
             let search = collection
                 .search_items(self.search_attributes())
                 .map_err(decode_error)?;
-            map_only_item(&search)
+            map_only_item(&search, YesNoMaybe::Maybe)
         }
     }
 
@@ -147,6 +162,7 @@ impl SsCredential {
     fn clone_from_item(&self, item: &Item) -> Result<Self> {
         let mut result = self.clone();
         result.attributes = item.get_attributes().map_err(decode_error)?;
+        result.search_all = result.attributes.get("target").is_some();
         result.label = item.get_label().map_err(decode_error)?;
         Ok(result)
     }
@@ -224,8 +240,7 @@ fn decode_error(err: Error) -> ErrorCode {
         Error::Locked => no_access(err),
         Error::NoResult => no_access(err),
         Error::Prompt => no_access(err),
-        // TODO: uncomment for v3
-        // Error::Unavailable => platform_failure(err),
+        Error::Unavailable => platform_failure(err),
         _ => platform_failure(err),
     }
 }
@@ -335,7 +350,7 @@ mod tests {
         let entry1 = entry_new_false(&name1, &name1);
         test_get_credential_inner(entry1);
         let name2 = generate_random_string();
-        let entry2 = entry_new_false(&name2, &name2);
+        let entry2 = entry_new_true(&name2, &name2);
         test_get_credential_inner(entry2);
     }
 
@@ -383,9 +398,31 @@ mod tests {
         entry2
             .set_password(password2)
             .expect("Search all couldn't set password");
-        entry1
+        let err = entry1
             .get_password()
             .expect_err("Search collection found only one password");
+        match err {
+            Error::Ambiguous(creds) => {
+                assert_eq!(creds.len(), 2, "Wrong number of found credentials");
+                let mut count = [0; 2];
+                for cred in creds {
+                    let credential: &SsCredential = cred
+                        .as_any()
+                        .downcast_ref()
+                        .expect("Not a linux credential");
+                    if credential.search_all {
+                        count[1] += 1
+                    } else {
+                        count[0] += 1
+                    }
+                }
+                assert!(
+                    count[0] == 1 && count[1] == 1,
+                    "Credentials not of different types"
+                );
+            }
+            _ => panic!("Didn't get an ambiguous error: {err}"),
+        }
         let found = entry2
             .get_password()
             .expect("Search all couldn't get password");

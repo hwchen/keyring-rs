@@ -131,7 +131,7 @@ impl KeyutilsCredential {
                 ));
             }
             Some(value) => value.to_string(),
-            None => format!("keyring-rs:{}@{}", user, service),
+            None => format!("keyring-rs:{user}@{service}"),
         };
         Ok(Self {
             session,
