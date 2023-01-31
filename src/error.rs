@@ -61,26 +61,24 @@ pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {}", err),
+            Error::PlatformFailure(err) => write!(f, "Platform secure storage failure: {err}"),
             Error::NoStorageAccess(err) => {
-                write!(f, "Couldn't access platform secure storage: {}", err)
+                write!(f, "Couldn't access platform secure storage: {err}")
             }
             Error::NoEntry => write!(f, "No matching entry found in secure storage"),
             Error::BadEncoding(_) => write!(f, "Password cannot be UTF-8 encoded"),
             Error::TooLong(name, len) => write!(
                 f,
-                "Attribute '{}' is longer than platform limit of {} chars",
-                name, len
+                "Attribute '{name}' is longer than platform limit of {len} chars"
             ),
             Error::Invalid(attr, reason) => {
-                write!(f, "Attribute {} is invalid: {}", attr, reason)
+                write!(f, "Attribute {attr} is invalid: {reason}")
             }
             Error::Ambiguous(items) => {
                 write!(
                     f,
-                    "Entry is matched by {} credendials: {:?}",
+                    "Entry is matched by {} credendials: {items:?}",
                     items.len(),
-                    items
                 )
             }
         }
@@ -113,11 +111,8 @@ mod tests {
         for bytes in [b"\x80".to_vec(), b"\xbf".to_vec(), b"\xed\xa0\xa0".to_vec()] {
             match decode_password(bytes.clone()) {
                 Err(Error::BadEncoding(str)) => assert_eq!(str, bytes),
-                Err(other) => panic!(
-                    "Bad password ({:?}) decode gave wrong error: {}",
-                    bytes, other
-                ),
-                Ok(s) => panic!("Bad password ({:?}) decode gave results: {:?}", bytes, &s),
+                Err(other) => panic!("Bad password ({bytes:?}) decode gave wrong error: {other}"),
+                Ok(s) => panic!("Bad password ({bytes:?}) decode gave results: {s:?}"),
             }
         }
     }

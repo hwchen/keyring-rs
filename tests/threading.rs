@@ -96,7 +96,7 @@ fn test_simultaneous_create_set_move() {
 fn test_simultaneous_independent_create_set() {
     let mut handles = vec![];
     for i in 0..10 {
-        let name = format!("thread_entry{}", i);
+        let name = format!("thread_entry{i}");
         let test = move || {
             let entry = Entry::new(&name, &name).expect("Can't create entry");
             entry.set_password(&name).expect("Can't set ascii password");

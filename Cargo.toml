@@ -12,13 +12,11 @@ exclude = [".github/"]
 
 [features]
 default = ["linux-secret-service"]
-linux-secret-service = ["secret-service"]
-# TODO: change for v3
-#linux-secret-service = ["linux-secret-service-rt-async-io-crypto-rust"]
-#linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
-#linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
-#linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
-#linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
+linux-secret-service = ["linux-secret-service-rt-async-io-crypto-rust"]
+linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
+linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
+linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
+linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
 linux-no-secret-service = ["linux-default-keyutils"]
 linux-default-keyutils = []
 
@@ -32,9 +30,7 @@ security-framework = "2.6"
 security-framework = "2.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# TODO: switch when v3 is released
-secret-service = { version = "2", optional = true }
-#secret-service = { git = "https://github.com/hwchen/secret-service-rs.git", version = "3", optional = true }
+secret-service = { version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]

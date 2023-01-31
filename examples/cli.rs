@@ -51,10 +51,10 @@ fn main() {
 fn execute_args(args: &Cli) {
     let entry = if let Some(target) = &args.target {
         Entry::new_with_target(target, &args.service, &args.user)
-            .unwrap_or_else(|err| panic!("Couldn't create entry: {:?}", err))
+            .unwrap_or_else(|err| panic!("Couldn't create entry: {err:?}"))
     } else {
         Entry::new(&args.service, &args.user)
-            .unwrap_or_else(|err| panic!("Couldn't create entry: {:?}", err))
+            .unwrap_or_else(|err| panic!("Couldn't create entry: {err:?}"))
     };
     match &args.command {
         Command::Set {
