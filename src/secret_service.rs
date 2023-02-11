@@ -1,8 +1,8 @@
 /*!
 
-# Secret Service credential store
+# secret-service credential store
 
-Items in tne secret service are identified by an arbitrary collection
+Items in the secret-service are identified by an arbitrary collection
 of attributes, and each has "label" for use in graphical editors.  The keyring
 client uses the following attributes:
 
@@ -18,29 +18,33 @@ will have their items found by our searches.  (Items we write with
 the same service and user attributes but different target attributes will also come
 back in searches, but they are filtered out of the results automatically.)
 
-New credentials are always created with all four attributes, and if they have
+New items are always created with all four attributes, and if they have
 a non-default target then they are created in a collection whose label matches
 the target (creating it if necessary).
 
-The [set_password] implementation always prefers to update the password on an
-existing credential, so it will only create a new item if it can't find one.
-This allows better compatibility with 3rd party clients, and reduces the chance
+Setting the password on an entry will always update the password on an
+existing item in preference to creating a new item.
+This provides better compatibility with 3rd party clients that may already
+have created items that match the entry, and reduces the chance
 of ambiguity in later searches.
 */
 use std::collections::HashMap;
 
 use secret_service::blocking::{Collection, Item, SecretService};
-pub use secret_service::{EncryptionType, Error};
+use secret_service::{EncryptionType, Error};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
 
+/// The representation of an item in the secret-service.
+///
 /// This structure has two roles. On the one hand, it captures all the
-/// information user specify for an [Entry] and so is the basis for our search
-/// (or creation) of items that match that entry.  On the other hand, when
-/// a search is ambiguous, each item found is represented by a structure that
+/// information a user specifies for an [Entry](crate::Entry)
+/// and so is the basis for our search
+/// (or creation) of an item for that entry.  On the other hand, when
+/// a search is ambiguous, each item found is represented by a credential that
 /// has the same attributes and label as the item.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct SsCredential {
     pub attributes: HashMap<String, String>,
     pub label: String,
@@ -49,9 +53,13 @@ pub struct SsCredential {
 
 impl CredentialApi for SsCredential {
     /// Sets the password on a unique matching item, if it exists, or creates one if necessary.
-    /// When creating, the item is put into a collection named by the credential's `target`,
-    /// which must be explicitly specified.  If there is more than one matching item,
-    /// returns an [ErrorCode::Ambiguous] error with a credential for each one.
+    ///
+    /// If there are multiple matches,
+    /// returns an [Ambiguous](ErrorCode::Ambiguous) error with a credential for each
+    /// matching item.
+    ///
+    /// When creating, the item is put into a collection named by the credential's `target`
+    /// attribute.  
     fn set_password(&self, password: &str) -> Result<()> {
         let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
@@ -78,17 +86,25 @@ impl CredentialApi for SsCredential {
         Ok(())
     }
 
-    /// Gets the password on a unique matching item, if it exists.  If there are no
-    /// matching items, returns an [ErrorCode::NoEntry] error.  If there is more than
-    /// one matching item, returns an [ErrorCode::Ambiguous] error with a credential for each one.
+    /// Gets the password on a unique matching item, if it exists.
+    ///
+    /// If there are no
+    /// matching items, returns a [NoEntry](ErrorCode::NoEntry) error.
+    /// If there are multiple matches,
+    /// returns an [Ambiguous](ErrorCode::Ambiguous)
+    /// error with a credential for each matching item.
     fn get_password(&self) -> Result<String> {
         let passwords: Vec<String> = self.map_matching_items(get_item_password, true)?;
         Ok(passwords[0].clone())
     }
 
-    /// Deletes the unique matching item, if it exists.  If there are no
-    /// matching items, returns an [ErrorCode::NoEntry] error.  If there is more than
-    /// one matching item, returns an [ErrorCode::Ambiguous] error with a credential for each one.
+    /// Deletes the unique matching item, if it exists.
+    ///
+    /// If there are no
+    /// matching items, returns a [NoEntry](ErrorCode::NoEntry) error.
+    /// If there are multiple matches,
+    /// returns an [Ambiguous](ErrorCode::Ambiguous)
+    /// error with a credential for each matching item.
     fn delete_password(&self) -> Result<()> {
         self.map_matching_items(delete_item, true)?;
         Ok(())
@@ -104,9 +120,12 @@ impl CredentialApi for SsCredential {
 impl SsCredential {
     /// Create a credential for the given target, service, and user.
     ///
-    /// Creating this credential does not create an Item in the secret service
-    /// until this credential is wrapped in an [Entry] and [set_password] is
-    /// called on that entry.
+    /// The target defaults to `default` (the default secret-service collection).
+    ///
+    /// Creating this credential does not create a matching item.
+    /// If there isn't already one there, it will be created only
+    /// when [set_password](SsCredential::set_password) is
+    /// called.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         if let Some("") = target {
             return Err(empty_target());
@@ -128,12 +147,10 @@ impl SsCredential {
         })
     }
 
-    /// Create a credential from an underlying Item.
+    /// Create a credential from an underlying item.
     ///
     /// The created credential will have all the attributes and label
-    /// of the underlying item, so you can examine them.  But it won't
-    /// have a target (and so can't be used to create new a new item)
-    /// unless the underlying item has a `target` attribute.
+    /// of the underlying item, so you can examine them.
     pub fn new_from_item(item: &Item) -> Result<Self> {
         let attributes = item.get_attributes().map_err(decode_error)?;
         let target = attributes.get("target").cloned();
@@ -144,31 +161,39 @@ impl SsCredential {
         })
     }
 
-    /// Construct a credential from the underlying matching Item, if there is exactly one.
+    /// Construct a credential for this credential's underlying matching item,
+    /// if there is exactly one.
     pub fn new_from_matching_item(&self) -> Result<Self> {
         let credentials = self.map_matching_items(Self::new_from_item, true)?;
         Ok(credentials[0].clone())
     }
 
-    /// If there are multiple matching Items, get all of their passwords.
-    /// (This is useful if [get_password] returns an `Ambiguous` error.)
+    /// If there are multiple matching items for this credential, get all of their passwords.
+    ///
+    /// (This is useful if [get_password](SsCredential::get_password)
+    /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn get_all_passwords(&self) -> Result<Vec<String>> {
         self.map_matching_items(get_item_password, true)
     }
 
-    /// If there are multiple matching Items, delete all of them.
-    /// (This is useful if [delete_password] returns an `Ambiguous` error.)
+    /// If there are multiple matching items for this credential, delete all of them.
+    ///
+    /// (This is useful if [delete_password](SsCredential::delete_password)
+    /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn delete_all_passwords(&self) -> Result<()> {
         self.map_matching_items(delete_item, true)?;
         Ok(())
     }
 
     /// Map a function over all of the items matching this credential.
+    ///
     /// Items are unlocked before the function is applied.
+    ///
     /// If `require_unique` is true, and there are no matching items, then
-    /// [ErrorCode::NoEntry] is returned.
-    /// If `require_unique` is true, and there is more than one matching item,
-    /// then[ErrorCode::Ambiguous] is returned with a vector containing one
+    /// a [NoEntry](ErrorCode::NoEntry) error is returned.
+    /// If `require_unique` is true, and there are multiple matches,
+    /// then an [Ambiguous](ErrorCode::Ambiguous) error is returned
+    /// with a vector containing one
     /// credential for each of the matching items.
     pub fn map_matching_items<F, T>(&self, f: F, require_unique: bool) -> Result<Vec<T>>
     where
@@ -179,8 +204,8 @@ impl SsCredential {
         let attributes: HashMap<&str, &str> = self.search_attributes().into_iter().collect();
         let search = ss.search_items(attributes).map_err(decode_error)?;
         let target = self.target.as_ref().ok_or_else(empty_target)?;
-        let unlocked = matching_items(&search.unlocked, target)?;
-        let locked = matching_items(&search.locked, target)?;
+        let unlocked = matching_target_items(&search.unlocked, target)?;
+        let locked = matching_target_items(&search.locked, target)?;
         if require_unique {
             let count = locked.len() + unlocked.len();
             if count == 0 {
@@ -216,7 +241,8 @@ impl SsCredential {
             .collect()
     }
 
-    /// Similar to all_attributes, but this just selects the ones we search on
+    /// Similar to [all_attributes](SsCredential::all_attributes),
+    /// but this just selects the ones we search on
     fn search_attributes(&self) -> HashMap<&str, &str> {
         let mut result: HashMap<&str, &str> = HashMap::new();
         result.insert("service", self.attributes["service"].as_str());
@@ -225,21 +251,28 @@ impl SsCredential {
     }
 }
 
+/// The builder for secret-service credentials
 #[derive(Debug, Default)]
 pub struct SsCredentialBuilder {}
 
-/// Called by the crate when Secret Service is the default credential store.
+/// Returns an instance of the secret-service credential builder.
+///
+/// If secret-service is the default credential store,
+/// this is called once when an entry is first created.
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
     Box::new(SsCredentialBuilder {})
 }
 
 impl CredentialBuilderApi for SsCredentialBuilder {
+    /// Build an [SsCredential] for the given target, service, and user.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
         Ok(Box::new(SsCredential::new_with_target(
             target, service, user,
         )?))
     }
 
+    /// Return the underlying builder object with an `Any` type so that it can
+    /// be downgraded to an [SsCredentialBuilder] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -248,10 +281,14 @@ impl CredentialBuilderApi for SsCredentialBuilder {
 //
 // Secret Service utilities
 //
-/// Find the secret service collection that should contain this item
+
+/// Find the secret service collection whose label is the given name.
+///
+/// The name `default` is treated specially and is interpreted as naming
+/// the default collection regardless of its label (which might be different).
 pub fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a>> {
     let collection = if name.eq("default") {
-        ss.get_collection_by_alias(name).map_err(decode_error)?
+        ss.get_default_collection().map_err(decode_error)?
     } else {
         let all = ss.get_all_collections().map_err(decode_error)?;
         let found = all
@@ -265,27 +302,46 @@ pub fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collectio
     Ok(collection)
 }
 
-/// Create the secret service collection that will contain this credential
+/// Create a secret service collection labeled with the given name.
+///
+/// If a collection with that name already exists, it is returned.
+///
+/// The name `default` is specially interpreted to mean the default collection,
+/// which always exists.
 pub fn create_collection<'a>(ss: &'a SecretService<'a>, name: &str) -> Result<Collection<'a>> {
-    let collection = ss.create_collection(name, "").map_err(decode_error)?;
+    let collection = if name.eq("default") {
+        ss.get_default_collection().map_err(decode_error)?
+    } else {
+        ss.create_collection(name, "").map_err(decode_error)?
+    };
     Ok(collection)
 }
 
+/// Given an existing item, set its password.
 pub fn set_item_password(item: &Item, password: &str) -> Result<()> {
     item.set_secret(password.as_bytes(), "text/plain")
         .map_err(decode_error)
 }
 
+/// Given an existing item, retrieve and decode its password.
 pub fn get_item_password(item: &Item) -> Result<String> {
     let bytes = item.get_secret().map_err(decode_error)?;
     decode_password(bytes)
 }
 
+/// Given an existing item, delete it.
 pub fn delete_item(item: &Item) -> Result<()> {
     item.delete().map_err(decode_error)
 }
 
-pub fn matching_items<'a>(source: &'a [Item<'a>], target: &str) -> Result<Vec<&'a Item<'a>>> {
+/// Given a slice of items, filter out the ones that have an explicit target
+/// attribute that doesn't match the given target.
+///
+/// References to the matching items are returned in a new vector.
+pub fn matching_target_items<'a>(
+    source: &'a [Item<'a>],
+    target: &str,
+) -> Result<Vec<&'a Item<'a>>> {
     let mut result: Vec<&'a Item<'a>> = vec![];
     for i in source.iter() {
         match i.get_attributes().map_err(decode_error)?.get("target") {
@@ -300,6 +356,7 @@ pub fn matching_items<'a>(source: &'a [Item<'a>], target: &str) -> Result<Vec<&'
 //
 // Error utilities
 //
+
 /// Map underlying secret-service errors to crate errors with
 /// appropriate annotation.
 pub fn decode_error(err: Error) -> ErrorCode {
@@ -411,7 +468,7 @@ mod tests {
 
     fn probe_collection(name: &str) -> bool {
         use secret_service::blocking::SecretService;
-        pub use secret_service::EncryptionType;
+        use secret_service::EncryptionType;
 
         let ss =
             SecretService::connect(EncryptionType::Dh).expect("Can't connect to secret service");
