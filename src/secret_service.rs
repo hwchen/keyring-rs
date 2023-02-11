@@ -20,11 +20,7 @@ pub struct SsCredential {
 impl CredentialApi for SsCredential {
     fn set_password(&self, password: &str) -> Result<()> {
         let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
-        let set_password = |item: &Item| -> Result<()> {
-            item.set_secret(password.as_bytes(), "text/plain")
-                .map_err(decode_error)
-        };
-        match self.map_matching_items(set_password, true) {
+        match self.map_matching_items(|i| set_item_password(i, password), true) {
             Ok(_) => return Ok(()),
             Err(ErrorCode::NoEntry) => {}
             Err(err) => return Err(err),
@@ -196,7 +192,15 @@ impl CredentialBuilderApi for SsCredentialBuilder {
 //
 /// Find the secret service collection that should contain this item
 fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a>> {
-    let collection = ss.get_collection_by_alias(name).map_err(decode_error)?;
+    let collection = if name.eq("default") {
+        ss.get_collection_by_alias(name).map_err(decode_error)?
+    } else {
+        let all = ss.get_all_collections().map_err(decode_error)?;
+        let found = all
+            .into_iter()
+            .find(|c| c.get_label().map(|l| l.eq(name)).unwrap_or(false));
+        found.ok_or(ErrorCode::NoEntry)?
+    };
     if collection.is_locked().map_err(decode_error)? {
         collection.unlock().map_err(decode_error)?;
     }
@@ -204,11 +208,14 @@ fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a
 }
 
 /// Create the secret service collection that will contain this credential
-fn create_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a>> {
-    let collection = ss
-        .create_collection("keyring collection '{name}'", name)
-        .map_err(decode_error)?;
+fn create_collection<'a>(ss: &'a SecretService<'a>, name: &str) -> Result<Collection<'a>> {
+    let collection = ss.create_collection(name, "").map_err(decode_error)?;
     Ok(collection)
+}
+
+fn set_item_password(item: &Item, password: &str) -> Result<()> {
+    item.set_secret(password.as_bytes(), "text/plain")
+        .map_err(decode_error)
 }
 
 fn get_item_password(item: &Item) -> Result<String> {
@@ -340,23 +347,32 @@ mod tests {
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 
+    fn probe_collection(name: &str) -> bool {
+        use secret_service::blocking::SecretService;
+        pub use secret_service::EncryptionType;
+
+        let ss =
+            SecretService::connect(EncryptionType::Dh).expect("Can't connect to secret service");
+        let result = super::get_collection(&ss, name).is_ok();
+        result
+    }
+
     fn delete_collection(name: &str) {
         use secret_service::blocking::SecretService;
         pub use secret_service::EncryptionType;
 
         let ss =
             SecretService::connect(EncryptionType::Dh).expect("Can't connect to secret service");
-        let collection = ss
-            .get_collection_by_alias(name)
-            .expect("Can't find collection to delete");
+        let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
         collection.delete().expect("Can't delete collection");
     }
 
     #[test]
+    #[ignore = "can't be run headless, because it needs to prompt"]
     fn test_create_new_target_collection() {
         let name = generate_random_string();
         let credential = SsCredential::new_with_target(Some(&name), &name, &name)
-            .expect("Can't create new collection for credential");
+            .expect("Can't create credential for new collection");
         let entry = Entry::new_with_credential(Box::new(credential));
         let password = "password in new collection";
         entry
@@ -374,14 +390,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "can't be run headless, because it needs to prompt"]
     fn test_separate_targets_dont_interfere() {
         let name1 = generate_random_string();
         let name2 = generate_random_string();
         let credential1 = SsCredential::new_with_target(Some(&name1), &name1, &name1)
-            .expect("Can't create new collection for credential1");
+            .expect("Can't create credential1 with new collection");
         let entry1 = Entry::new_with_credential(Box::new(credential1));
         let credential2 = SsCredential::new_with_target(Some(&name2), &name1, &name1)
-            .expect("Can't create new collection for credential2");
+            .expect("Can't create credential2 with new collection");
         let entry2 = Entry::new_with_credential(Box::new(credential2));
         let entry3 = Entry::new(&name1, &name1).expect("Can't create entry in default collection");
         let password1 = "password for collection 1";
@@ -422,5 +439,58 @@ mod tests {
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
         delete_collection(&name1);
         delete_collection(&name2);
+    }
+
+    #[test]
+    fn test_existing_target_works_as_expected() {
+        let name1 = "test_keyring1";
+        let name2 = "test_keyring2";
+        if !probe_collection(name1) || !probe_collection(name2) {
+            println!("Skipping target test since needed collections don't exist or are locked");
+            return;
+        }
+        let credential1 = SsCredential::new_with_target(Some(name1), name1, name1)
+            .expect("Can't create credential1 with new collection");
+        let entry1 = Entry::new_with_credential(Box::new(credential1));
+        let credential2 = SsCredential::new_with_target(Some(name2), name1, name1)
+            .expect("Can't create credential2 with new collection");
+        let entry2 = Entry::new_with_credential(Box::new(credential2));
+        let entry3 = Entry::new(name1, name1).expect("Can't create entry in default collection");
+        let password1 = "password for collection 1";
+        let password2 = "password for collection 2";
+        let password3 = "password for default collection";
+        entry1
+            .set_password(password1)
+            .expect("Can't set password for collection 1");
+        entry2
+            .set_password(password2)
+            .expect("Can't set password for collection 2");
+        entry3
+            .set_password(password3)
+            .expect("Can't set password for default collection");
+        let actual1 = entry1
+            .get_password()
+            .expect("Can't get password for collection 1");
+        assert_eq!(actual1, password1);
+        let actual2 = entry2
+            .get_password()
+            .expect("Can't get password for collection 2");
+        assert_eq!(actual2, password2);
+        let actual3 = entry3
+            .get_password()
+            .expect("Can't get password for default collection");
+        assert_eq!(actual3, password3);
+        entry1
+            .delete_password()
+            .expect("Couldn't delete password for collection 1");
+        assert!(matches!(entry1.get_password(), Err(Error::NoEntry)));
+        entry2
+            .delete_password()
+            .expect("Couldn't delete password for collection 2");
+        assert!(matches!(entry2.get_password(), Err(Error::NoEntry)));
+        entry3
+            .delete_password()
+            .expect("Couldn't delete password for default collection");
+        assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
     }
 }
