@@ -49,77 +49,71 @@ fn main() {
 }
 
 fn execute_args(args: &Cli) {
-    let entry = if let Some(target) = &args.target {
-        Entry::new_with_target(target, &args.service, &args.user)
-            .unwrap_or_else(|err| panic!("Couldn't create entry: {err:?}"))
+    let (description, entry) = if let Some(target) = &args.target {
+        (
+            format!("[{target}]{}@{}", &args.user, &args.service),
+            Entry::new_with_target(target, &args.service, &args.user)
+                .unwrap_or_else(|err| panic!("Couldn't create entry: {err}")),
+        )
     } else {
-        Entry::new(&args.service, &args.user)
-            .unwrap_or_else(|err| panic!("Couldn't create entry: {err:?}"))
+        (
+            format!("{}@{}", &args.user, &args.service),
+            Entry::new(&args.service, &args.user)
+                .unwrap_or_else(|err| panic!("Couldn't create entry: {err}")),
+        )
     };
     match &args.command {
         Command::Set {
             password: Some(password),
-        } => execute_set_password(args, &entry, password),
+        } => execute_set_password(&description, &entry, password),
         Command::Set { password: None } => {
             if let Ok(password) = prompt_password("Password: ") {
-                execute_set_password(args, &entry, &password)
+                execute_set_password(&description, &entry, &password)
             } else {
                 eprintln!("(Failed to read password, so none set.)")
             }
         }
-        Command::Get => execute_get_password(args, &entry),
-        Command::Delete => execute_delete_password(args, &entry),
+        Command::Get => execute_get_password(&description, &entry),
+        Command::Delete => execute_delete_password(&description, &entry),
     }
 }
 
-fn execute_set_password(args: &Cli, entry: &Entry, password: &str) {
+fn execute_set_password(description: &str, entry: &Entry, password: &str) {
     match entry.set_password(password) {
         Ok(()) => {
-            println!(
-                "(Password for '{}@{}' set successfully)",
-                &args.user, &args.service
-            )
+            println!("(Password for '{description}' set successfully)")
         }
         Err(err) => {
-            eprintln!(
-                "Couldn't set password for '{}@{}': {:?}",
-                &args.user, &args.service, err
-            );
+            eprintln!("Couldn't set password for '{description}': {err}",);
         }
     }
 }
 
-fn execute_get_password(args: &Cli, entry: &Entry) {
+fn execute_get_password(description: &str, entry: &Entry) {
     match entry.get_password() {
         Ok(password) => {
-            println!(
-                "The password for '{}@{}' is '{}'",
-                &args.user, &args.service, &password
-            );
+            println!("The password for '{description}' is '{password}'");
         }
         Err(Error::NoEntry) => {
-            eprintln!("(No password found for '{}@{}')", &args.user, &args.service);
+            eprintln!("(No password found for '{description}')");
+        }
+        Err(Error::Ambiguous(creds)) => {
+            eprintln!("More than one credential found for {description}: {creds:?}")
         }
         Err(err) => {
-            eprintln!(
-                "Couldn't get password for '{}@{}': {:?}",
-                &args.user, &args.service, err
-            );
+            eprintln!("Couldn't get password for '{description}': {err}",);
         }
     }
 }
 
-fn execute_delete_password(args: &Cli, entry: &Entry) {
+fn execute_delete_password(description: &str, entry: &Entry) {
     match entry.delete_password() {
-        Ok(()) => println!("(Password for '{}@{}' deleted)", &args.user, &args.service),
+        Ok(()) => println!("(Password for '{description}' deleted)"),
         Err(Error::NoEntry) => {
-            eprintln!("(No password for '{}@{}' found)", &args.user, &args.service);
+            eprintln!("(No password for '{description}' found)");
         }
         Err(err) => {
-            eprintln!(
-                "Couldn't delete password for '{}@{}': {:?}",
-                &args.user, &args.service, err
-            );
+            eprintln!("Couldn't delete password for '{description}': {err}",);
         }
     }
 }
