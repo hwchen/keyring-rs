@@ -1,7 +1,8 @@
 ## Version 2.0
 - Introduce traits for pluggable credential-store implementations.
 - Add a `mock` credential store for easy cross-platform client testing.
-- Add optional service-level search in secret-service.
+- Use service-level search in secret-service.
+- Allow creation of new collections in secret-service.
 - Add the kernel keyring as a linux credential store.
 
 ## Version 1.2.1
