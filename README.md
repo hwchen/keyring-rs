@@ -5,8 +5,6 @@
 
 A cross-platform library to manage storage and retrieval of passwords (and other credential-like secrets) in the underlying platform secure store, with a fully-developed example that provides a command-line interface.
 
-Published on [crates.io](https://crates.io/crates/keyring)
-
 ## Usage
 
 __Currently supports Linux, iOS, macOS, and Windows.__ Please file issues if you have any problems or bugs!
@@ -70,11 +68,13 @@ This crate comes with built-in support for the keychain on Mac, the credential m
 * We build using GitHub CI.
 * Each tag is built on Ubuntu x64, Win 10 x64, and Mac intel x64.  The `cli` example executable is posted for all platforms with the tag.
 
-### Headless Linux
+### Linux
 
-If you are trying to use keyring on a headless linux box, be aware that there are known issues with getting dbus and secret-service and the gnome keyring to work properly in headless environments.  For a quick workaround, look at how this project's [CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml) uses the [linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script; a similar solution is also documented in the [Python Keyring docs](https://pypi.org/project/keyring/) (search for "Using Keyring on headless Linux systems").  For an excellent treatment of all the headless dbus issues, see [this answer on ServerFault](https://serverfault.com/a/906224/79617).
+If you are trying to use keyring on a headless linux box, it's strongly recommended that you use the kernel-native `keyutils` credential store, because it's designed to be used headlessly (has no notion of "prompting").  To set the `keyutils` as your default store, build with `--features linux-default-keyutils`.  Alternatively, you can drop the secret-service credential store altogether (which will slim your build significantly) by building keyring with `--no-default-features` and `--features linux-no-secret-service`.
 
-Note that you can build this crate without secret-service support; this makes the Linux keyring (which works normally on headless linux) the default credential store on Linux platforms.
+If you must use the secret-service on a headless linux box, be aware that there are known issues with getting dbus and secret-service and the gnome keyring to work properly in headless environments.  For a quick workaround, look at how this project's [CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml) uses the [linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script; a similar solution is also documented in the [Python Keyring docs](https://pypi.org/project/keyring/) (search for "Using Keyring on headless Linux systems").  For an excellent treatment of all the headless dbus issues, see [this answer on ServerFault](https://serverfault.com/a/906224/79617).
+
+Finally, while this crate uses the secret-service via its blocking API, the secret-service crate is still using zbus which talks to the dbus via async calls.  Thus, using the secret-service implies using an async runtime under the covers.  If you are already using an async runtime, you can use keyring features to make sure that secret-service uses a compatible runtime.
 
 ## License
 
