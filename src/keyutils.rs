@@ -218,9 +218,9 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
 /// Map an underlying keyutils error to a platform-independent error with annotation.
 pub fn decode_error(err: KeyError) -> ErrorCode {
     match err {
-        /// Experimentation has shown that the keyutils implementation can return a lot of
-        /// different errors that all mean "no such key", depending on where in the invalidation
-        /// processing the [get_password](KeyutilsCredential::get_password) call is made.
+        // Experimentation has shown that the keyutils implementation can return a lot of
+        // different errors that all mean "no such key", depending on where in the invalidation
+        // processing the [get_password](KeyutilsCredential::get_password) call is made.
         KeyError::KeyDoesNotExist
         | KeyError::AccessDenied
         | KeyError::KeyRevoked
