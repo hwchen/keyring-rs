@@ -1,7 +1,8 @@
 ## Keyring-rs
-[![CI](https://github.com/hwchen/keyring-rs/actions/workflows/build.yaml/badge.svg)](https://github.com/hwchen/keyring-rs/actions?query=workflow%3Abuild)
-[![Crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
-[![API Documentation on docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
+[![build](https://github.com/hwchen/keyring-rs/actions/workflows/build.yaml/badge.svg)](https://github.com/hwchen/keyring-rs/actions)
+[![dependencies](https://deps.rs/repo/github/hwchen/keyring-rs/status.svg)](https://github.com/hwchen/keyring-rs)
+[![crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
+[![docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
 
 A cross-platform library to manage storage and retrieval of passwords
 (and other secrets) in the underlying platform secure store, 
