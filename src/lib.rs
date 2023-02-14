@@ -3,105 +3,108 @@
 # Keyring
 
 This is a cross-platform library that does storage and retrieval of passwords
-(and other credential-like secrets) in an underlying platform-specific secure store.
+(or other secrets) in an underlying platform-specific secure store.
 A top-level introduction to the library's usage, as well as a small code sample,
 may be found in [the library's entry on crates.io](https://crates.io/crates/keyring).
 Currently supported platforms are
 Linux,
 Windows,
-and iOS/MacOS.
+macOS, and iOS.
 
 ## Design
 
-This crate has a very simple, platform-independent model of a keystore:
-it's an API that provides persistent storage for any number of credentials.
-Each credential is identified by a <service, username> pair of UTF-8 strings.
-Each credential can store a single UTF-8 string as its password.
-There is no platform-independent notion of a keystore being locked or unlocked.
-There is a platform-independent notion of a credential having platform-specific
-metadata that can be read (but not written) via this crate's API.
+This crate implements a very simple, platform-independent concrete object called an _entry_.
+Each entry is identified by a <_service name_, _user name_> pair of UTF-8 strings,
+optionally augmented by a _target_ string (which can be used to distinguish two entries
+that have the same _service name_ and _user name_).
+Entries support setting, getting, and forgetting (aka deleting) passwords (UTF-8 strings).
 
-This crate runs on several different platforms, each of which has one
-or more actual secure storage implementations.  Each of these
-implementations has its own model---generally a much richer one than
-this crate's---for what constitutes a secure credential.  It is
-these platform-specific implementations that provide persistent storage.
+Entries provide persistence for their passwords by wrapping credentials held in platform-specific
+credential stores.  The implementations of these platform-specific stores are captured
+in two types (with associated traits):
 
-This crate's simple model for credentials is embodied in the `Credential`
-trait.  Each secure storage implementation implements this trait.  This
-crate then implements a concrete `Entry` class that can read and write
-platform-specific concrete objects via their `Credential` implementations.
+- a _credential builder_, represented by the [CredentialBuilder] type
+(and [CredentialBuilderApi](credential::CredentialBuilderApi) trait).  Credential
+builders are given the identifying information provided for an entry and maps
+it to the identifying information for a matching platform-specific credential.
+- a _credential_, represented by the [Credential] type
+(and [CredentialApi](credential::CredentialApi) trait).  The platform-specific credential
+identified by a builder for an entry is what provides the secure storage for that entry's password.
 
-## Pluggable Platform Stores
+## Crate-provided Credential Stores
 
-Clients of this crate can provide their own platform-specific credential storage implementations.
-They do so by providing a concrete object that implements the `Credential` trait.  They can then
-construct an `Entry` in that store by passing that object type to the `Entry::new_with_store` call.
-Or they can construct the platform credential themselves and construct an `Entry` that wraps it
-by using the `Entry::new_with_credential` call.
+This crate runs on several different platforms, and it provides one
+or more implementations of credential stores on each platform.
+These implementations work by mapping the data used to identify an entry
+to data used to identify platform-specific storage objects.
+For example, on macOS, the service and user names provided for an entry
+are mapped to the service and user attributes that identify an element
+in the macOS keychain.
 
-## Default Platform Stores
+Typically, platform-specific stores have a richer model of an entry than
+the one used by this crate.  They expose their specific model in the
+concrete credential objects they use to implement the Credential trait.
+In order to allow clients to access this richer model, the Credential trait
+has an [as_any](credential::CredentialApi::as_any) method that returns a
+reference to the underlying
+concrete object typed as [Any](std::any::Any), so that it can be downgraded to
+its concrete type.
 
-For ease of use, this module provides a default credential storage implementation on each platform:
-secure-store on Linux, the Credential Manager on Windows, and Keychain Services on Mac and iOS.
-Each entry constructed with `Entry::new(service, username)` is mapped to an underlying credential
-using the default store for the platform and conventions described below.
+## Client-provided Credential Stores
 
-To facilitate interoperability with third-party software that use the default secure stores,
-there is an alternate constructor for keyring entries---`Entry::new_with_target`---that
-allows clients to influence the mapping from service and username to an underlying
-platform credential.  If more control than that is needed, clients can access the underlying
-platform store directly and use `Entry::new_with_credential` to wrap the platform credential
-in an entry.
+In addition to the platform stores implemented by this crate, clients
+are free to provide their own secure stores and use those.  There are
+two mechanisms provided for this:
 
-### Linux
+- Clients can give their desired credential builder to the crate
+for use by the [Entry::new] and [Entry::new_with_target] calls.
+This is done by making a call to [set_default_credential_builder].
+The major advantage of this approach is that client code remains
+independent of the credential builder being used.
+- Clients can construct their concrete credentials directly and
+then turn them into entries by using the [Entry::new_with_credential]
+call. The major advantage of this approach is that credentials
+can be identified however clients want, rather than being restricted
+to the simple model used by this crate.
 
-On Linux, the secret service is used as the platform credential store.  Secret service groups credentials into collections, and identifies each credential in a collection using a set of key-value pairs (called _attributes_).  In addition, secret service allows for a label on each credential for use in UI-based clients.
+## Mock Credential Store
 
-For a given service/username pair, `Entry::new` maps to a credential in the default (login) secret-service collection.  This credential has matching `service` and `username` attributes, and an additional `application` attribute of `rust-keyring`.
+In addition to the platform-specific credential stores, this crate
+also provides a mock credential store that clients can use to
+test their code in a platform independent way.  The mock credential
+store allows for pre-setting errors as well as password values to
+be returned from [Entry] method calls.
 
-You can map an entry to a non-default secret-service collection by passing the collection's name as the `target` parameter to `Entry::new_with_target`.  This module doesn't ever create collections, so trying to access an entry in a named collection before externally creating and unlocking it will result in a `NoStorageAccess` error.
+## Interoperability with Third Parties
 
-If you are running on a headless Linux box, you will need to unlock the Gnome login keyring before you can use it.  The following `bash` function may be very helpful.
-```shell
-function unlock-keyring ()
-{
-    read -rsp "Password: " pass
-    echo -n "$pass" | gnome-keyring-daemon --unlock
-    unset pass
-}
-```
+Each of the credential stores provided by this crate uses an underlying
+platform-specific store that may also be used by modules written
+in other languages.  If you want to interoperate with these third party
+credential writers, then you will need to understand the details of how the
+target, service name, and user name of this crate's generic model
+are used to identify credentials in the platform-specific store.
+These details are in the implementation of this crate's secure-storage
+modules, and are documented in the headers of those modules.
 
-Trying to access a locked keychain on a headless Linux box often returns the  platform error that displays as `SS error: prompt dismissed`.  This refers to the fact that there is no GUI running that can be used to prompt for a keychain unlock.
-
-### Windows
-
-There is only one credential store on Windows.  Generic credentials in this store are identified by a single string (called the _target name_).  They also have a number of non-identifying but manipulable attributes: a username, a comment, and a target alias.
-
-For a given service/username pair, this module uses the concatenated string `username.service` as the mapped credential's target name. (This allows multiple users to store passwords for the same service.)  It also fills the username and comment fields with appropriate strings.
-
-Because the Windows credential manager doesn't support multiple keychains, and because many Windows programs use _only_ the service name as the credential target name, the `Entry::new_with_target` call uses the target parameter as the credential's target name rather than concatenating the username and service.  So if you have a custom algorithm you want to use for computing the Windows target name (such as just the service name), you can specify the target name directly (along with the usual service and username values).
-
-### MacOS and iOS
-
-MacOS/iOS credential stores are called keychains.  On iOS there is only one of these, but on Mac the OS automatically creates three of them (or four if removable media is being used).  Generic credentials on Mac/iOS can be identified by a large number of _key/value_ attributes; this module (currently) uses only the _account_ and _name_ attributes.
-
-For a given service/username pair, this module uses a generic credential in the User (login) keychain whose _account_ is the username and and whose _name_ is the service.  In the _Keychain Access_ UI on Mac, generic credentials created by this module show up in the passwords area (with their _where_ field equal to their _name_), but _Note_ entries on Mac are also generic credentials and can be accessed by this module if you know their _account_ value (which is not displayed by _Keychain Access_).
-
-On Mac, you can specify targeting a different keychain by passing the keychain's (case-insensitive) name as the target parameter to `Entry::new_with_target`. Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic) will be mapped to `User`.  On iOS, the target parameter is ignored.
-
-(_N.B._ The latest versions of the MacOS SDK no longer support creation of file-based keychains, so this module's experimental support for those has been removed.)
+(_N.B._ Since the included credential store implementations are platform-specific,
+you may need to use the Platform drop-down on [docs.rs](https://docs.rs/keyring) to
+view the storage module documentation for your desired platform.)
 
 ## Caveats
 
-This module manipulates passwords as UTF-8 encoded strings, so if a third party has stored an arbitrary byte string then retrieving that password will return an error.  The error in that case will have the raw bytes attached, so you can access them.
+This module manipulates passwords as UTF-8 encoded strings,
+so if a third party has stored an arbitrary byte string
+then retrieving that password will return a [BadEncoding](Error::BadEncoding) error.
+The returned error will have the raw bytes attached,
+so you can access them.
 
-Accessing the same keychain entry from multiple threads simultaneously can produce odd results, even deadlocks.  This is because the system calls to the platform credential managers may use the same thread discipline, and so may be serialized quite differently than the client-side calls.  On MacOS, for example, all calls to access the keychain are serialized in an order that is independent of when they are made.
-
-Because credentials identified with empty service, user, or target names are handled inconsistently at the platform layer, the library had inconsistent (and arguably buggy) behavior in this case.  As of version 1.2, this inconsistency was eliminated by having the library always fail on access when using credentials created with empty strings via `new` or `new_with_target`.  The prior platform-specific behavior can still be accessed by using `new_with_credential` to produce the same credential that would have been produced before the change.
-
-A better way to handle empty strings (and other problematic argument values) would be to allow `Entry` creation to fail gracefully on arguments that are known not to work on a given platform.  That would be a breaking API change, however, so it will have to wait until the next major version.
-
+While this crate's code is thread-safe,
+accessing the _same_ entry from multiple threads simultaneously
+can produce odd results, even deadlocks.
+This is because the system calls to the platform credential managers
+may do leasing of locks and serialize calls differently than
+they are made.  As long as you access a single entry from
+only one thread at a time, multi-threading should be fine.
  */
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
@@ -151,12 +154,15 @@ static DEFAULT_BUILDER: std::sync::RwLock<EntryBuilder> =
 /// This is really meant for use by clients who bring their own credential
 /// store and want to use it everywhere.  If you are using multiple credential
 /// stores and want precise control over which credential is in which store,
-/// then use `entry_with_credential`.
+/// then use [new_with_credential](Entry::new_with_credential).
 ///
-/// This will block waiting for all other threads creating credentials
-/// to complete what they are doing.
+/// This will block waiting for all other threads currently creating entries
+/// to complete what they are doing. It's really meant to be called
+/// at app startup before you start creating entries.
 pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
-    let mut guard = DEFAULT_BUILDER.write().unwrap();
+    let mut guard = DEFAULT_BUILDER
+        .write()
+        .expect("Poisoned RwLock in keyring-rs: please report a bug!");
     guard.inner = Some(new);
 }
 
@@ -164,7 +170,9 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
     lazy_static::lazy_static! {
         static ref DEFAULT: Box<CredentialBuilder> = default::default_credential_builder();
     }
-    let guard = DEFAULT_BUILDER.read().unwrap();
+    let guard = DEFAULT_BUILDER
+        .read()
+        .expect("Poisoned RwLock in keyring-rs: please report a bug!");
     let builder = match guard.inner.as_ref() {
         Some(builder) => builder,
         None => &DEFAULT,
@@ -180,12 +188,14 @@ pub struct Entry {
 
 impl Entry {
     /// Create an entry for the given service and username.
+    ///
     /// The default credential builder is used.
     pub fn new(service: &str, user: &str) -> Result<Entry> {
         build_default_credential(None, service, user)
     }
 
     /// Create an entry for the given target, service, and username.
+    ///
     /// The default credential builder is used.
     pub fn new_with_target(target: &str, service: &str, user: &str) -> Result<Entry> {
         build_default_credential(Some(target), service, user)
@@ -197,21 +207,47 @@ impl Entry {
     }
 
     /// Set the password for this entry.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
     pub fn set_password(&self, password: &str) -> Result<()> {
         self.inner.set_password(password)
     }
 
     /// Retrieve the password saved for this entry.
-    /// Returns a `NoEntry` error is there isn't one.
+    ///
+    /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
     pub fn get_password(&self) -> Result<String> {
         self.inner.get_password()
     }
 
     /// Delete the password for this entry.
+    ///
+    /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
     pub fn delete_password(&self) -> Result<()> {
         self.inner.delete_password()
     }
 
+    /// Return a reference to this entry's wrapped credential.
+    ///
+    /// The reference is of the [Any](std::any::Any) type so it can be
+    /// downgraded to a concrete credential object.  The client must know
+    /// what type of concrete object to cast to.
     pub fn get_credential(&self) -> &dyn std::any::Any {
         self.inner.as_any()
     }

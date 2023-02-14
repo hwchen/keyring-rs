@@ -1,15 +1,15 @@
 /*!
 
-# secret-service credential store
+# secret-service Credential Store
 
 Items in the secret-service are identified by an arbitrary collection
-of attributes, and each has "label" for use in graphical editors.  The keyring
-client uses the following attributes:
+of attributes, and each has "label" for use in graphical editors.  This
+implementation uses the following attributes:
 
-- `target` (optional, defaults to `default`)
-- `service` (required)
-- `user` (required)
-- `application` (optional, always set to `rust-keyring`)
+- `target` (optional & taken from entry creation call, defaults to `default`)
+- `service` (required & taken from entry creation call)
+- `user` (required & taken from entry creation call)
+- `application` (optional & always set to `rust-keyring`)
 
 Existing items are always searched for at the service level, which
 means all collections are searched.  Only the required attributes are used in searches,
@@ -27,7 +27,43 @@ existing item in preference to creating a new item.
 This provides better compatibility with 3rd party clients that may already
 have created items that match the entry, and reduces the chance
 of ambiguity in later searches.
-*/
+
+## Async runtime required
+
+While this crate uses the secret-service via its blocking API,
+the secret-service crate is built on zbus which always talks to the dbus via async calls.
+Thus, using the secret-service implies using an async runtime under the covers.
+If you are already using an async runtime,
+you can use keyring features to make sure that secret-service
+uses a compatible runtime.
+
+## Headless usage
+
+If you must use the secret-service on a headless linux box,
+be aware that there are known issues with getting
+dbus and secret-service and the gnome keyring
+to work properly in headless environments.
+For a quick workaround, look at how this project's
+[CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml)
+uses the
+[linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script;
+a similar solution is also documented in the
+[Python Keyring docs](https://pypi.org/project/keyring/)
+(search for "Using Keyring on headless Linux systems").
+The following `bash` function may be helpful:
+
+```shell
+function unlock-keyring ()
+{
+    read -rsp "Password: " pass
+    echo -n "$pass" | gnome-keyring-daemon --unlock
+    unset pass
+}
+```
+
+For an excellent treatment of all the headless dbus issues, see
+[this answer on ServerFault](https://serverfault.com/a/906224/79617).
+ */
 use std::collections::HashMap;
 
 use secret_service::blocking::{Collection, Item, SecretService};

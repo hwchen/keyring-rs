@@ -1,3 +1,26 @@
+/*!
+
+# Windows Crendential Manager Credential Store
+
+This module uses Windows Generic credentials to store entries.
+These are identified by a single string (called their _target name_).
+They also have a number of non-identifying but manipulable attributes:
+a _username_, a _comment_, and a _target alias_.
+
+For a given <_service_, _username_> pair,
+this module uses the concatenated string `username.service`
+as the mapped credential's _target name_, and
+fills the _username_ and _comment_ fields with appropriate strings.
+(This convention allows multiple users to store passwords for the same service.)
+
+Because the Windows credential manager doesn't support multiple collections of credentials,
+and because many Windows programs use _only_ the service name as the credential _target name_,
+the `Entry::new_with_target` call uses the `target` parameter as the credential's _target name_
+rather than concatenating the username and service.
+So if you have a custom algorithm you want to use for computing the Windows target name,
+you can specify the target name directly.  (You still need to provide a service and username,
+because they are used in the credential's metadata.)
+*/
 use byteorder::{ByteOrder, LittleEndian};
 use std::iter::once;
 use std::mem::MaybeUninit;
@@ -17,9 +40,9 @@ use winapi::um::wincred::{
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{Error as ErrorCode, Result};
 
-/// Windows has only one credential store, and each credential is identified
-/// by a single string called the "target name".  But generic credentials
-/// also have three pieces of metadata with suggestive names.
+/// The representation of a Windows Generic credential.
+///
+/// See the module header for the meanings of these fields.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinCredential {
     pub username: String,
@@ -28,11 +51,18 @@ pub struct WinCredential {
     pub comment: String,
 }
 
+// Windows API type mappings:
+// DWORD is u32
+// LPCWSTR is *const u16
+// BOOL is i32 (false = 0, true = 1)
+// PCREDENTIALW = *mut CREDENTIALW
+
 impl CredentialApi for WinCredential {
-    // DWORD is u32
-    // LPCWSTR is *const u16
-    // BOOL is i32 (false = 0, true = 1)
-    // PCREDENTIALW = *mut CREDENTIALW
+    /// Create and write a credential with password for this entry.
+    ///
+    /// The new credential replaces any existing one in the store.
+    /// Since there is only one credential with a given _target name_,
+    /// there is no chance of ambiguity.
     fn set_password(&self, password: &str) -> Result<()> {
         self.validate_attributes(password)?;
         let mut username = to_wstr(&self.username);
@@ -80,10 +110,18 @@ impl CredentialApi for WinCredential {
         }
     }
 
+    /// Look up the password for this entry, if any.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
     fn get_password(&self) -> Result<String> {
         self.extract_from_platform(extract_password)
     }
 
+    /// Delete the underlying generic credential for this entry, if any.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
     fn delete_password(&self) -> Result<()> {
         self.validate_attributes("")?;
         let target_name = to_wstr(&self.target_name);
@@ -94,6 +132,8 @@ impl CredentialApi for WinCredential {
         }
     }
 
+    /// Return the underlying concrete object with an `Any` type so that it can
+    /// be downgraded to a [WinCredential] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -142,6 +182,9 @@ impl WinCredential {
         Ok(())
     }
 
+    /// Construct a credential from this credential's underlying Generic credential.
+    ///
+    /// This can be useful for seeing modifications made by a third party.
     pub fn get_credential(&self) -> Result<Self> {
         self.extract_from_platform(Self::extract_credential)
     }
@@ -196,6 +239,13 @@ impl WinCredential {
         })
     }
 
+    /// Create a credential for the given target, service, and user.
+    ///
+    /// Creating a credential does not create a matching Generic credential
+    /// in the Windows Credential Manager.
+    /// If there isn't already one there, it will be created only
+    /// when [set_password](WinCredential::set_password) is
+    /// called.
     pub fn new_with_target(
         target: Option<&str>,
         service: &str,
@@ -240,19 +290,27 @@ impl WinCredential {
     }
 }
 
+/// The builder for Windows Generic credentials.
 pub struct WinCredentialBuilder {}
 
+/// Returns an instance of the Windows credential builder.
+///
+/// On Windows,
+/// this is called once when an entry is first created.
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
     Box::new(WinCredentialBuilder {})
 }
 
 impl CredentialBuilderApi for WinCredentialBuilder {
+    /// Build a [WinCredential] for the given target, service, and user.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
         Ok(Box::new(WinCredential::new_with_target(
             target, service, user,
         )?))
     }
 
+    /// Return the underlying builder object with an `Any` type so that it can
+    /// be downgraded to a [WinCredentialBuilder] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -295,8 +353,9 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     String::from_utf16_lossy(slice)
 }
 
+/// Windows error codes are `DWORDS` which are 32-bit unsigned ints.
 #[derive(Debug)]
-pub struct Error(u32); // Windows error codes are long ints
+pub struct Error(pub u32);
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -317,7 +376,8 @@ impl std::error::Error for Error {
     }
 }
 
-fn decode_error() -> ErrorCode {
+/// Map the last encountered Windows API error to a crate error with appropriate annotation.
+pub fn decode_error() -> ErrorCode {
     match unsafe { GetLastError() } {
         ERROR_NOT_FOUND => ErrorCode::NoEntry,
         ERROR_NO_SUCH_LOGON_SESSION => {
