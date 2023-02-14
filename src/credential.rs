@@ -1,22 +1,38 @@
 /*!
+
+# Platorm-independent secure storage model
+
 This module defines a plug and play model for platform-specific credential stores.
-The model comprises two traits: `CredentialBuilder` for the store service
-and `Credential` for the credentials produced by the service.
+The model comprises two traits: [CredentialBuilderApi] for the underlying store
+and [CredentialApi] for the entries in the store.  These traits must be implemented
+in a thread-safe way, a requirement captured in the [CredentialBuilder] and
+[CredentialApi] types that wrap them.
  */
 use super::Result;
 use std::any::Any;
 
-/// This trait defines the API that all credentials must implement.
+/// The API that [credentials](Credential) implement.
 pub trait CredentialApi {
-    /// Set a password in the underlying store
+    /// Set the credential's password.
+    ///
+    /// This will persist the password in the underlying store.
     fn set_password(&self, password: &str) -> Result<()>;
-    /// Retrieve a password from the underlying store
+    /// Retrieve a password from the credential, if one has been set.
+    ///
+    /// This has no effect on the underlying store.
     fn get_password(&self) -> Result<String>;
-    /// Delete a password from the underlying store
+    /// Forget the credential's password, if one has been set.
+    ///
+    /// This will also remove the credential from the underlying store,
+    /// so a second call to delete_password will return
+    /// a [NoEntry](crate::Error::NoEntry) error.
     fn delete_password(&self) -> Result<()>;
-    /// Cast the credential object to Any.  This allows clients
+    /// Return the underlying concrete object cast to [Any](std::any::Any).
+    ///
+    /// This allows clients
     /// to downcast the credential to its concrete type so they
-    /// can do platform-specific things with it (e.g, unlock it)
+    /// can do platform-specific things with it (e.g.,
+    /// query its attributes in the underlying store).
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -26,16 +42,21 @@ impl std::fmt::Debug for Credential {
     }
 }
 
-/// Credentials must be usable from multiple threads, and they must
-/// be movable from thread to thread, so they must be Send and Sync.
+/// A thread-safe implementation of the [Credential API](CredentialApi).
 pub type Credential = dyn CredentialApi + Send + Sync;
 
-/// This trait defines the API that Credential Builders must implement.
+/// The API that [credential builders](CredentialBuilder) implement.
 pub trait CredentialBuilderApi {
-    /// Build a platform credential for the given parameters
+    /// Create a credential identified by the given target, service, and user.
+    ///
+    /// This typically has no effect on the content of the underlying store.
+    /// A credential need not be persisted until its password is set.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>>;
-    /// Cast the builder as type Any.  This is not so much for clients.
-    /// as it is to allow us to derive a Debug trait for builders.
+    /// Return the underlying concrete object cast to [Any](std::any::Any).
+    ///
+    /// Because credential builders need not have any internal structure,
+    /// this call is not so much for clients
+    /// as it is to allow automatic derivation of a Debug trait for builders.
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -45,8 +66,5 @@ impl std::fmt::Debug for CredentialBuilder {
     }
 }
 
-/// Credential Builders must be Sync so they can be invoked from
-/// multiple threads simultaneously.  Although no one expects a
-/// Credential Builder to be passed from one thread to another,
-/// they are usually objects, so Send should be easy.
+/// A thread-safe implementation of the [CredentialBuilder API](CredentialBuilderApi).
 pub type CredentialBuilder = dyn CredentialBuilderApi + Send + Sync;

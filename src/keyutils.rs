@@ -1,15 +1,47 @@
-//! Example implementation of the keyring crate's trait interface
-//! using linux-keyutils
+/*!
+
+# Linux kernel credential store (via keyutils)
+
+Modern linux kernels have a built-in secure store, [keyutils](https://www.man7.org/linux/man-pages/man7/keyutils.7.html).
+This module (written primarily by [@landhb](https://github.com/landhb)) uses that secure store
+as the persistent back end for entries.
+
+Entries in keyutils are identified by a string `description`.  If an entry is created with
+an explicit `target`, that value is used as the keyutils description.  Otherwise, the string
+`keyring-rs:user@service` is used (where user and service come from the entry creation call).
+
+A single entry in keyutils can be on multiple "keyrings", each of which has a subtly
+different lifetime.  The core storage for keyring keys is provided by the user-specific
+[persistent keyring](https://www.man7.org/linux/man-pages/man7/persistent-keyring.7.html),
+whose lifetime defaults to a few days (and is controllable by
+administrators).  But whenever an entry's credential is used,
+it is also added to the user's
+[session keyring](https://www.man7.org/linux/man-pages/man7/session-keyring.7.html):
+this ensures that the credential will persist as long as the client is running.
+
+## Headless usage
+
+If you are trying to use keyring on a headless linux box, it's strongly recommended that you use this
+credential store, because (as part of the kernel) it's designed to be used headlessly.
+To set this module as your default store, build with `--features linux-default-keyutils`.
+Alternatively, you can drop the secret-service credential store altogether
+(which will slim your build significantly) by building keyring
+with `--no-default-features` and `--features linux-no-secret-service`.
+
+ */
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
 use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
-/// Since the CredentialBuilderApi::build method does not provide
-/// an initial secret, this wraps a linux_keyutils::KeyRing instead
-/// of a linux_keyutils::Key. Since it is impossible to have a
-/// zero-length key.
+/// Representation of a keyutils credential.
 ///
-/// The added benefit is any call to get_password before set_password
+/// Since the CredentialBuilderApi::build method does not provide
+/// an initial secret, and it is impossible to have 0-length keys,
+/// this representation holds a linux_keyutils::KeyRing instead
+/// of a linux_keyutils::Key.
+///
+/// The added benefit of this approach
+/// is that any call to get_password before set_password is done
 /// will result in a proper error as the key does not exist until
 /// set_password is called.
 #[derive(Debug, Clone)]
@@ -27,6 +59,9 @@ impl CredentialApi for KeyutilsCredential {
     ///
     /// This will overwrite the entry if it already exists since
     /// it's using `add_key` under the hood.
+    ///
+    /// Returns an [Invalid](ErrorCode::Invalid) error if the password
+    /// is empty, because keyutils keys cannot have empty values.
     fn set_password(&self, password: &str) -> Result<()> {
         if password.is_empty() {
             return Err(ErrorCode::Invalid(
@@ -79,6 +114,12 @@ impl CredentialApi for KeyutilsCredential {
     /// Under the hood this uses `Key::invalidate` to immediately
     /// invalidate the key and prevent any further successful
     /// searches.
+    ///
+    /// Note that the keyutils implementation uses caching,
+    /// and the caches take some time to clear,
+    /// so a key that has been invalidated may still be found
+    /// by get_password if it's called within milliseconds
+    /// in *the same process* that deleted the key.
     fn delete_password(&self) -> Result<()> {
         // Verify that the key exists and is valid
         let key = self
@@ -93,16 +134,17 @@ impl CredentialApi for KeyutilsCredential {
 
     /// Cast the credential object to std::any::Any.  This allows clients
     /// to downcast the credential to its concrete type so they
-    /// can do platform-specific things with it (e.g, unlock it)
+    /// can do platform-specific things with it.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
 
 impl KeyutilsCredential {
-    /// Construct a credential from the underlying platform credential
-    /// This is basically a no-op, because we don't keep any extra attributes.
-    /// But at least we make sure the underlying platform credential exists.
+    /// Create a credential from the matching keyutils key.
+    ///
+    /// This is basically a no-op, because keys don't have extra attributes,
+    /// but at least we make sure the underlying platform credential exists.
     pub fn get_credential(&self) -> Result<Self> {
         self.session
             .search(&self.description)
@@ -112,7 +154,9 @@ impl KeyutilsCredential {
 
     /// Create the platform credential for a Keyutils entry.
     ///
-    /// A target string is interpreted as the KeyRing to use for the entry.
+    /// An explicit target string is interpreted as the KeyRing to use for the entry.
+    /// If none is provided, then we concatenate the user and service in the string
+    /// `keyring-rs:user@service`.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         // Obtain the session keyring
         let session =
@@ -141,33 +185,42 @@ impl KeyutilsCredential {
     }
 }
 
-/// Simple abstraction around building access to a persistent
-/// keyring.
+/// The builder for keyutils credentials
 #[derive(Debug, Copy, Clone)]
 struct KeyutilsCredentialBuilder {}
 
+/// Return a keyutils credential builder.
+///
+/// If features are set to make keyutils the default store,
+/// this will be automatically be called once before the
+/// first credential is created.
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
     Box::new(KeyutilsCredentialBuilder {})
 }
 
-/// A keyutils credential builder based off the persistent user-session
-/// keyring.
 impl CredentialBuilderApi for KeyutilsCredentialBuilder {
-    /// Attempt to access the persistent user-session keyring. The
-    /// keyring::Entry will be invalid until Entry::set_password is set.
+    /// Build a keyutils credential with the given target, service, and user.
+    ///
+    /// Building a credential does not create a key in the store.
+    /// It's setting a password that does that.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
         Ok(Box::new(KeyutilsCredential::new_with_target(
             target, service, user,
         )?))
     }
 
+    /// Return an [Any](std::any::Any) reference to the credential builder.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
 
-fn decode_error(err: KeyError) -> ErrorCode {
+/// Map an underlying keyutils error to a platform-independent error with annotation.
+pub fn decode_error(err: KeyError) -> ErrorCode {
     match err {
+        // Experimentation has shown that the keyutils implementation can return a lot of
+        // different errors that all mean "no such key", depending on where in the invalidation
+        // processing the [get_password](KeyutilsCredential::get_password) call is made.
         KeyError::KeyDoesNotExist
         | KeyError::AccessDenied
         | KeyError::KeyRevoked
