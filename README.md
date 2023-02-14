@@ -23,11 +23,7 @@ and a user name which together identify the entry.
 
 Passwords can be added to an entry using its `set_password` method.
 They can then be read back using the `get_password` method, 
-and removed using the `delete_password` method.  
-(The persistence of the `Entry` is determined via Rust rules, 
-so deleting the password doesn't delete the entry, 
-but it does delete the underlying platform credential 
-which is used to store the password.)
+and removed using the `delete_password` method.
 
 ```rust
 use keyring::{Entry, Result};
@@ -54,7 +50,7 @@ underlying platform errors or more information about what went wrong.
 The keychain-rs project contains a sample application (`cli`) 
 and a sample library (`ios`).
 
-The application is a command-line interface to the keyring.  
+The `cli` application is a command-line interface to the keyring. 
 It can be used to explore how the library is used.
 It can also be used in debugging keyring-based applications
 to probe the contents of the credential store.
@@ -63,7 +59,7 @@ it outputs the retrieved credentials on each `get` run.
 When run in "doubly verbose" mode (-vv),
 it also outputs any errors returned.
 
-The sample library is a full exercise of all the iOS functionality; 
+The `ios` library is a full exercise of all the iOS functionality; 
 it's meant to be loaded into an iOS test harness 
 such as the one found in 
 [this project](https://github.com/brotskydotcom/rust-on-ios).
@@ -72,7 +68,7 @@ doing so doesn't provide any advantages over the standard macOS tests.
 
 ## Client Testing
 
-This crate comes with a "mock" credential store
+This crate comes with a mock credential store
 that can be used by clients who want to test 
 without accessing the native platform store.
 The mock store is cross-platform 
@@ -110,8 +106,8 @@ originally written by v1, and entries written
 by v2 will be readable and updatable by v1.
 
 From a client API point of view, the biggest difference
-between v2 and v1 is that entry creation using `Entry:new`
-and `Entry:new_with_target` can now fail, so v1 client
+between v2 and v1 is that entry creation using `Entry::new`
+and `Entry::new_with_target` can now fail, so v1 client
 code will need to add an `unwrap` or other error handling
 in order to work with v2.
 

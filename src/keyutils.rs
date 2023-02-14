@@ -1,6 +1,6 @@
 /*!
 
-# Linux kernel credential store (via keyutils)
+# Linux kernel (keyutils) credential store
 
 Modern linux kernels have a built-in secure store, [keyutils](https://www.man7.org/linux/man-pages/man7/keyutils.7.html).
 This module (written primarily by [@landhb](https://github.com/landhb)) uses that secure store

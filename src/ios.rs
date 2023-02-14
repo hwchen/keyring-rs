@@ -1,6 +1,6 @@
 /*!
 
-# iOS Keychain Credential Store
+# iOS Keychain credential store
 
 iOS credential stores are called Keychains.  On iOS there is only one of these.
 Generic credentials on iOS can be identified by a large number of _key/value_ attributes;

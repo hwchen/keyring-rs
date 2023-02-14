@@ -1,6 +1,6 @@
 /*!
 
-# macOS Keychain Credential Store
+# macOS Keychain credential store
 
 macOS credential stores are called keychains.
 The OS automatically creates three of them (or four if removable media is being used).
