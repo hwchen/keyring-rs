@@ -54,10 +54,6 @@ The `cli` application is a command-line interface to the keyring.
 It can be used to explore how the library is used.
 It can also be used in debugging keyring-based applications
 to probe the contents of the credential store.
-When run in "singly verbose" mode (-v),
-it outputs the retrieved credentials on each `get` run.
-When run in "doubly verbose" mode (-vv),
-it also outputs any errors returned.
 
 The `ios` library is a full exercise of all the iOS functionality; 
 it's meant to be loaded into an iOS test harness 
