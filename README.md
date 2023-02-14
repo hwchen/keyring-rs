@@ -100,6 +100,27 @@ building and testing on FreeBSD, we can't be sure.
 
 Please file issues if you have questions or problems.
 
+## Upgrading from v1
+
+The v2 release,
+although it adds a lot of functionality relative to v1,
+is fully compatible with respect to persisted entry data:
+it will both read and set passwords on entries that were
+originally written by v1, and entries written
+by v2 will be readable and updatable by v1.
+
+From a client API point of view, the biggest difference
+between v2 and v1 is that entry creation using `Entry:new`
+and `Entry:new_with_target` can now fail, so v1 client
+code will need to add an `unwrap` or other error handling
+in order to work with v2.
+
+There are also new `Error` variants in v2, and the enum
+has been declared non-exhaustive (to allow for variants
+to be added without breaking client code).
+This means that v1 client code that relies on exhaustive
+matching will need to be updated.
+
 ## License
 
 Licensed under either of
