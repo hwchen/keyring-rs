@@ -2,7 +2,7 @@
 - (API change) Allow creation of entries to fail.
 - (API change) Introduce an ambiguous error on credential lookup.
 - (API change) Make the `Error` enum non-exhaustive.
-- (API chnage) Introduce traits for pluggable credential-store implementations.  (This removes the old `platform` module.)
+- (API change) Introduce traits for pluggable credential-store implementations.  (This removes the old `platform` module.)
 - Add a `mock` credential store for easy cross-platform client testing.
 - Upgrade to secret-service v3.
 - Always use service-level search in secret-service.
