@@ -258,8 +258,8 @@ impl Entry {
     }
 }
 
-#[cfg(test)]
-doc_comment::doctest!("../README.md");
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md", readme);
 
 #[cfg(test)]
 /// There are no actual tests in this module.
