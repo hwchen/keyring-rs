@@ -4,6 +4,7 @@
 - Use service-level search in secret-service.
 - Allow creation of new collections in secret-service.
 - Add the kernel keyring as a linux credential store.
+- Add build support for FreeBSD (thanks @ryanavella).
 
 ## Version 1.2.1
 - password length was not validated correctly on Windows (#85)

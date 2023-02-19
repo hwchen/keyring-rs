@@ -9,9 +9,6 @@ with a fully-developed example that provides a command-line interface.
 
 ## Usage
 
-**Currently supports Linux, iOS, macOS, and Windows.**
-Please file issues if you have have questions or problems.
-
 To use this library in your project add the following to your `Cargo.toml` file:
 
 ```toml
@@ -83,14 +80,25 @@ and allows mocking errors as well as successes.
 
 ## Extensibility
 
-This crate comes with built-in support for the keychain on Mac,
-the credential manager on Windows, 
-and both secret-service and the kernel keyutils on Linux.
-But it's also designed to allow clients 
-to "bring their own credential stores" 
+This crate allows clients 
+to "bring their own credential store" 
 by providing traits that clients can implement.
 See the [developer docs](https://docs.rs/keyring/latest/keyring/) 
 for details.
+
+## Platforms
+
+This crate provides secure storage support for
+Linux (secret-service and kernel keyutils),
+iOS (keychain), macOS (keychain),
+and Windows (credential manager).
+
+It also builds on FreeBSD (secret-service),
+and probably works there,
+but since neither the maintainers nor GitHub do
+building and testing on FreeBSD, we can't be sure.
+
+Please file issues if you have questions or problems.
 
 ## License
 
@@ -123,6 +131,7 @@ whether through contributing code, discussion, or bug reports!
 - @MaikKlein
 - @Phrohdoh
 - @Rukenshia
+- @ryanavella
 - @samuela
 - @stankec
 - @steveatinfincia

@@ -34,6 +34,9 @@ security-framework = "2.6"
 secret-service = { version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"] }
 
+[target.'cfg(target_os = "freebsd")'.dependencies]
+secret-service = { version = "3", optional = true }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1.2"
 winapi = { version =  "0.3", features = ["wincred", "winerror", "errhandlingapi", "minwindef"] }
