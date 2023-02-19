@@ -122,6 +122,11 @@ use crate::secret_service as default;
 #[cfg(all(target_os = "linux", feature = "linux-default-keyutils"))]
 use keyutils as default;
 
+#[cfg(target_os = "freebsd")]
+pub mod secret_service;
+#[cfg(target_os = "freebsd")]
+use crate::secret_service as default;
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 #[cfg(target_os = "windows")]

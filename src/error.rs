@@ -1,6 +1,6 @@
 /*!
 
-Defines a platform-independent error model.
+Platform-independent error model.
 
 There is an escape hatch here for surfacing platform-specific
 error information returned by the platform-specific storage provider,

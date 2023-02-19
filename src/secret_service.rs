@@ -1,6 +1,6 @@
 /*!
 
-# secret-service Credential Store
+# secret-service credential store
 
 Items in the secret-service are identified by an arbitrary collection
 of attributes, and each has "label" for use in graphical editors.  This

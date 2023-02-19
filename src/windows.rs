@@ -1,6 +1,6 @@
 /*!
 
-# Windows Crendential Manager Credential Store
+# Windows Crendential Manager credential store
 
 This module uses Windows Generic credentials to store entries.
 These are identified by a single string (called their _target name_).

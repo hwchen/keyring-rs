@@ -6,7 +6,7 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "2.0.0-rc.3"
+version = "2.0.0"
 edition = "2021"
 exclude = [".github/"]
 readme = "README.md"
@@ -33,6 +33,9 @@ security-framework = "2.6"
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"] }
+
+[target.'cfg(target_os = "freebsd")'.dependencies]
+secret-service = { version = "3", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1.2"

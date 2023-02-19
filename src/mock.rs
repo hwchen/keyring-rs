@@ -1,6 +1,6 @@
 /*!
 
-# Mock Credential Store
+# Mock credential store
 
 To facilitate testing of clients, this crate provides a Mock credential store
 that is platform-independent, provides no persistence, and allows the client

@@ -1,9 +1,14 @@
 ## Version 2.0
-- Introduce traits for pluggable credential-store implementations.
+- (API change) Allow creation of entries to fail.
+- (API change) Introduce an ambiguous error on credential lookup.
+- (API change) Make the `Error` enum non-exhaustive.
+- (API change) Introduce traits for pluggable credential-store implementations.  (This removes the old `platform` module.)
 - Add a `mock` credential store for easy cross-platform client testing.
-- Use service-level search in secret-service.
+- Upgrade to secret-service v3.
+- Always use service-level search in secret-service.
 - Allow creation of new collections in secret-service.
-- Add the kernel keyring as a linux credential store.
+- Add the kernel keyutils as a linux credential store.
+- Add build support for FreeBSD (thanks @ryanavella).
 
 ## Version 1.2.1
 - password length was not validated correctly on Windows (#85)

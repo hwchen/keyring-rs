@@ -83,6 +83,9 @@ fn execute_set_password(description: &str, entry: &Entry, password: &str) {
         Ok(()) => {
             println!("(Password for '{description}' set successfully)")
         }
+        Err(Error::Ambiguous(creds)) => {
+            eprintln!("More than one credential found for {description}: {creds:?}")
+        }
         Err(err) => {
             eprintln!("Couldn't set password for '{description}': {err}",);
         }
@@ -110,7 +113,10 @@ fn execute_delete_password(description: &str, entry: &Entry) {
     match entry.delete_password() {
         Ok(()) => println!("(Password for '{description}' deleted)"),
         Err(Error::NoEntry) => {
-            eprintln!("(No password for '{description}' found)");
+            eprintln!("(No password found for '{description}')");
+        }
+        Err(Error::Ambiguous(creds)) => {
+            eprintln!("More than one credential found for {description}: {creds:?}")
         }
         Err(err) => {
             eprintln!("Couldn't delete password for '{description}': {err}",);
