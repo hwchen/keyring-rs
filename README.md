@@ -30,7 +30,7 @@ and removed using the `delete_password` method.
 use keyring::{Entry, Result};
 
 fn main() -> Result<()> {
-    let entry = Entry::new("my_service", "my_name");
+    let entry = Entry::new("my_service", "my_name")?;
     entry.set_password("topS3cr3tP4$$w0rd")?;
     let password = entry.get_password()?;
     println!("My password is '{}'", password);

@@ -1,3 +1,6 @@
+## Version 2.0.1
+- fix the example in the README.
+
 ## Version 2.0
 - (API change) Allow creation of entries to fail.
 - (API change) Introduce an ambiguous error on credential lookup.
