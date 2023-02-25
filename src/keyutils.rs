@@ -49,7 +49,7 @@ pub struct KeyutilsCredential {
     /// Host session keyring
     pub session: KeyRing,
     /// Host persistent keyring
-    pub persistent: KeyRing,
+    pub persistent: Option<KeyRing>,
     /// Description of the key entry
     pub description: String,
 }
@@ -77,7 +77,9 @@ impl CredentialApi for KeyutilsCredential {
             .map_err(decode_error)?;
 
         // Directly link to the persistent keyring as well
-        self.persistent.link_key(key).map_err(decode_error)?;
+        if let Some(persistent) = self.persistent {
+            persistent.link_key(key).map_err(decode_error)?;
+        }
         Ok(())
     }
 
@@ -100,7 +102,9 @@ impl CredentialApi for KeyutilsCredential {
         // Directly re-link to the persistent keyring
         // If it expired, it will only be linked to the
         // session keyring, and needs to be added again.
-        self.persistent.link_key(key).map_err(decode_error)?;
+        if let Some(persistent) = self.persistent {
+            persistent.link_key(key).map_err(decode_error)?;
+        }
 
         // Read in the key (making sure we have enough room)
         let buffer = key.read_to_vec().map_err(decode_error)?;
@@ -163,8 +167,7 @@ impl KeyutilsCredential {
             KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
 
         // Link the persistent keyring to the session
-        let persistent =
-            KeyRing::get_persistent(KeyRingIdentifier::Session).map_err(decode_error)?;
+        let persistent = KeyRing::get_persistent(KeyRingIdentifier::Session).ok();
 
         // Construct the credential with a URI-style description
         let description = match target {
