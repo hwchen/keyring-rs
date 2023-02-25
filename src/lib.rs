@@ -113,7 +113,7 @@ pub use error::{Error, Result};
 // It would be really nice if we could conditionalize multiple declarations,
 // but we can't so we have to repeat the conditional on each one.
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "linux-default-keyutils"))]
 pub mod keyutils;
 #[cfg(all(target_os = "linux", not(feature = "linux-no-secret-service")))]
 pub mod secret_service;
