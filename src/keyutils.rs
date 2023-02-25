@@ -77,8 +77,8 @@ impl CredentialApi for KeyutilsCredential {
             .map_err(decode_error)?;
 
         // Directly link to the persistent keyring as well
-        if let Some(persistent) = self.persistent {
-            persistent.link_key(key).map_err(decode_error)?;
+        if let Some(keyring) = self.persistent {
+            keyring.link_key(key).map_err(decode_error)?;
         }
         Ok(())
     }
@@ -102,8 +102,8 @@ impl CredentialApi for KeyutilsCredential {
         // Directly re-link to the persistent keyring
         // If it expired, it will only be linked to the
         // session keyring, and needs to be added again.
-        if let Some(persistent) = self.persistent {
-            persistent.link_key(key).map_err(decode_error)?;
+        if let Some(keyring) = self.persistent {
+            keyring.link_key(key).map_err(decode_error)?;
         }
 
         // Read in the key (making sure we have enough room)
