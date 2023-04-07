@@ -8,7 +8,7 @@ implementation uses the following attributes:
 
 - `target` (optional & taken from entry creation call, defaults to `default`)
 - `service` (required & taken from entry creation call)
-- `user` (required & taken from entry creation call)
+- `username` (required & taken from entry creation call)
 - `application` (optional & always set to `rust-keyring`)
 
 Existing items are always searched for at the service level, which
