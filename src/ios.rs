@@ -6,9 +6,9 @@ iOS credential stores are called Keychains.  On iOS there is only one of these.
 Generic credentials on iOS can be identified by a large number of _key/value_ attributes;
 this module (currently) uses only the _account_ and _name_ attributes.
 
-For a given service/username pair,
+For a given service/user pair,
 this module targets a generic credential in the User (login) keychain
-whose _account_ is the username and and whose _name_ is the service.
+whose _account_ is the user and and whose _name_ is the service.
 Because of a quirk in the iOS keychain services API, neither the _account_
 nor the _name_ may be the empty string. (Empty strings are treated as
 wildcards when looking up credentials by attribute value.)
