@@ -144,6 +144,7 @@ whether through contributing code, discussion, or bug reports!
 - @lexxvir
 - @MaikKlein
 - @Phrohdoh
+- @phlip9
 - @Rukenshia
 - @ryanavella
 - @samuela
