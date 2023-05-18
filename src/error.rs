@@ -97,7 +97,7 @@ impl std::error::Error for Error {
 
 /// Try to interpret a byte vector as a password string
 pub fn decode_password(bytes: Vec<u8>) -> Result<String> {
-    String::from_utf8(bytes.clone()).map_err(|_| Error::BadEncoding(bytes))
+    String::from_utf8(bytes).map_err(|err| Error::BadEncoding(err.into_bytes()))
 }
 
 #[cfg(test)]
