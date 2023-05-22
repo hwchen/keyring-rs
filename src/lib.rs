@@ -146,6 +146,19 @@ pub mod credential;
 pub mod error;
 pub mod mock;
 
+// Unsupported platforms use the mock backend as default. That way the crate
+// always compiles, but the user must provide their own backend to actually
+// persist keys.
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "windows",
+)))]
+use mock as default;
+
 #[derive(Default, Debug)]
 struct EntryBuilder {
     inner: Option<Box<CredentialBuilder>>,
