@@ -142,14 +142,7 @@ pub mod ios;
 #[cfg(target_os = "ios")]
 use ios as default;
 
-pub mod credential;
-pub mod error;
 pub mod mock;
-
-// Unsupported platforms use the mock backend as default. That way the crate
-// always compiles, but the user must provide their own backend to actually
-// persist keys.
-
 #[cfg(not(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -158,6 +151,9 @@ pub mod mock;
     target_os = "windows",
 )))]
 use mock as default;
+
+pub mod credential;
+pub mod error;
 
 #[derive(Default, Debug)]
 struct EntryBuilder {
