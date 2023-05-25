@@ -142,9 +142,18 @@ pub mod ios;
 #[cfg(target_os = "ios")]
 use ios as default;
 
+pub mod mock;
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "windows",
+)))]
+use mock as default;
+
 pub mod credential;
 pub mod error;
-pub mod mock;
 
 #[derive(Default, Debug)]
 struct EntryBuilder {
