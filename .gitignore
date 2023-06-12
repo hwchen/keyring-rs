@@ -12,3 +12,4 @@ libtest.rmeta
 *.profdata
 *.profraw
 
+.idea
