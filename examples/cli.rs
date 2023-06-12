@@ -2,6 +2,7 @@ extern crate keyring;
 
 use clap::Parser;
 use rpassword::prompt_password;
+use std::process;
 
 use keyring::{Entry, Error};
 
@@ -35,7 +36,11 @@ pub enum Command {
         password: Option<String>,
     },
     /// Get the password from the secure store
-    Get,
+    Get {
+        #[clap(short, long, action)]
+        /// Only output the passwort
+        password_only: bool,
+    },
     /// Delete the entry from the secure store
     Delete,
 }
@@ -73,7 +78,7 @@ fn execute_args(args: &Cli) {
                 eprintln!("(Failed to read password, so none set.)")
             }
         }
-        Command::Get => execute_get_password(&description, &entry),
+        Command::Get { password_only } => execute_get_password(&description, &entry, password_only),
         Command::Delete => execute_delete_password(&description, &entry),
     }
 }
@@ -84,27 +89,36 @@ fn execute_set_password(description: &str, entry: &Entry, password: &str) {
             println!("(Password for '{description}' set successfully)")
         }
         Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
+            eprintln!("More than one credential found for {description}: {creds:?}");
+            process::exit(1);
         }
         Err(err) => {
             eprintln!("Couldn't set password for '{description}': {err}",);
+            process::exit(1);
         }
     }
 }
 
-fn execute_get_password(description: &str, entry: &Entry) {
+fn execute_get_password(description: &str, entry: &Entry, password_only: &bool) {
     match entry.get_password() {
         Ok(password) => {
-            println!("The password for '{description}' is '{password}'");
+            if *password_only {
+                println!("{}", password);
+            } else {
+                println!("The password for '{description}' is '{password}'");
+            }
         }
         Err(Error::NoEntry) => {
             eprintln!("(No password found for '{description}')");
+            process::exit(1);
         }
         Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
+            eprintln!("More than one credential found for {description}: {creds:?}");
+            process::exit(1);
         }
         Err(err) => {
             eprintln!("Couldn't get password for '{description}': {err}",);
+            process::exit(1);
         }
     }
 }
@@ -114,12 +128,15 @@ fn execute_delete_password(description: &str, entry: &Entry) {
         Ok(()) => println!("(Password for '{description}' deleted)"),
         Err(Error::NoEntry) => {
             eprintln!("(No password found for '{description}')");
+            process::exit(1);
         }
         Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
+            eprintln!("More than one credential found for {description}: {creds:?}");
+            process::exit(1);
         }
         Err(err) => {
             eprintln!("Couldn't delete password for '{description}': {err}",);
+            process::exit(1);
         }
     }
 }
