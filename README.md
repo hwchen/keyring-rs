@@ -136,6 +136,7 @@ whether through contributing code, discussion, or bug reports!
 - @dten
 - @gondolyr
 - @hwchen
+- @jankatins
 - @jasikpark
 - @jkhsjdhjs
 - @jonathanmorley

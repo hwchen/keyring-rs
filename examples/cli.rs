@@ -3,22 +3,63 @@ extern crate keyring;
 use clap::Parser;
 use rpassword::prompt_password;
 
-use keyring::{Entry, Error};
+use keyring::{Entry, Error, Result};
+
+fn main() {
+    let mut args: Cli = Cli::parse();
+    if args.user.is_empty() || args.user.eq_ignore_ascii_case("<whoami>") {
+        args.user = whoami::username()
+    }
+    let entry = match args.entry_for() {
+        Ok(entry) => entry,
+        Err(err) => {
+            if args.verbose {
+                let description = args.description();
+                eprintln!("Couldn't create entry for '{description}': {err}")
+            }
+            std::process::exit(1)
+        }
+    };
+    match &args.command {
+        Command::Set { .. } => {
+            let password = args.get_password();
+            match entry.set_password(&password) {
+                Ok(()) => args.success_message_for(Some(&password)),
+                Err(err) => args.error_message_for(err),
+            }
+        }
+        Command::Get => match entry.get_password() {
+            Ok(password) => {
+                println!("{password}");
+                args.success_message_for(Some(&password));
+            }
+            Err(err) => args.error_message_for(err),
+        },
+        Command::Delete => match entry.delete_password() {
+            Ok(()) => args.success_message_for(None),
+            Err(err) => args.error_message_for(err),
+        },
+    }
+}
 
 #[derive(Debug, Parser)]
 #[clap(author = "github.com/hwchen/keyring-rs")]
 /// Keyring CLI: A command-line interface to platform secure storage
 pub struct Cli {
+    #[clap(short, long, action)]
+    /// Write debugging info to stderr (shows passwords)
+    pub verbose: bool,
+
     #[clap(short, long, value_parser)]
-    /// The target for the entry.
+    /// The target for the entry
     pub target: Option<String>,
 
     #[clap(short, long, value_parser, default_value = "keyring-cli")]
     /// The service name for the entry
     pub service: String,
 
-    #[clap(short, long, value_parser, default_value = "")]
-    /// The user to store/retrieve the password for [default: user's login name]
+    #[clap(short, long, value_parser, default_value = "<whoami>")]
+    /// The user to store/retrieve the password for
     pub user: String,
 
     #[clap(subcommand)]
@@ -40,86 +81,85 @@ pub enum Command {
     Delete,
 }
 
-fn main() {
-    let mut args: Cli = Cli::parse();
-    if args.user.is_empty() {
-        args.user = whoami::username()
+impl Cli {
+    fn description(&self) -> String {
+        if let Some(target) = &self.target {
+            format!("[{target}]{}@{}", &self.user, &self.service)
+        } else {
+            format!("{}@{}", &self.user, &self.service)
+        }
     }
-    execute_args(&args);
-}
 
-fn execute_args(args: &Cli) {
-    let (description, entry) = if let Some(target) = &args.target {
-        (
-            format!("[{target}]{}@{}", &args.user, &args.service),
-            Entry::new_with_target(target, &args.service, &args.user)
-                .unwrap_or_else(|err| panic!("Couldn't create entry: {err}")),
-        )
-    } else {
-        (
-            format!("{}@{}", &args.user, &args.service),
-            Entry::new(&args.service, &args.user)
-                .unwrap_or_else(|err| panic!("Couldn't create entry: {err}")),
-        )
-    };
-    match &args.command {
-        Command::Set {
-            password: Some(password),
-        } => execute_set_password(&description, &entry, password),
-        Command::Set { password: None } => {
-            if let Ok(password) = prompt_password("Password: ") {
-                execute_set_password(&description, &entry, &password)
-            } else {
-                eprintln!("(Failed to read password, so none set.)")
+    fn entry_for(&self) -> Result<Entry> {
+        if let Some(target) = &self.target {
+            Entry::new_with_target(target, &self.service, &self.user)
+        } else {
+            Entry::new(&self.service, &self.user)
+        }
+    }
+
+    fn error_message_for(&self, err: Error) {
+        if self.verbose {
+            let description = self.description();
+            match err {
+                Error::NoEntry => {
+                    eprintln!("No password found for '{description}'");
+                }
+                Error::Ambiguous(creds) => {
+                    eprintln!("More than one credential found for '{description}': {creds:?}");
+                }
+                err => match self.command {
+                    Command::Set { .. } => {
+                        eprintln!("Couldn't set password for '{description}': {err}");
+                    }
+                    Command::Get => {
+                        eprintln!("Couldn't get password for '{description}': {err}");
+                    }
+                    Command::Delete => {
+                        eprintln!("Couldn't set password for '{description}': {err}");
+                    }
+                },
             }
         }
-        Command::Get => execute_get_password(&description, &entry),
-        Command::Delete => execute_delete_password(&description, &entry),
+        std::process::exit(1)
     }
-}
 
-fn execute_set_password(description: &str, entry: &Entry, password: &str) {
-    match entry.set_password(password) {
-        Ok(()) => {
-            println!("(Password for '{description}' set successfully)")
+    fn success_message_for(&self, password: Option<&str>) {
+        if !self.verbose {
+            return;
         }
-        Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
-        }
-        Err(err) => {
-            eprintln!("Couldn't set password for '{description}': {err}",);
-        }
-    }
-}
-
-fn execute_get_password(description: &str, entry: &Entry) {
-    match entry.get_password() {
-        Ok(password) => {
-            println!("The password for '{description}' is '{password}'");
-        }
-        Err(Error::NoEntry) => {
-            eprintln!("(No password found for '{description}')");
-        }
-        Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
-        }
-        Err(err) => {
-            eprintln!("Couldn't get password for '{description}': {err}",);
+        let description = self.description();
+        match self.command {
+            Command::Set { .. } => {
+                let pw = password.unwrap();
+                eprintln!("Set password '{pw}' for '{description}'");
+            }
+            Command::Get => {
+                let pw = password.unwrap();
+                eprintln!("Got password '{pw}' for '{description}'");
+            }
+            Command::Delete => {
+                eprintln!("Successfully deleted password for '{description}'");
+            }
         }
     }
-}
 
-fn execute_delete_password(description: &str, entry: &Entry) {
-    match entry.delete_password() {
-        Ok(()) => println!("(Password for '{description}' deleted)"),
-        Err(Error::NoEntry) => {
-            eprintln!("(No password found for '{description}')");
-        }
-        Err(Error::Ambiguous(creds)) => {
-            eprintln!("More than one credential found for {description}: {creds:?}")
-        }
-        Err(err) => {
-            eprintln!("Couldn't delete password for '{description}': {err}",);
+    fn get_password(&self) -> String {
+        match &self.command {
+            Command::Set {
+                password: Some(password),
+            } => password.clone(),
+            Command::Set { password: None } => {
+                if let Ok(password) = prompt_password("Password: ") {
+                    password
+                } else {
+                    if self.verbose {
+                        eprintln!("Failed to read password from terminal");
+                    }
+                    std::process::exit(1)
+                }
+            }
+            _ => String::new(),
         }
     }
 }
