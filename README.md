@@ -132,6 +132,7 @@ whether through contributing code, discussion, or bug reports!
 - @bhkaminski
 - @brotskydotcom
 - @complexspaces
+- @connor4312
 - @dario23
 - @dten
 - @gondolyr
