@@ -35,7 +35,12 @@ the secret-service crate is built on zbus which always talks to the dbus via asy
 Thus, using the secret-service implies using an async runtime under the covers.
 If you are already using an async runtime,
 you can use keyring features to make sure that secret-service
-uses a compatible runtime.
+uses a compatible runtime. But be careful: if you make keyring calls
+on the main thread in this situation, you will likely crash because
+you will block the main thread (see\
+[this issue on GitHub](https://github.com/hwchen/keyring-rs/issues/132)
+for details).  You will need to spawn a separate thread on which
+you make your keyring calls so the main thread doesn't block.
 
 ## Headless usage
 
@@ -63,6 +68,14 @@ function unlock-keyring ()
 
 For an excellent treatment of all the headless dbus issues, see
 [this answer on ServerFault](https://serverfault.com/a/906224/79617).
+
+## Usage - not! - on Windows Subsystem for Linux
+
+As noted in
+[this issue on GitHub](https://github.com/hwchen/keyring-rs/issues/133),
+there is no "default" collection defined under WSL.  So
+this keystore doesn't work "out of the box" on WSL.  See the
+issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
