@@ -77,7 +77,7 @@ impl CredentialApi for MockCredential {
     /// be cleared, so calling again will set the password.
     fn set_password(&self, password: &str) -> Result<()> {
         let mut inner = self.inner.lock().expect("Can't access mock data for set");
-        let mut data = inner.get_mut();
+        let data = inner.get_mut();
         let err = data.error.take();
         match err {
             None => {
@@ -117,7 +117,7 @@ impl CredentialApi for MockCredential {
             .inner
             .lock()
             .expect("Can't access mock data for delete");
-        let mut data = inner.get_mut();
+        let data = inner.get_mut();
         let err = data.error.take();
         match err {
             None => match data.password {
@@ -158,7 +158,7 @@ impl MockCredential {
             .inner
             .lock()
             .expect("Can't access mock data for set_error");
-        let mut data = inner.get_mut();
+        let data = inner.get_mut();
         data.error = Some(err);
     }
 }
