@@ -6,7 +6,7 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "2.0.5"
+version = "2.1.0"
 edition = "2021"
 exclude = [".github/"]
 readme = "README.md"
@@ -48,7 +48,7 @@ crate-type = ["staticlib"]
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive", "wrap_help"] }
-rpassword = "7.0"
+rpassword = "7"
 rand = "0.8"
 doc-comment = "0.3"
-whoami = "1.2"
+whoami = "1"
