@@ -1,6 +1,7 @@
 name: Publish executables
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'
@@ -27,18 +28,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust Toolchain (stable)
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - name: Build (release, locked)
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --example cli
+        run: cargo build --release --example cli
 
       - name: Post cli executable
         uses: svenstaro/upload-release-action@v2
