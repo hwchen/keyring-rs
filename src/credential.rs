@@ -45,6 +45,19 @@ impl std::fmt::Debug for Credential {
 /// A thread-safe implementation of the [Credential API](CredentialApi).
 pub type Credential = dyn CredentialApi + Send + Sync;
 
+/// How much persistence keystore entries have
+#[non_exhaustive]
+pub enum CredentialPersistence {
+    /// credentials vanish when the entry vanishes (stored in the entry)
+    EntryOnly,
+    /// credentials vanish when the process terminates (stored in process memory)
+    ProcessOnly,
+    /// credentials vanish when machine reboots (stored in kernel memory)
+    UntilReboot,
+    /// credentials persist until they are explicitly deleted (stored on disk)
+    UntilDelete,
+}
+
 /// The API that [credential builders](CredentialBuilder) implement.
 pub trait CredentialBuilderApi {
     /// Create a credential identified by the given target, service, and user.
@@ -58,6 +71,15 @@ pub trait CredentialBuilderApi {
     /// this call is not so much for clients
     /// as it is to allow automatic derivation of a Debug trait for builders.
     fn as_any(&self) -> &dyn Any;
+
+    /// The lifetime of credentials produced by this builder.
+    ///
+    /// A default implementation is provided for backward compatibility,
+    /// since this API was added in a minor release.  The default assumes
+    /// that keystores use disk-based credential storage.
+    fn persistence(&self) -> CredentialPersistence {
+        CredentialPersistence::UntilDelete
+    }
 }
 
 impl std::fmt::Debug for CredentialBuilder {

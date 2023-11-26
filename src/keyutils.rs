@@ -97,7 +97,9 @@ Alternatively, you can drop the secret-service credential store altogether
 with `--no-default-features` and `--features linux-no-secret-service`.
 
  */
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::credential::{
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
+};
 use super::error::{decode_password, Error as ErrorCode, Result};
 use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
@@ -284,6 +286,12 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    /// Since this keystore keeps credentials in kernel memory,
+    /// they vanish on reboot
+    fn persistence(&self) -> CredentialPersistence {
+        CredentialPersistence::UntilReboot
+    }
 }
 
 /// Map an underlying keyutils error to a platform-independent error with annotation.
@@ -315,7 +323,15 @@ fn wrap(err: KeyError) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use crate::{tests::generate_random_string, Entry, Error};
 
-    use super::KeyutilsCredential;
+    use super::{default_credential_builder, KeyutilsCredential};
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::UntilReboot
+        ))
+    }
 
     fn entry_new(service: &str, user: &str) -> Entry {
         crate::tests::entry_from_constructor(KeyutilsCredential::new_with_target, service, user)

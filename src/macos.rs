@@ -238,9 +238,18 @@ pub fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
+    use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
 
-    use super::MacCredential;
+    use super::{default_credential_builder, MacCredential};
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::UntilDelete
+        ))
+    }
 
     fn entry_new(service: &str, user: &str) -> Entry {
         crate::tests::entry_from_constructor(MacCredential::new_with_target, service, user)
