@@ -27,7 +27,7 @@ pub trait CredentialApi {
     /// so a second call to delete_password will return
     /// a [NoEntry](crate::Error::NoEntry) error.
     fn delete_password(&self) -> Result<()>;
-    /// Return the underlying concrete object cast to [Any](std::any::Any).
+    /// Return the underlying concrete object cast to [Any].
     ///
     /// This allows clients
     /// to downcast the credential to its concrete type so they
@@ -45,16 +45,17 @@ impl std::fmt::Debug for Credential {
 /// A thread-safe implementation of the [Credential API](CredentialApi).
 pub type Credential = dyn CredentialApi + Send + Sync;
 
-/// How much persistence keystore entries have
+/// A descriptor for the lifetime of stored credentials, returned from
+/// a credential store's [persistence](CredentialBuilderApi::persistence) call.
 #[non_exhaustive]
 pub enum CredentialPersistence {
-    /// credentials vanish when the entry vanishes (stored in the entry)
+    /// Credentials vanish when the entry vanishes (stored in the entry)
     EntryOnly,
-    /// credentials vanish when the process terminates (stored in process memory)
+    /// Credentials vanish when the process terminates (stored in process memory)
     ProcessOnly,
-    /// credentials vanish when machine reboots (stored in kernel memory)
+    /// Credentials persist until the machine reboots (stored in kernel memory)
     UntilReboot,
-    /// credentials persist until they are explicitly deleted (stored on disk)
+    /// Credentials persist until they are explicitly deleted (stored on disk)
     UntilDelete,
 }
 
@@ -65,7 +66,7 @@ pub trait CredentialBuilderApi {
     /// This typically has no effect on the content of the underlying store.
     /// A credential need not be persisted until its password is set.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>>;
-    /// Return the underlying concrete object cast to [Any](std::any::Any).
+    /// Return the underlying concrete object cast to [Any].
     ///
     /// Because credential builders need not have any internal structure,
     /// this call is not so much for clients
