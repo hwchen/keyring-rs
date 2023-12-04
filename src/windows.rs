@@ -395,8 +395,17 @@ fn wrap(code: DWORD) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use super::*;
 
+    use crate::credential::CredentialPersistence;
     use crate::tests::{generate_random_string, generate_random_string_of_len};
     use crate::Entry;
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::UntilDelete
+        ))
+    }
 
     fn entry_new(service: &str, user: &str) -> Entry {
         crate::tests::entry_from_constructor(WinCredential::new_with_target, service, user)

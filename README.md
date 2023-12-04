@@ -129,6 +129,7 @@ Thanks to the following for helping make this library better,
 whether through contributing code, discussion, or bug reports!
 
 - @Alexei-Barnes
+- @benwr
 - @bhkaminski
 - @brotskydotcom
 - @complexspaces

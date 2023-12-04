@@ -440,9 +440,18 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 
 #[cfg(test)]
 mod tests {
+    use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
 
-    use super::SsCredential;
+    use super::{default_credential_builder, SsCredential};
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::UntilDelete
+        ))
+    }
 
     fn entry_new(service: &str, user: &str) -> Entry {
         crate::tests::entry_from_constructor(SsCredential::new_with_target, service, user)

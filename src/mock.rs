@@ -14,8 +14,8 @@ set_default_credential_builder(mock::default_credential_builder());
 ```
 
 You can then create entries as you usually do, and call their usual methods
-to set, get, and delete passwords.  There is no peristence between
-runs, so getting a credential before setting it will always result
+to set, get, and delete passwords.  There is no persistence other than
+in the entry itself, so getting a password before setting it will always result
 in a [NotFound](Error::NoEntry) error.
 
 If you want a method call on an entry to fail in a specific way, you can
@@ -36,7 +36,9 @@ entry.set_password("test").expect("error has been cleared");
 use std::cell::RefCell;
 use std::sync::Mutex;
 
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::credential::{
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
+};
 use super::error::{Error, Result};
 
 /// The concrete mock credential
@@ -180,6 +182,11 @@ impl CredentialBuilderApi for MockCredentialBuilder {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    /// This keystore keeps the password in the entry!
+    fn persistence(&self) -> CredentialPersistence {
+        CredentialPersistence::EntryOnly
+    }
 }
 
 /// Return a mock credential builder for use by clients.
@@ -189,8 +196,17 @@ pub fn default_credential_builder() -> Box<CredentialBuilder> {
 
 #[cfg(test)]
 mod tests {
-    use super::MockCredential;
+    use super::{default_credential_builder, MockCredential};
+    use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::EntryOnly
+        ))
+    }
 
     fn entry_new(service: &str, user: &str) -> Entry {
         let credential = MockCredential::new_with_target(None, service, user).unwrap();
