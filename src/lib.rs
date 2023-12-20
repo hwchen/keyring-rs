@@ -211,6 +211,10 @@ impl Entry {
     /// Create an entry for the given target, service, and user.
     ///
     /// The default credential builder is used.
+    ///
+    /// # Platform-specific behavior
+    ///
+    /// On Windows, `service` is ignored.
     pub fn new_with_target(target: &str, service: &str, user: &str) -> Result<Entry> {
         build_default_credential(Some(target), service, user)
     }
