@@ -110,39 +110,64 @@ pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
 
 // Included keystore implementations and default choice thereof.
-// It would be really nice if we could conditionalize multiple declarations,
-// but we can't so we have to repeat the conditional on each one.
-
-#[cfg(target_os = "linux")]
-pub mod keyutils;
-#[cfg(all(target_os = "linux", not(feature = "linux-no-secret-service")))]
-pub mod secret_service;
-#[cfg(all(target_os = "linux", not(feature = "linux-default-keyutils")))]
-use crate::secret_service as default;
-#[cfg(all(target_os = "linux", feature = "linux-default-keyutils"))]
-use keyutils as default;
-
-#[cfg(target_os = "freebsd")]
-pub mod secret_service;
-#[cfg(target_os = "freebsd")]
-use crate::secret_service as default;
-
-#[cfg(target_os = "windows")]
-pub mod windows;
-#[cfg(target_os = "windows")]
-use windows as default;
-
-#[cfg(target_os = "macos")]
-pub mod macos;
-#[cfg(target_os = "macos")]
-use macos as default;
-
-#[cfg(target_os = "ios")]
-pub mod ios;
-#[cfg(target_os = "ios")]
-use ios as default;
 
 pub mod mock;
+
+#[cfg(all(target_os = "linux", feature = "linux-keyutils"))]
+pub mod keyutils;
+#[cfg(all(
+    target_os = "linux",
+    feature = "secret-service",
+    not(feature = "linux-no-secret-service")
+))]
+pub mod secret_service;
+#[cfg(all(
+    target_os = "linux",
+    feature = "secret-service",
+    not(feature = "linux-default-keyutils")
+))]
+use crate::secret_service as default;
+#[cfg(all(
+    target_os = "linux",
+    feature = "linux-keyutils",
+    any(feature = "linux-default-keyutils", not(feature = "secret-service"))
+))]
+use keyutils as default;
+#[cfg(all(
+    target_os = "linux",
+    not(feature = "secret-service"),
+    not(feature = "linux-keyutils")
+))]
+use mock as default;
+
+#[cfg(all(target_os = "freebsd", feature = "secret-service"))]
+pub mod secret_service;
+#[cfg(all(target_os = "freebsd", feature = "secret-service"))]
+use crate::secret_service as default;
+#[cfg(all(target_os = "freebsd", not(feature = "secret-service")))]
+use mock as default;
+
+#[cfg(all(target_os = "macos", feature = "platform-macos"))]
+pub mod macos;
+#[cfg(all(target_os = "macos", feature = "platform-macos"))]
+use macos as default;
+#[cfg(all(target_os = "macos", not(feature = "platform-macos")))]
+use mock as default;
+
+#[cfg(all(target_os = "windows", feature = "platform-windows"))]
+pub mod windows;
+#[cfg(all(target_os = "windows", not(feature = "platform-windows")))]
+use mock as default;
+#[cfg(all(target_os = "windows", feature = "platform-windows"))]
+use windows as default;
+
+#[cfg(all(target_os = "ios", feature = "platform-ios"))]
+pub mod ios;
+#[cfg(all(target_os = "ios", feature = "platform-ios"))]
+use ios as default;
+#[cfg(all(target_os = "ios", not(feature = "platform-ios")))]
+use mock as default;
+
 #[cfg(not(any(
     target_os = "linux",
     target_os = "freebsd",

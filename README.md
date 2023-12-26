@@ -83,15 +83,44 @@ for details.
 
 This crate provides secure storage support for
 Linux (secret-service and kernel keyutils),
-iOS (keychain), macOS (keychain),
-and Windows (credential manager).
+iOS (keychain), macOS (keychain), and
+Windows (credential manager).
 
 It also builds on FreeBSD (secret-service),
 and probably works there,
 but since neither the maintainers nor GitHub do
 building and testing on FreeBSD, we can't be sure.
 
-Please file issues if you have questions or problems.
+The default features of this crate are set up
+to build all the available platform support.
+So, for example, if you build on macOS, then
+keychain support is enabled by loading
+other underlying crates that the keychain
+credential store requires.
+
+On Linux, there are two supported platform
+credential stores: the secret-service and
+the kernel keyutils, and both are built by default.
+If you only want to use one or the other, then
+you must turn off default features in your
+dependency specification and explicitly
+specify the feature for the platform support you
+want.  For example, you might use
+```toml
+keyring = { version = "2", default_features = false, features = ["linux-secret-service"] }
+```
+
+If you don't build any of the platform support features,
+then you will get the `mock` keystore as your default.
+
+PLEASE NOTE: As of version 2.2, turning off the default
+feature set will turn off platform support on *all* platforms,
+not just on Linux (as was the case before).  While this
+behavior is a breaking change on Mac, Windows,
+and FreeBSD, the behavior on those platforms before was
+unintended and undefined (suppressing default features did nothing),
+so this is considered a bug fix rather than
+a semver-breaking change that requires a major version bump.
 
 ## Upgrading from v1
 
@@ -154,6 +183,7 @@ whether through contributing code, discussion, or bug reports!
 - @stankec
 - @steveatinfincia
 - @Sytten
+- @VorpalBlade
 
 If you should be on this list, but don't find yourself, 
 please contact @brotskydotcom.
