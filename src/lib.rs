@@ -8,6 +8,8 @@ A top-level introduction to the library's usage, as well as a small code sample,
 may be found in [the library's entry on crates.io](https://crates.io/crates/keyring).
 Currently supported platforms are
 Linux,
+FreeBSD,
+OpenBSD,
 Windows,
 macOS, and iOS.
 
@@ -147,6 +149,13 @@ use crate::secret_service as default;
 #[cfg(all(target_os = "freebsd", not(feature = "secret-service")))]
 use mock as default;
 
+#[cfg(all(target_os = "openbsd", feature = "secret-service"))]
+pub mod secret_service;
+#[cfg(all(target_os = "openbsd", feature = "secret-service"))]
+use crate::secret_service as default;
+#[cfg(all(target_os = "openbsd", not(feature = "secret-service")))]
+use mock as default;
+
 #[cfg(all(target_os = "macos", feature = "platform-macos"))]
 pub mod macos;
 #[cfg(all(target_os = "macos", feature = "platform-macos"))]
@@ -171,6 +180,7 @@ use mock as default;
 #[cfg(not(any(
     target_os = "linux",
     target_os = "freebsd",
+    target_os = "openbsd",
     target_os = "macos",
     target_os = "ios",
     target_os = "windows",

@@ -13,9 +13,10 @@ readme = "README.md"
 
 [features]
 default = ["platform-all"]
-platform-all = ["platform-linux", "platform-freebsd", "platform-macos", "platform-ios", "platform-windows"]
+platform-all = ["platform-linux", "platform-freebsd", "platform-openbsd", "platform-macos", "platform-ios", "platform-windows"]
 platform-linux = ["linux-secret-service", "linux-keyutils"]
 platform-freebsd = ["linux-secret-service"]
+platform-openbsd = ["linux-secret-service"]
 platform-macos = ["security-framework"]
 platform-ios = ["security-framework"]
 platform-windows = ["winapi", "byteorder"]
@@ -42,6 +43,9 @@ secret-service = { version = "3", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"], optional = true }
 
 [target.'cfg(target_os = "freebsd")'.dependencies]
+secret-service = { version = "3", optional = true }
+
+[target.'cfg(target_os = "openbsd")'.dependencies]
 secret-service = { version = "3", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]

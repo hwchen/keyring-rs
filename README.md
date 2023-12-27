@@ -86,10 +86,10 @@ Linux (secret-service and kernel keyutils),
 iOS (keychain), macOS (keychain), and
 Windows (credential manager).
 
-It also builds on FreeBSD (secret-service),
+It also builds on FreeBSD and OpenBSD (secret-service),
 and probably works there,
 but since neither the maintainers nor GitHub do
-building and testing on FreeBSD, we can't be sure.
+building and testing on BSDs, we can't be sure.
 
 The default features of this crate are set up
 to build all the available platform support.
@@ -117,7 +117,7 @@ PLEASE NOTE: As of version 2.2, turning off the default
 feature set will turn off platform support on *all* platforms,
 not just on Linux (as was the case before).  While this
 behavior is a breaking change on Mac, Windows,
-and FreeBSD, the behavior on those platforms before was
+FreeBSD and OpenBSD, the behavior on those platforms before was
 unintended and undefined (suppressing default features did nothing),
 so this is considered a bug fix rather than
 a semver-breaking change that requires a major version bump.
