@@ -85,11 +85,11 @@ This crate provides secure storage support for
 Linux (secret-service and kernel keyutils),
 iOS (keychain), macOS (keychain), and
 Windows (credential manager).
-
 It also builds on FreeBSD and OpenBSD (secret-service),
 and probably works there,
 but since neither the maintainers nor GitHub do
-building and testing on BSDs, we can't be sure.
+testing on BSD variants, we rely on contributors
+to support these platforms.  Thanks for your help!
 
 The default features of this crate are set up
 to build all the available platform support.
@@ -172,6 +172,7 @@ whether through contributing code, discussion, or bug reports!
 - @jkhsjdhjs
 - @jonathanmorley
 - @jyuch
+- @klemensn
 - @landhb
 - @lexxvir
 - @MaikKlein
