@@ -11,4 +11,5 @@ libtest.rmeta
 # profiling
 *.profdata
 *.profraw
-
+# JetBrains IDEs
+.idea
