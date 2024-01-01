@@ -1,6 +1,6 @@
 /*!
 
-# Windows Crendential Manager credential store
+# Windows Credential Manager credential store
 
 This module uses Windows Generic credentials to store entries.
 These are identified by a single string (called their _target name_).
@@ -25,16 +25,14 @@ use byteorder::{ByteOrder, LittleEndian};
 use std::iter::once;
 use std::mem::MaybeUninit;
 use std::str;
-use winapi::shared::minwindef::{DWORD, FILETIME};
-use winapi::shared::winerror::{
-    ERROR_BAD_USERNAME, ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER, ERROR_NOT_FOUND,
-    ERROR_NO_SUCH_LOGON_SESSION,
+use windows_sys::Win32::Foundation::{
+    GetLastError, ERROR_BAD_USERNAME, ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER,
+    ERROR_NOT_FOUND, ERROR_NO_SUCH_LOGON_SESSION, FILETIME,
 };
-use winapi::um::errhandlingapi::GetLastError;
-use winapi::um::wincred::{
-    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CRED_MAX_CREDENTIAL_BLOB_SIZE,
-    CRED_MAX_GENERIC_TARGET_NAME_LENGTH, CRED_MAX_STRING_LENGTH, CRED_MAX_USERNAME_LENGTH,
-    CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC, PCREDENTIALW, PCREDENTIAL_ATTRIBUTEW,
+use windows_sys::Win32::Security::Credentials::{
+    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CREDENTIAL_ATTRIBUTEW, CRED_FLAGS,
+    CRED_MAX_CREDENTIAL_BLOB_SIZE, CRED_MAX_GENERIC_TARGET_NAME_LENGTH, CRED_MAX_STRING_LENGTH,
+    CRED_MAX_USERNAME_LENGTH, CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC,
 };
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
@@ -77,7 +75,7 @@ impl CredentialApi for WinCredential {
         let mut blob = vec![0; blob_u16.len() * 2];
         LittleEndian::write_u16_into(&blob_u16, &mut blob);
         let blob_len = blob.len() as u32;
-        let flags = 0;
+        let flags = CRED_FLAGS::default();
         let cred_type = CRED_TYPE_GENERIC;
         let persist = CRED_PERSIST_ENTERPRISE;
         // Ignored by CredWriteW
@@ -86,7 +84,7 @@ impl CredentialApi for WinCredential {
             dwHighDateTime: 0,
         };
         let attribute_count = 0;
-        let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+        let attributes: *mut CREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
         let mut credential = CREDENTIALW {
             Flags: flags,
             Type: cred_type,
@@ -102,7 +100,7 @@ impl CredentialApi for WinCredential {
             UserName: username.as_mut_ptr(),
         };
         // raw pointer to credential, is coerced from &mut
-        let p_credential: PCREDENTIALW = &mut credential;
+        let p_credential: *const CREDENTIALW = &mut credential;
         // Call windows API
         match unsafe { CredWriteW(p_credential, 0) } {
             0 => Err(decode_error()),
@@ -387,7 +385,7 @@ pub fn decode_error() -> ErrorCode {
     }
 }
 
-fn wrap(code: DWORD) -> Box<dyn std::error::Error + Send + Sync> {
+fn wrap(code: u32) -> Box<dyn std::error::Error + Send + Sync> {
     Box::new(Error(code))
 }
 
@@ -419,7 +417,7 @@ mod tests {
                 dwHighDateTime: 0,
             };
             let attribute_count = 0;
-            let attributes: PCREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+            let attributes: *mut CREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
             CREDENTIALW {
                 Flags: 0,
                 Type: CRED_TYPE_GENERIC,

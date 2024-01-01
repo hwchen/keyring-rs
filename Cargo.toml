@@ -19,7 +19,7 @@ platform-freebsd = ["linux-secret-service"]
 platform-openbsd = ["linux-secret-service"]
 platform-macos = ["security-framework"]
 platform-ios = ["security-framework"]
-platform-windows = ["winapi", "byteorder"]
+platform-windows = ["windows-sys", "byteorder"]
 linux-secret-service = ["linux-secret-service-rt-async-io-crypto-rust"]
 linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
 linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
@@ -50,7 +50,7 @@ secret-service = { version = "3", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = { version = "1.2", optional = true }
-winapi = { version = "0.3", features = ["wincred", "winerror", "errhandlingapi", "minwindef"], optional = true }
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Security_Credentials"], optional = true }
 
 [[example]]
 name = "iostest"
