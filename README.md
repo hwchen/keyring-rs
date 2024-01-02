@@ -122,6 +122,12 @@ unintended and undefined (suppressing default features did nothing),
 so this is considered a bug fix rather than
 a semver-breaking change that requires a major version bump.
 
+ALSO NOTE: Although the TOML file for this crate specifies a minimum
+Rust version of 1.68, that version apples to the library builds _only_.
+The TOML has development dependencies that require Rust 1.70.  We
+keep each major version of the library compiling on Rust versions 
+that are at least as old as the initial release of that major version.
+
 ## Upgrading from v1
 
 The v2 release,
@@ -179,12 +185,14 @@ whether through contributing code, discussion, or bug reports!
 - @Phrohdoh
 - @phlip9
 - @Rukenshia
+- @russellbanks
 - @ryanavella
 - @samuela
 - @stankec
 - @steveatinfincia
 - @Sytten
 - @VorpalBlade
+- @thewh1teagle
 
 If you should be on this list, but don't find yourself, 
 please contact @brotskydotcom.
