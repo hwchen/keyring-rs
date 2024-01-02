@@ -28,6 +28,9 @@ linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-
 linux-no-secret-service = ["linux-default-keyutils"]
 linux-default-keyutils = ["linux-keyutils"]
 
+[dependencies]
+once_cell = "1"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "2.6", optional = true }
 
