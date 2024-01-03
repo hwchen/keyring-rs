@@ -101,12 +101,17 @@ The returned error will have the raw bytes attached,
 so you can access them.
 
 While this crate's code is thread-safe,
-accessing the _same_ entry from multiple threads simultaneously
-can produce odd results, even deadlocks.
-This is because the system calls to the platform credential managers
-may do leasing of locks and serialize calls differently than
-they are made.  As long as you access a single entry from
+accessing the _same_ entry from multiple threads
+in close proximity may be unreliable (especially on Windows),
+in that the underlying platform
+store may actually execute those calls in a different
+order than they are made. As long as you access a single entry from
 only one thread at a time, multi-threading should be fine.
+
+(N.B. Creating an entry is not the same as accessing it, because
+entry creation doesn't go through the platform credential manager.
+It's fine to create an entry on one thread and then immediately use
+it on a different thread.  This is thoroughly tested on all platforms.)
  */
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};

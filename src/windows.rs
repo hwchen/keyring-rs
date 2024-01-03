@@ -20,6 +20,14 @@ rather than concatenating the username and service.
 So if you have a custom algorithm you want to use for computing the Windows target name,
 you can specify the target name directly.  (You still need to provide a service and username,
 because they are used in the credential's metadata.)
+
+## Caveat
+
+Reads and writes of the same entry from multiple threads in close proximity
+are not guaranteed to be serialized by the Windows Credential Manager in
+the order in which they were made.  There are tests of this behavior in the
+test suite of this crate, and they have been observed to fail in both
+Windows 10 and Windows 11.
 */
 use byteorder::{ByteOrder, LittleEndian};
 use std::iter::once;

@@ -39,6 +39,35 @@ fn test_create_then_move() {
 }
 
 #[test]
+fn test_simultaneous_create_then_move() {
+    let mut handles = vec![];
+    for i in 0..10 {
+        let name = format!("{}-{}", generate_random_string(), i);
+        let entry = Entry::new(&name, &name).expect("Can't create entry");
+        let test = move || {
+            entry.set_password(&name).expect("Can't set ascii password");
+            let stored_password = entry.get_password().expect("Can't get ascii password");
+            assert_eq!(
+                stored_password, name,
+                "Retrieved and set ascii passwords don't match"
+            );
+            entry
+                .delete_password()
+                .expect("Can't delete ascii password");
+            assert!(
+                matches!(entry.get_password(), Err(Error::NoEntry)),
+                "Able to read a deleted ascii password"
+            );
+        };
+        handles.push(std::thread::spawn(test))
+    }
+    for handle in handles {
+        handle.join().expect("Couldn't execute on thread")
+    }
+}
+
+#[test]
+#[cfg(any(not(target_os = "windows"), feature = "windows-test-threading"))]
 fn test_create_set_then_move() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
@@ -65,13 +94,14 @@ fn test_create_set_then_move() {
 }
 
 #[test]
-fn test_simultaneous_create_move_set() {
+#[cfg(any(not(target_os = "windows"), feature = "windows-test-threading"))]
+fn test_simultaneous_create_set_then_move() {
     let mut handles = vec![];
     for i in 0..10 {
         let name = format!("{}-{}", generate_random_string(), i);
         let entry = Entry::new(&name, &name).expect("Can't create entry");
+        entry.set_password(&name).expect("Can't set ascii password");
         let test = move || {
-            entry.set_password(&name).expect("Can't set ascii password");
             let stored_password = entry.get_password().expect("Can't get ascii password");
             assert_eq!(
                 stored_password, name,
