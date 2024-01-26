@@ -184,6 +184,7 @@ whether through contributing code, discussion, or bug reports!
 - @MaikKlein
 - @Phrohdoh
 - @phlip9
+- @ReactorScram
 - @Rukenshia
 - @russellbanks
 - @ryanavella
