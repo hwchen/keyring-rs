@@ -28,7 +28,7 @@ linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-c
 linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
 linux-no-secret-service = ["linux-default-keyutils"]
 linux-default-keyutils = ["linux-keyutils"]
-
+windows-test-threading = []
 
 [dependencies]
 lazy_static = "1"
