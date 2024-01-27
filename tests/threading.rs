@@ -151,14 +151,45 @@ fn test_simultaneous_independent_create_set() {
 }
 
 #[test]
+#[cfg(not(all(feature = "linux-keyutils", not(feature = "secret-service"))))]
 fn test_multiple_create_delete_single_thread() {
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let repeats = 10;
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let repeats = 10_000;
+    for _i in 0..repeats {
+        entry.set_password(&name).expect("Can't set ascii password");
+        let stored_password = entry.get_password().expect("Can't get ascii password");
+        assert_eq!(
+            stored_password, name,
+            "Retrieved and set ascii passwords don't match"
+        );
+        entry
+            .delete_password()
+            .expect("Can't delete ascii password");
+        assert!(
+            matches!(entry.get_password(), Err(Error::NoEntry)),
+            "Able to read a deleted ascii password"
+        );
+    }
+}
+
+#[test]
+#[cfg(not(all(feature = "linux-keyutils", not(feature = "secret-service"))))]
+fn test_simultaneous_multiple_create_delete_single_thread() {
     let mut handles = vec![];
     for t in 0..10 {
         let root = generate_random_string();
         let test = move || {
             let name = format!("{root}-{t}");
             let entry = Entry::new(&name, &name).expect("Can't create entry");
-            for _i in 0..10_000 {
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            let repeats = 10;
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            let repeats = 10_000;
+            for _i in 0..repeats {
                 entry.set_password(&name).expect("Can't set ascii password");
                 let stored_password = entry.get_password().expect("Can't get ascii password");
                 assert_eq!(
@@ -178,26 +209,5 @@ fn test_multiple_create_delete_single_thread() {
     }
     for handle in handles {
         handle.join().expect("Couldn't execute on thread")
-    }
-}
-
-#[test]
-fn test_simultaneous_multiple_create_delete_single_thread() {
-    let name = generate_random_string();
-    let entry = Entry::new(&name, &name).expect("Can't create entry");
-    for _i in 0..10_000 {
-        entry.set_password(&name).expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, name,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted ascii password"
-        );
     }
 }
