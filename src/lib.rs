@@ -113,9 +113,8 @@ entry creation doesn't go through the platform credential manager.
 It's fine to create an entry on one thread and then immediately use
 it on a different thread.  This is thoroughly tested on all platforms.)
  */
-pub use credential::{Credential, CredentialBuilder};
+pub use credential::{Credential, CredentialBuilder, CredentialSearch, CredentialSearchResult, CredentialList, Limit};
 pub use error::{Error, Result};
-
 // Included keystore implementations and default choice thereof.
 
 pub mod mock;
@@ -304,6 +303,94 @@ impl Entry {
     /// what type of concrete object to cast to.
     pub fn get_credential(&self) -> &dyn std::any::Any {
         self.inner.as_any()
+    }
+}
+
+fn default_credential_search() -> Result<Search> {
+    let credentials = default::default_credential_search(); 
+    Ok(Search {inner: credentials})
+}
+
+
+pub struct Search {
+    inner: Box<CredentialSearch>
+}
+
+impl Search {
+    /// Create a new instance of the Credential Search.
+    /// 
+    /// The default credential search is used.
+    pub fn new() -> Result<Search> {
+        default_credential_search()
+    }
+    /// Specifies what parameter to search by and the query string
+    /// 
+    /// Can return a [SearchError](Error::SearchError)
+    /// # Example
+    ///     let search = keyring::Search::new().unwrap();
+    ///     let results = search.by("user", "Mr. Foo Bar");
+    pub fn by(&self, by: &str, query: &str) -> CredentialSearchResult {
+        self.inner.by(by, query)
+    }
+}
+
+pub struct List {}
+
+impl List {
+    pub fn list_credentials(search_result: CredentialSearchResult, limit: Limit) -> Result<()> {
+        match limit {
+            Limit::All => {
+               match Self::list_all(search_result) {
+                Ok(_) => Ok(()),
+                Err(err) => return Err(Error::SearchError(err.to_string()))
+               }
+            }, 
+            Limit::Max(max) => {
+                match Self::list_max(search_result, max) {
+                    Ok(_) => Ok(()),
+                    Err(err) => return Err(Error::SearchError(err.to_string()))
+                }
+                
+            }
+        }
+
+        
+    }
+
+    fn list_all(result: CredentialSearchResult) -> Result<()> { 
+        match result {
+            Ok(search_result) => {
+                for (outer_key, inner_map) in search_result {
+                    println!("{outer_key}"); 
+                    for (key, value) in inner_map {
+                        println!("{key} {value}");
+                    }
+                }
+                Ok(())
+            },
+            Err(err) => return Err(Error::SearchError(err.to_string()))
+        }
+    }
+
+    fn list_max(result: CredentialSearchResult, max: i64) -> Result<()> {
+
+        match result {
+            Ok(search_result) => {
+                let mut count = 1; 
+                for (outer_key, inner_map) in search_result {
+                    println!("{outer_key}"); 
+                    for (key, value) in inner_map {
+                        println!("{key} {value}");
+                    }
+                    count += 1; 
+                    if count > max {
+                        break; 
+                    }
+                }
+                Ok(())
+            },
+            Err(err) => return Err(Error::SearchError(err.to_string()))
+        }
     }
 }
 

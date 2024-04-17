@@ -30,6 +30,8 @@ test suite of this crate, and they have been observed to fail in both
 Windows 10 and Windows 11.
 */
 use byteorder::{ByteOrder, LittleEndian};
+pub use regex::Regex;
+use std::collections::HashMap;
 use std::iter::once;
 use std::mem::MaybeUninit;
 use std::str;
@@ -38,12 +40,13 @@ use windows_sys::Win32::Foundation::{
     ERROR_NOT_FOUND, ERROR_NO_SUCH_LOGON_SESSION, FILETIME,
 };
 use windows_sys::Win32::Security::Credentials::{
-    CredDeleteW, CredFree, CredReadW, CredWriteW, CREDENTIALW, CREDENTIAL_ATTRIBUTEW, CRED_FLAGS,
+    CredDeleteW, CredEnumerateW, CredFree, CredReadW, CredWriteW, 
+    CREDENTIALW, CREDENTIAL_ATTRIBUTEW, CRED_ENUMERATE_ALL_CREDENTIALS, CRED_FLAGS,
     CRED_MAX_CREDENTIAL_BLOB_SIZE, CRED_MAX_GENERIC_TARGET_NAME_LENGTH, CRED_MAX_STRING_LENGTH,
     CRED_MAX_USERNAME_LENGTH, CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC,
 };
 
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialSearch, CredentialSearchApi, CredentialSearchResult};
 use super::error::{Error as ErrorCode, Result};
 
 /// The representation of a Windows Generic credential.
@@ -320,6 +323,147 @@ impl CredentialBuilderApi for WinCredentialBuilder {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+}
+
+pub struct WinCredentialSearch {}
+
+/// Returns an instance of the Windows credential search.
+///
+/// Can be specified to search by certain credential parameters
+/// and by a query parameter. 
+pub fn default_credential_search() -> Box<CredentialSearch> {
+    Box::new(WinCredentialSearch {})
+}
+
+impl CredentialSearchApi for WinCredentialSearch {
+    /// Specifies what parameter to search by and the query string
+    /// 
+    /// Can return a [SearchError](Error::SearchError)
+    /// # Example
+    ///     let search = keyring::Search::new().unwrap();
+    ///     let results = search.by("user", "Mr. Foo Bar");
+    fn by(&self, by: &str, query: &str) -> CredentialSearchResult {
+        let results = match search_type(by, query) {
+            Ok(results) => results, 
+            Err(err) => return Err(ErrorCode::SearchError(err.to_string()))
+        }; 
+
+        let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new(); 
+        for result in results {
+            let mut inner_map: HashMap<String, String> = HashMap::new(); 
+            
+            inner_map.insert("Service".to_string(), result.comment);
+            inner_map.insert("User".to_string(), result.username); 
+            
+            outer_map.insert(format!("Target {}", result.target_name), inner_map);  
+        }
+        
+        Ok(outer_map)
+    }
+
+}
+
+// Type matching for search types
+enum WinSearchType {
+    Target,
+    Service, 
+    User
+}
+
+// Match search type 
+fn search_type(by: &str, query: &str) -> Result<Vec<Box<WinCredential>>> {
+    let search_type = match by.to_ascii_lowercase().as_str() {
+        "target" => { WinSearchType::Target },
+        "service" => { WinSearchType::Service }, 
+        "user" => { WinSearchType::User }
+        _ => { return Err(ErrorCode::SearchError("Invalid search parameter, not Target, Service, or User".to_string())) }
+    };
+
+    search(&search_type, &query)
+
+}
+// Perform search can return a regex error if the search parameter is invalid
+fn search(search_type: &WinSearchType, search_parameter: &str) -> Result<Vec<Box<WinCredential>>> {
+    let credentials = get_all_credentials();
+
+    let re = format!(r#"(?i){}"#, search_parameter); 
+    let regex = match Regex::new(re.as_str()) {
+        Ok(regex) => regex,
+        Err(err) => return Err(ErrorCode::SearchError(
+            format!("Regex Error, {}", err)
+        ))
+    };
+    
+    let mut results = Vec::new(); 
+    for credential in credentials {
+        let haystack = match search_type {
+            WinSearchType::Target => &credential.target_name,
+            WinSearchType::Service => &credential.comment,
+            WinSearchType::User => &credential.username
+        };
+        if regex.is_match(haystack) {
+            results.push(credential);
+        }
+    }
+
+    Ok(results)
+}
+
+/// Returns a vector of credentials corresponding to entries in Windows Credential Manager.
+/// 
+/// In Windows the target name is prepended with the credential type by default
+/// i.e. LegacyGeneric:target=Example Target Name.
+/// The type is stripped for string matching.
+/// There is no guarantee that the enrties wil be in the same order as in 
+/// Windows Credential Manager.
+fn get_all_credentials() -> Vec<Box<WinCredential>> {
+    let mut entries: Vec<Box<WinCredential>> = Vec::new(); 
+    let mut count = 0;
+    let mut credentials_ptr = std::ptr::null_mut();
+     
+    unsafe {
+        CredEnumerateW(
+            std::ptr::null(),
+            CRED_ENUMERATE_ALL_CREDENTIALS,
+            &mut count,
+            &mut credentials_ptr,
+        );
+    }
+    
+    let credentials =
+        unsafe { std::slice::from_raw_parts::<&CREDENTIALW>(credentials_ptr as _, count as usize) };
+    
+    for credential in credentials { 
+        let target_name = unsafe { from_wstr(credential.TargetName) };
+        // By default the target names are prepended with the credential type
+        // i.e. LegacyGeneric:target=Example Target Name. This is where
+        // The '=' is indexed to strip the prepended type
+        let index = match target_name.find('=') {
+            Some(index) => index,
+            None => 0
+        };
+        let target_name = target_name[ index + 1.. ].to_string();
+
+        let username; 
+        if (unsafe { from_wstr(credential.UserName) } == "") {
+            username = String::from("NO USER");
+        } else {
+            username = unsafe { from_wstr(credential.UserName) };
+        }
+        let target_alias = unsafe { from_wstr(credential.TargetAlias) }; 
+        let comment = unsafe { from_wstr(credential.Comment) };  
+
+        entries.push( Box::new(WinCredential {
+            username,
+            target_name,
+            target_alias,
+            comment
+        })); 
+    };
+    
+    unsafe { CredFree(std::mem::transmute(credentials_ptr)) };
+    
+    entries
 }
 
 fn extract_password(credential: &CREDENTIALW) -> Result<String> {

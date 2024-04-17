@@ -54,6 +54,8 @@ pub enum Error {
     /// This indicates that there is more than one credential found in the store
     /// that matches the entry.  Its value is a vector of the matching credentials.
     Ambiguous(Vec<Box<Credential>>),
+
+    SearchError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -80,6 +82,9 @@ impl std::fmt::Display for Error {
                     "Entry is matched by {} credendials: {items:?}",
                     items.len(),
                 )
+            }
+            Error::SearchError(reason) => {
+                write!(f, "Error searching for credential: {}", reason)
             }
         }
     }

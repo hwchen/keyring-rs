@@ -9,7 +9,7 @@ in a thread-safe way, a requirement captured in the [CredentialBuilder] and
 [CredentialApi] types that wrap them.
  */
 use super::Result;
-use std::any::Any;
+use std::{collections::HashMap, any::Any};
 
 /// The API that [credentials](Credential) implement.
 pub trait CredentialApi {
@@ -91,3 +91,22 @@ impl std::fmt::Debug for CredentialBuilder {
 
 /// A thread-safe implementation of the [CredentialBuilder API](CredentialBuilderApi).
 pub type CredentialBuilder = dyn CredentialBuilderApi + Send + Sync;
+
+pub trait CredentialSearchApi {
+    fn by(&self, by: &str, query: &str) -> Result<HashMap<String, HashMap<String, String>>>; 
+}
+
+pub type CredentialSearch = dyn CredentialSearchApi + Send + Sync; 
+
+pub type CredentialSearchResult = Result<HashMap<String, HashMap<String, String>>>;
+
+pub trait CredentialListApi {
+    fn list_credentials(search_result: Result<HashMap<String, HashMap<String, String>>>, limit: Limit) -> Result<()>;
+}
+
+pub type CredentialList = dyn CredentialListApi + Send + Sync; 
+
+pub enum Limit {
+    All, 
+    Max(i64)
+}
