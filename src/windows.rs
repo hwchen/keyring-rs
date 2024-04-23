@@ -46,7 +46,9 @@ use windows_sys::Win32::Security::Credentials::{
     CRED_MAX_USERNAME_LENGTH, CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC,
 };
 
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialSearch, CredentialSearchApi, CredentialSearchResult};
+use super::credential::{
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi,
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult };
 use super::error::{Error as ErrorCode, Result};
 
 /// The representation of a Windows Generic credential.

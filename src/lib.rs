@@ -363,7 +363,7 @@ impl List {
                 for (outer_key, inner_map) in search_result {
                     println!("{outer_key}"); 
                     for (key, value) in inner_map {
-                        println!("{key} {value}");
+                        println!("\t{key}:\t{value}");
                     }
                 }
                 Ok(())
@@ -380,7 +380,7 @@ impl List {
                 for (outer_key, inner_map) in search_result {
                     println!("{outer_key}"); 
                     for (key, value) in inner_map {
-                        println!("{key} {value}");
+                        println!("\t{key}:\t{value}");
                     }
                     count += 1; 
                     if count > max {
