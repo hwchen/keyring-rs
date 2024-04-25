@@ -27,11 +27,15 @@ name as the target parameter to `Entry::new_with_target`.
 Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic)
 will be mapped to `User`.
  */
-use security_framework::base::Error;
+use std::collections::HashMap;
+
+use security_framework::{item, base::Error};
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
 
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::credential::{
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, 
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult};
 use super::error::{decode_password, Error as ErrorCode, Result};
 
 /// The representation of a generic Keychain credential.
@@ -220,6 +224,80 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
         Err(err) => Err(decode_error(err)),
     }
 }
+
+pub struct MacCredentialSearch {}
+
+pub fn default_credential_search() -> Box<CredentialSearch> {
+    Box::new(MacCredentialSearch {})
+}
+
+impl CredentialSearchApi for MacCredentialSearch {
+    fn by(&self, by: &str, query: &str) -> CredentialSearchResult {
+        search(by, query)
+    }
+}
+
+enum MacSearchType {
+    Label, 
+    Service, 
+    Account
+}
+
+fn search(by: &str, query: &str) -> CredentialSearchResult {
+
+    let mut new_search = item::ItemSearchOptions::new(); 
+        
+    let search_default = &mut new_search
+        .class(item::ItemClass::generic_password())
+        .limit(item::Limit::All)
+        .load_attributes(true);
+
+    let by = match by.to_ascii_lowercase().as_str() {
+        "label" => MacSearchType::Label,
+        "service" => MacSearchType::Service,
+        "account" => MacSearchType::Account,
+        _ => return Err(ErrorCode::SearchError("Invalid search parameter, not Label, Service, or Account".to_string()))
+    };
+
+    let search = match by {
+        MacSearchType::Label => search_default.label(query).search(),
+        MacSearchType::Service => search_default.service(query).search(),
+        MacSearchType::Account => search_default.account(query).search()
+    };
+
+    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new(); 
+
+    let results = match search {
+        Ok(items) => items,
+        Err(err) => return Err(ErrorCode::SearchError(err.to_string()))
+    }; 
+
+    for item in results {
+        match to_credential_search_result(item.simplify_dict(), &mut outer_map) {
+            Ok(_) => {}, 
+            Err(err) => return Err(ErrorCode::SearchError(err.to_string()))
+        }
+    }
+
+    Ok(outer_map)
+}
+
+fn to_credential_search_result(
+    item: Option<HashMap<String, String>>,
+    outer_map: &mut HashMap<String, HashMap<String, String>>
+) -> Result<()> {
+    let mut result = match item {
+        None => return Err(ErrorCode::SearchError("Search returned no items".to_string())), 
+        Some(map) => map
+    };
+
+    let label = result.remove("labl").unwrap_or("EMPTY LABEL".to_string());  
+
+    outer_map.insert(format!("Label: {}", label), result);
+
+    Ok(())
+}
+
 
 /// Map a Mac API error to a crate error with appropriate annotation
 ///
