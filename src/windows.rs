@@ -48,7 +48,8 @@ use windows_sys::Win32::Security::Credentials::{
 
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi,
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult };
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult
+};
 use super::error::{Error as ErrorCode, Result};
 
 /// The representation of a Windows Generic credential.
@@ -384,7 +385,7 @@ fn search_type(by: &str, query: &str) -> Result<Vec<Box<WinCredential>>> {
     search(&search_type, &query)
 
 }
-// Perform search can return a regex error if the search parameter is invalid
+// Perform search, can return a regex error if the search parameter is invalid
 fn search(search_type: &WinSearchType, search_parameter: &str) -> Result<Vec<Box<WinCredential>>> {
     let credentials = get_all_credentials();
 

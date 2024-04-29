@@ -299,6 +299,10 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
 
 pub struct KeyutilsCredentialSearch {}
 
+/// Returns the Secret service default credential search structure. 
+///
+/// This creates a new search structure. The by method has concrete types to search by, 
+/// each corresponding to the different keyrings found within the kernel keyctl. 
 pub fn default_credential_search() -> Box<CredentialSearch> {
     Box::new(KeyutilsCredentialSearch {})
 }
@@ -308,7 +312,7 @@ impl CredentialSearchApi for KeyutilsCredentialSearch {
         search_by_keyring(by, query)
     }
 }
-
+// Search for credential items in the specified keyring. 
 fn search_by_keyring(by: &str, query: &str) -> CredentialSearchResult {
 
     let by = match by {
@@ -361,7 +365,7 @@ fn search_by_keyring(by: &str, query: &str) -> CredentialSearchResult {
 
     Ok(outer_map)
 }
-
+// Converts permission bits to their corresponding permission characters to match keyctl command in terminal. 
 fn get_permissions(permission_data: u8) -> String {
     let perm_types = [
         Permission::VIEW.bits(), 

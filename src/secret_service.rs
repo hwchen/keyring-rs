@@ -84,7 +84,8 @@ use secret_service::{EncryptionType, Error};
 
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi,
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult };
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult 
+};
 use super::error::{decode_password, Error as ErrorCode, Result};
 
 /// The representation of an item in the secret-service.
@@ -331,6 +332,11 @@ impl CredentialBuilderApi for SsCredentialBuilder {
 
 pub struct SsCredentialSearch {} 
 
+/// Returns the Secret service default credential search structure. 
+///
+/// This creates a new search structure. The by method has no concrete search types 
+/// like in Windows, iOS, and MacOS. The keys to these credentials can be whatever the user sets them to
+/// and is displayed as a HashMap.
 pub fn default_credential_search() -> Box<CredentialSearch> {
     Box::new(SsCredentialSearch {})
 }
@@ -341,6 +347,7 @@ impl CredentialSearchApi for SsCredentialSearch {
     }
 }
 
+// Returns the items searched as a CredentialSearchResult
 fn search_items(by: &str, query: &str) -> CredentialSearchResult {
     let ss = match SecretService::connect(EncryptionType::Plain) {
         Ok(connection) => connection,

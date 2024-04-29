@@ -337,6 +337,11 @@ impl Search {
 pub struct List {}
 
 impl List {
+    /// List the credentials with given search result
+    /// 
+    /// Takes CredentialSearchResult type and converts to a string
+    /// for printing. Matches the Limit type passed to constrain
+    /// the amount of results added to the string
     pub fn list_credentials(search_result: CredentialSearchResult, limit: Limit) -> Result<String> {
         match limit {
             Limit::All => {
@@ -347,7 +352,10 @@ impl List {
             }
         }
     }
-
+    /// List all credential search results.
+    /// 
+    /// Is the result of passing the Limit::All type 
+    /// to list_credentials.
     fn list_all(result: CredentialSearchResult) -> Result<String> { 
         let mut output = String::new();
         match result {
@@ -363,7 +371,12 @@ impl List {
             Err(err) => Err(Error::SearchError(err.to_string()))
         }
     }
-
+    /// List a certain amount of credential search results.
+    /// 
+    /// Is the result of passing the Limit::Max(i64) type 
+    /// to list_credentials. The 64 bit integer represents
+    /// the total of the results passed. 
+    /// They are not sorted or filtered.
     fn list_max(result: CredentialSearchResult, max: i64) -> Result<String> {
         let mut output = String::new();
         let mut count = 1; 

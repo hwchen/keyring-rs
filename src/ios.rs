@@ -224,20 +224,14 @@ fn to_credential_search_result(
     item: Option<HashMap<String, String>>,
     outer_map: &mut HashMap<String, HashMap<String, String>>
 ) -> Result<()> {
-    let result = match item {
+    let mut result = match item {
         None => return Err(ErrorCode::SearchError("Search returned no items".to_string())), 
         Some(map) => map
     };
 
-<<<<<<< Updated upstream
     let label = "EMPTY LABEL".to_string();
-=======
-    let empty = &"EMPTY".to_string(); 
-    let acct = result.get("acct").unwrap_or(empty); 
-    let svce = result.get("svce").unwrap_or(empty); 
->>>>>>> Stashed changes
 
-    outer_map.insert(format!("{}@{}", acct, svce), result);
+    outer_map.insert(format!("Label: {}", label), result);
 
     Ok(())
 }

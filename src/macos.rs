@@ -35,7 +35,8 @@ use security_framework::os::macos::passwords::find_generic_password;
 
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, 
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult};
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult
+};
 use super::error::{decode_password, Error as ErrorCode, Result};
 
 /// The representation of a generic Keychain credential.
@@ -227,6 +228,11 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
 
 pub struct MacCredentialSearch {}
 
+/// Returns an instance of the Mac credential search.
+///
+/// This creates a new search structure. The by method 
+/// integrates with system_framework item search. System_framework
+/// only allows searching by Label, Service, or Account.
 pub fn default_credential_search() -> Box<CredentialSearch> {
     Box::new(MacCredentialSearch {})
 }
@@ -236,13 +242,14 @@ impl CredentialSearchApi for MacCredentialSearch {
         search(by, query)
     }
 }
-
+// Type matching for search types. 
 enum MacSearchType {
     Label, 
     Service, 
     Account
 }
-
+// Perform search, can throw a SearchError, returns a CredentialSearchResult.
+// by must be "label", "service", or "account".
 fn search(by: &str, query: &str) -> CredentialSearchResult {
 
     let mut new_search = item::ItemSearchOptions::new(); 
@@ -282,6 +289,9 @@ fn search(by: &str, query: &str) -> CredentialSearchResult {
     Ok(outer_map)
 }
 
+// The returned item from search is converted to CredentialSearchResult type. 
+// If none, a SearchError is returned for no items found. If results found, the "labl"
+// key is removed and placed in the outer map's key to differentiate between results. 
 fn to_credential_search_result(
     item: Option<HashMap<String, String>>,
     outer_map: &mut HashMap<String, HashMap<String, String>>
