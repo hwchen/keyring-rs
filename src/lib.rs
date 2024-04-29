@@ -337,59 +337,51 @@ impl Search {
 pub struct List {}
 
 impl List {
-    pub fn list_credentials(search_result: CredentialSearchResult, limit: Limit) -> Result<()> {
+    pub fn list_credentials(search_result: CredentialSearchResult, limit: Limit) -> Result<String> {
         match limit {
             Limit::All => {
-               match Self::list_all(search_result) {
-                Ok(_) => Ok(()),
-                Err(err) => return Err(Error::SearchError(err.to_string()))
-               }
+               Self::list_all(search_result)
             }, 
             Limit::Max(max) => {
-                match Self::list_max(search_result, max) {
-                    Ok(_) => Ok(()),
-                    Err(err) => return Err(Error::SearchError(err.to_string()))
-                }
-                
+                Self::list_max(search_result, max)
             }
         }
-
-        
     }
 
-    fn list_all(result: CredentialSearchResult) -> Result<()> { 
+    fn list_all(result: CredentialSearchResult) -> Result<String> { 
+        let mut output = String::new();
         match result {
             Ok(search_result) => {
                 for (outer_key, inner_map) in search_result {
-                    println!("{outer_key}"); 
+                    output.push_str(&format!("{}\n", outer_key));
                     for (key, value) in inner_map {
-                        println!("\t{key}:\t{value}");
+                        output.push_str(&format!("\t{}:\t{}\n", key, value));
                     }
                 }
-                Ok(())
+                Ok(output)
             },
-            Err(err) => return Err(Error::SearchError(err.to_string()))
+            Err(err) => Err(Error::SearchError(err.to_string()))
         }
     }
 
-    fn list_max(result: CredentialSearchResult, max: i64) -> Result<()> {
-
+    fn list_max(result: CredentialSearchResult, max: i64) -> Result<String> {
+        let mut output = String::new();
+        let mut count = 1; 
         match result {
             Ok(search_result) => {
-                let mut count = 1; 
                 for (outer_key, inner_map) in search_result {
-                    println!("{outer_key}"); 
+                    output.push_str(&format!("{}\n", outer_key));
                     for (key, value) in inner_map {
-                        println!("\t{key}:\t{value}");
+                        output.push_str(&format!("\t{}:\t{}\n", key, value));
                     }
                     count += 1; 
                     if count > max {
                         break; 
                     }
                 }
-                Ok(())
+                Ok(output)
             },
-            Err(err) => return Err(Error::SearchError(err.to_string()))
+            Err(err) => Err(Error::SearchError(err.to_string()))
         }
     }
 }
