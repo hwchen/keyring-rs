@@ -508,9 +508,11 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 #[cfg(test)]
 mod tests {
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
+    use crate::{tests::generate_random_string, Entry, Error, Search, List, Limit};
 
     use super::{default_credential_builder, SsCredential};
+
+    use std::collections::HashSet; 
 
     #[test]
     fn test_persistence() {
@@ -736,5 +738,38 @@ mod tests {
             .delete_password()
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
+    }
+
+    #[test]
+    fn test_search() {
+        let name = generate_random_string(); 
+        let entry = entry_new(&name, &name); 
+        let password = "search test password"; 
+        entry
+            .set_password(password)
+            .expect("Not a Secret Service credential"); 
+        let result = Search::new()
+            .expect("Failed to build search")
+            .by("service", &name);
+        let list = List::list_credentials(result, Limit::All)
+            .expect("Failed to parse string from HashMap result");
+
+        let actual: &SsCredential = entry
+            .get_credential()
+            .downcast_ref()
+            .expect("Not a Secret Service credential"); 
+
+        let mut expected = format!("{}\n", actual.label); 
+        let attributes = &actual.attributes; 
+        for (key, value) in attributes {
+            let attribute = format!("\t{}:\t{}\n", key, value);
+            expected.push_str(attribute.as_str());
+        }
+        let expected_set: HashSet<&str> = expected.lines().collect(); 
+        let result_set: HashSet<&str> = list.lines().collect(); 
+        assert_eq!(expected_set, result_set, "Search results do not match");
+        entry
+            .delete_password()
+            .expect("Couldn't delete test-search-by-user");
     }
 }
