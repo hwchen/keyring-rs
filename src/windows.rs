@@ -30,7 +30,7 @@ test suite of this crate, and they have been observed to fail in both
 Windows 10 and Windows 11.
 */
 use byteorder::{ByteOrder, LittleEndian};
-pub use regex::Regex;
+use regex::Regex;
 use std::collections::HashMap;
 use std::iter::once;
 use std::mem::MaybeUninit;

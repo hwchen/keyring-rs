@@ -20,7 +20,7 @@ platform-freebsd = ["linux-secret-service"]
 platform-openbsd = ["linux-secret-service"]
 platform-macos = ["security-framework"]
 platform-ios = ["security-framework"]
-platform-windows = ["windows-sys", "byteorder"]
+platform-windows = ["windows-sys", "regex", "byteorder"]
 linux-secret-service = ["linux-secret-service-rt-async-io-crypto-rust"]
 linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
 linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
@@ -32,7 +32,6 @@ windows-test-threading = []
 
 [dependencies]
 lazy_static = "1"
-regex = "1.10.4"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "2.6", optional = true }
@@ -52,6 +51,7 @@ secret-service = { version = "3", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = { version = "1.2", optional = true }
+regex = { version = "1.10.4", optional = true }
 windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Security_Credentials"], optional = true }
 
 [[example]]
