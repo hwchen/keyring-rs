@@ -301,9 +301,19 @@ fn to_credential_search_result(
         Some(map) => map
     };
 
+    let mut formatted: HashMap<String, String> = HashMap::new(); 
+
+    if result.get_key_value("svce").is_some() {
+        formatted.insert("Service".to_string(), result.get_key_value("svce").unwrap().1.to_string());
+    }
+
+    if result.get_key_value("acct").is_some() {
+        formatted.insert("Account".to_string(), result.get_key_value("acct").unwrap().1.to_string()); 
+    }
+
     let label = result.remove("labl").unwrap_or("EMPTY LABEL".to_string());  
 
-    outer_map.insert(format!("Label: {}", label), result);
+    outer_map.insert(format!("{}", label), formatted);
 
     Ok(())
 }
@@ -326,10 +336,13 @@ pub fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
+    use security_framework::item;
+
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
+    use crate::{tests::generate_random_string, Entry, Error, Search, List, Limit};
 
     use super::{default_credential_builder, MacCredential};
+    use std::collections::HashSet;
 
     #[test]
     fn test_persistence() {
@@ -408,4 +421,84 @@ mod tests {
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
+
+    fn test_search(by: &str) {
+        let name = generate_random_string(); 
+        let entry = entry_new(&name, &name); 
+        entry
+            .set_password("test-search-password")
+            .expect("Failed to set password for test-search"); 
+        let result = Search::new()
+            .expect("Failed to create new search")
+            .by(by, &name); 
+        let list = List::list_credentials(result, Limit::All)
+            .expect("Failed to parse HashMap search result"); 
+        let actual: &MacCredential = entry 
+            .get_credential()
+            .downcast_ref()
+            .expect("Not a mac credential");
+
+        let mut new_search = item::ItemSearchOptions::new(); 
+
+        let search_default = &mut new_search
+            .class(item::ItemClass::generic_password())
+            .limit(item::Limit::All)
+            .load_attributes(true);
+
+        let vector_of_results = match by.to_ascii_lowercase().as_str() {
+            "account" => {
+                search_default
+                    .account(actual.account.as_str())
+                    .search()
+            },
+            "service" => {
+                search_default
+                    .service(actual.account.as_str())
+                    .search()
+            },
+            "label" => {
+                search_default
+                    .label(actual.account.as_str())
+                    .search()
+            },
+            _ => panic!()
+        }.expect("Failed to get vector of search results in system-framework");
+
+        let mut expected = String::new(); 
+
+        for item in vector_of_results {
+            let mut item = item.simplify_dict().expect("Unable to simplify to dictionary");
+            let label = format!("{}\n", &item.remove("labl").expect("No label found")); 
+            let service = format!("\tService:\t{}\n", actual.service);
+            let account = format!("\tAccount:\t{}\n", actual.account);
+            expected.push_str(&label);
+            expected.push_str(&service);
+            expected.push_str(&account);
+        }
+
+        let expected_set: HashSet<&str> = expected.lines().collect(); 
+        let result_set: HashSet<&str> = list.lines().collect(); 
+        assert_eq!(expected_set, result_set, "Search results do not match");
+        
+        entry
+            .delete_password()
+            .expect("Failed to delete mac credential");
+        
+    }
+
+    #[test]
+    fn test_search_by_service() {
+        test_search("service")
+    }
+
+    #[test]
+    fn test_search_by_label() {
+        test_search("label")        
+    }
+
+    #[test]
+    fn test_search_by_account() {
+        test_search("account")
+    }
+
 }

@@ -770,6 +770,6 @@ mod tests {
         assert_eq!(expected_set, result_set, "Search results do not match");
         entry
             .delete_password()
-            .expect("Couldn't delete test-search-by-user");
+            .expect("Couldn't delete test-search");
     }
 }

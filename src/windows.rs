@@ -746,8 +746,7 @@ mod tests {
         assert!(matches!(entry.get_password(), Err(ErrorCode::NoEntry)));
     }
 
-    #[test]
-    fn test_search_by_target() {
+    fn test_search(by: &str) {
         let name = generate_random_string(); 
         let entry = entry_new(&name, &name); 
         let password = "search test password"; 
@@ -756,7 +755,7 @@ mod tests {
             .expect("Not a windows credential"); 
         let result = Search::new()
             .expect("Failed to build search")
-            .by("target", &name);
+            .by(by, &name);
         let list = List::list_credentials(result, Limit::All)
             .expect("Failed to parse string from HashMap result");
 
@@ -776,57 +775,16 @@ mod tests {
 
     #[test]
     fn test_search_by_user() {
-        let name = generate_random_string(); 
-        let entry = entry_new(&name, &name); 
-        let password = "search test password"; 
-        entry
-            .set_password(password)
-            .expect("Not a windows credential"); 
-        let result = Search::new()
-            .expect("Failed to build search")
-            .by("user", &name);
-        let list = List::list_credentials(result, Limit::All)
-            .expect("Failed to parse string from HashMap result");
-
-        let actual: &WinCredential = entry
-            .get_credential()
-            .downcast_ref()
-            .expect("Not a windows credential"); 
-
-        let expected = format!("{}\n\tService:\t{}\n\tUser:\t{}\n", actual.target_name, actual.comment, actual.username);
-        let expected_set: HashSet<&str> = expected.lines().collect(); 
-        let result_set: HashSet<&str> = list.lines().collect(); 
-        assert_eq!(expected_set, result_set, "Search results do not match");
-        entry
-            .delete_password()
-            .expect("Couldn't delete test-search-by-user");
+        test_search("user")
     }
 
     #[test]
     fn test_search_by_service() {
-        let name = generate_random_string(); 
-        let entry = entry_new(&name, &name); 
-        let password = "search test password"; 
-        entry
-            .set_password(password)
-            .expect("Not a windows credential"); 
-        let result = Search::new()
-            .expect("Failed to build search")
-            .by("service", &name);
-        let list = List::list_credentials(result, Limit::All)
-            .expect("Failed to parse string from HashMap result");
+        test_search("service")
+    }
 
-        let actual: &WinCredential = entry
-            .get_credential()
-            .downcast_ref()
-            .expect("Not a windows credential"); 
-
-        let expected = format!("{}\n\tService:\t{}\n\tUser:\t{}\n", actual.target_name, actual.comment, actual.username);
-        let expected_set: HashSet<&str> = expected.lines().collect(); 
-        let result_set: HashSet<&str> = list.lines().collect(); 
-        assert_eq!(expected_set, result_set, "Search results do not match");
-        entry
-            .delete_password()
-            .expect("Couldn't delete test-search-by-user");
+    #[test]
+    fn test_search_by_target() {
+        test_search("target")
     }
 }
