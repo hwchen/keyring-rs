@@ -83,8 +83,8 @@ use secret_service::blocking::{Collection, Item, SecretService};
 use secret_service::{EncryptionType, Error};
 
 use super::credential::{
-    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi,
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult 
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialSearch,
+    CredentialSearchApi, CredentialSearchResult,
 };
 use super::error::{decode_password, Error as ErrorCode, Result};
 
@@ -330,11 +330,11 @@ impl CredentialBuilderApi for SsCredentialBuilder {
     }
 }
 
-pub struct SsCredentialSearch {} 
+pub struct SsCredentialSearch {}
 
-/// Returns the Secret service default credential search structure. 
+/// Returns the Secret service default credential search structure.
 ///
-/// This creates a new search structure. The by method has no concrete search types 
+/// This creates a new search structure. The by method has no concrete search types
 /// like in Windows, iOS, and MacOS. The keys to these credentials can be whatever the user sets them to
 /// and is displayed as a HashMap.
 pub fn default_credential_search() -> Box<CredentialSearch> {
@@ -352,22 +352,22 @@ fn search_items(by: &str, query: &str) -> CredentialSearchResult {
     let ss = match SecretService::connect(EncryptionType::Plain) {
         Ok(connection) => connection,
         Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-    }; 
+    };
 
     let collections = match ss.get_all_collections() {
         Ok(collections) => collections,
         Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-    }; 
+    };
 
     let mut search_map = HashMap::new();
-    search_map.insert(by, query); 
+    search_map.insert(by, query);
 
-    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new(); 
+    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new();
     for collection in collections {
         let search_results = match collection.search_items(search_map.clone()) {
-            Ok(results) => results, 
+            Ok(results) => results,
             Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-        }; 
+        };
 
         for result in search_results {
             let attributes = match result.get_attributes() {
@@ -378,7 +378,6 @@ fn search_items(by: &str, query: &str) -> CredentialSearchResult {
             let mut inner_map: HashMap<String, String> = HashMap::new();
 
             for (key, value) in attributes {
-
                 inner_map.insert(key, value);
 
                 let label = match result.get_label() {
@@ -386,10 +385,10 @@ fn search_items(by: &str, query: &str) -> CredentialSearchResult {
                     Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
                 };
 
-                outer_map.insert(label.clone(), inner_map.clone()); 
+                outer_map.insert(label.clone(), inner_map.clone());
             }
         }
-    };
+    }
 
     Ok(outer_map)
 }
@@ -508,11 +507,11 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 #[cfg(test)]
 mod tests {
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error, Search, List, Limit};
+    use crate::{tests::generate_random_string, Entry, Error, Limit, List, Search};
 
     use super::{default_credential_builder, SsCredential};
 
-    use std::collections::HashSet; 
+    use std::collections::HashSet;
 
     #[test]
     fn test_persistence() {
@@ -742,12 +741,12 @@ mod tests {
 
     #[test]
     fn test_search() {
-        let name = generate_random_string(); 
-        let entry = entry_new(&name, &name); 
-        let password = "search test password"; 
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "search test password";
         entry
             .set_password(password)
-            .expect("Not a Secret Service credential"); 
+            .expect("Not a Secret Service credential");
         let result = Search::new()
             .expect("Failed to build search")
             .by("service", &name);
@@ -757,16 +756,16 @@ mod tests {
         let actual: &SsCredential = entry
             .get_credential()
             .downcast_ref()
-            .expect("Not a Secret Service credential"); 
+            .expect("Not a Secret Service credential");
 
-        let mut expected = format!("{}\n", actual.label); 
-        let attributes = &actual.attributes; 
+        let mut expected = format!("{}\n", actual.label);
+        let attributes = &actual.attributes;
         for (key, value) in attributes {
             let attribute = format!("\t{}:\t{}\n", key, value);
             expected.push_str(attribute.as_str());
         }
-        let expected_set: HashSet<&str> = expected.lines().collect(); 
-        let result_set: HashSet<&str> = list.lines().collect(); 
+        let expected_set: HashSet<&str> = expected.lines().collect();
+        let result_set: HashSet<&str> = list.lines().collect();
         assert_eq!(expected_set, result_set, "Search results do not match");
         entry
             .delete_password()

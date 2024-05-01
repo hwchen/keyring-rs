@@ -101,7 +101,7 @@ use std::collections::HashMap;
 
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult
+    CredentialSearch, CredentialSearchApi, CredentialSearchResult,
 };
 use super::error::{decode_password, Error as ErrorCode, Result};
 use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier, KeyType, Permission};
@@ -299,10 +299,10 @@ impl CredentialBuilderApi for KeyutilsCredentialBuilder {
 
 pub struct KeyutilsCredentialSearch {}
 
-/// Returns the Secret service default credential search structure. 
+/// Returns the Secret service default credential search structure.
 ///
-/// This creates a new search structure. The by method has concrete types to search by, 
-/// each corresponding to the different keyrings found within the kernel keyctl. 
+/// This creates a new search structure. The by method has concrete types to search by,
+/// each corresponding to the different keyrings found within the kernel keyctl.
 pub fn default_credential_search() -> Box<CredentialSearch> {
     Box::new(KeyutilsCredentialSearch {})
 }
@@ -312,9 +312,8 @@ impl CredentialSearchApi for KeyutilsCredentialSearch {
         search_by_keyring(by, query)
     }
 }
-// Search for credential items in the specified keyring. 
+// Search for credential items in the specified keyring.
 fn search_by_keyring(by: &str, query: &str) -> CredentialSearchResult {
-
     let by = match by {
         "thread" => KeyRingIdentifier::Thread,
         "process" => KeyRingIdentifier::Process,
@@ -326,81 +325,78 @@ fn search_by_keyring(by: &str, query: &str) -> CredentialSearchResult {
     };
 
     let ring = match KeyRing::from_special_id(by, false) {
-        Ok(ring) => ring, 
+        Ok(ring) => ring,
         Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-    }; 
+    };
 
     let result = match ring.search(query) {
         Ok(result) => result,
         Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-    }; 
-
+    };
 
     let result_data = match result.metadata() {
         Ok(data) => data,
         Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
-    }; 
+    };
 
     let key_type = get_key_type(result_data.get_type());
 
     let permission_bits = result_data.get_perms().bits().to_be_bytes();
 
-    let permission_string = get_permission_chars(permission_bits[0]); 
-            
-    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new(); 
-    let mut inner_map: HashMap<String, String> = HashMap::new(); 
+    let permission_string = get_permission_chars(permission_bits[0]);
+
+    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new();
+    let mut inner_map: HashMap<String, String> = HashMap::new();
 
     inner_map.insert("perm".to_string(), permission_string);
     inner_map.insert("gid".to_string(), result_data.get_gid().to_string());
     inner_map.insert("uid".to_string(), result_data.get_uid().to_string());
     inner_map.insert("ktype".to_string(), key_type);
 
-    outer_map.insert(format!("ID: {} Description: {}", result.get_id().0, result_data.get_description()), inner_map);
-    
+    outer_map.insert(
+        format!(
+            "ID: {} Description: {}",
+            result.get_id().0,
+            result_data.get_description()
+        ),
+        inner_map,
+    );
 
     Ok(outer_map)
 }
 fn get_key_type(key_type: KeyType) -> String {
     match key_type {
-        KeyType::KeyRing => "KeyRing".to_string(), 
+        KeyType::KeyRing => "KeyRing".to_string(),
         KeyType::BigKey => "BigKey".to_string(),
         KeyType::Logon => "Logon".to_string(),
-        KeyType::User => "User".to_string(), 
+        KeyType::User => "User".to_string(),
     }
 }
-// Converts permission bits to their corresponding permission characters to match keyctl command in terminal. 
+// Converts permission bits to their corresponding permission characters to match keyctl command in terminal.
 fn get_permission_chars(permission_data: u8) -> String {
     let perm_types = [
-        Permission::VIEW.bits(), 
+        Permission::VIEW.bits(),
         Permission::READ.bits(),
-        Permission::WRITE.bits(), 
-        Permission::SEARCH.bits(), 
-        Permission::LINK.bits(), 
-        Permission::SETATTR.bits(), 
-        Permission::ALL.bits()
+        Permission::WRITE.bits(),
+        Permission::SEARCH.bits(),
+        Permission::LINK.bits(),
+        Permission::SETATTR.bits(),
+        Permission::ALL.bits(),
     ];
 
-    let perm_chars = [
-        'v',
-        'r',
-        'w',
-        's',
-        'l',
-        'a', 
-        '-'
-    ];
+    let perm_chars = ['v', 'r', 'w', 's', 'l', 'a', '-'];
 
-    let mut perm_string = String::new(); 
+    let mut perm_string = String::new();
     perm_string.push('-');
 
     for i in (0..perm_types.len()).rev() {
         if permission_data & perm_types[i] != 0 {
             perm_string.push(perm_chars[i]);
         } else {
-            perm_string.push('-'); 
+            perm_string.push('-');
         }
     }
-    
+
     perm_string
 }
 
@@ -433,11 +429,14 @@ fn wrap(err: KeyError) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use crate::credential::CredentialPersistence;
     use crate::keyutils::get_key_type;
-    use crate::{tests::generate_random_string, Entry, Error, Search, List, Limit};
+    use crate::{tests::generate_random_string, Entry, Error, Limit, List, Search};
 
     use std::collections::HashSet;
 
-    use super::{default_credential_builder, get_permission_chars, KeyutilsCredential, KeyRing, KeyRingIdentifier};
+    use super::{
+        default_credential_builder, get_permission_chars, KeyRing, KeyRingIdentifier,
+        KeyutilsCredential,
+    };
 
     #[test]
     fn test_persistence() {
@@ -518,12 +517,12 @@ mod tests {
 
     #[test]
     fn test_search() {
-        let name = generate_random_string(); 
-        let entry = entry_new(&name, &name); 
-        let password = "search test password"; 
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let password = "search test password";
         entry
             .set_password(password)
-            .expect("Not a keyutils credential"); 
+            .expect("Not a keyutils credential");
         let query = format!("keyring-rs:{}@{}", name, name);
         let result = Search::new()
             .expect("Failed to build search")
@@ -534,38 +533,37 @@ mod tests {
         let actual: &KeyutilsCredential = entry
             .get_credential()
             .downcast_ref()
-            .expect("Not a keyutils credential"); 
+            .expect("Not a keyutils credential");
 
         let keyring = KeyRing::from_special_id(KeyRingIdentifier::Session, false)
-            .expect("No session keyring"); 
+            .expect("No session keyring");
         let credential = keyring
             .search(&actual.description)
-            .expect("Failed to downcast to linux-keyutils type"); 
+            .expect("Failed to downcast to linux-keyutils type");
         let metadata = credential
             .metadata()
             .expect("Failed to get credential metadata");
 
-        let mut expected = format!("ID: {} Description: {}\n", credential.get_id().0, actual.description); 
+        let mut expected = format!(
+            "ID: {} Description: {}\n",
+            credential.get_id().0,
+            actual.description
+        );
         expected.push_str(format!("\tgid:\t{}\n", metadata.get_gid()).as_str());
         expected.push_str(format!("\tuid:\t{}\n", metadata.get_uid()).as_str());
-        expected.push_str(format!("\tperm:\t{}\n", get_permission_chars(
-            metadata
-                .get_perms()
-                .bits()
-                .to_be_bytes()[0]
-        ))
-        .as_str());
-        expected.push_str(format!("\tktype:\t{}\n", get_key_type(
-            metadata
-                .get_type()
-            ))
-            .as_str());
-        let expected_set: HashSet<&str> = expected.lines().collect(); 
-        let result_set: HashSet<&str> = list.lines().collect(); 
+        expected.push_str(
+            format!(
+                "\tperm:\t{}\n",
+                get_permission_chars(metadata.get_perms().bits().to_be_bytes()[0])
+            )
+            .as_str(),
+        );
+        expected.push_str(format!("\tktype:\t{}\n", get_key_type(metadata.get_type())).as_str());
+        let expected_set: HashSet<&str> = expected.lines().collect();
+        let result_set: HashSet<&str> = list.lines().collect();
         assert_eq!(expected_set, result_set, "Search results do not match");
         entry
             .delete_password()
             .expect("Couldn't delete test-search-by-user");
     }
-
 }

@@ -29,13 +29,13 @@ will be mapped to `User`.
  */
 use std::collections::HashMap;
 
-use security_framework::{item, base::Error};
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
+use security_framework::{base::Error, item};
 
 use super::credential::{
-    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, 
-    CredentialSearch, CredentialSearchApi, CredentialSearchResult
+    Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialSearch,
+    CredentialSearchApi, CredentialSearchResult,
 };
 use super::error::{decode_password, Error as ErrorCode, Result};
 
@@ -230,7 +230,7 @@ pub struct MacCredentialSearch {}
 
 /// Returns an instance of the Mac credential search.
 ///
-/// This creates a new search structure. The by method 
+/// This creates a new search structure. The by method
 /// integrates with system_framework item search. System_framework
 /// only allows searching by Label, Service, or Account.
 pub fn default_credential_search() -> Box<CredentialSearch> {
@@ -242,18 +242,17 @@ impl CredentialSearchApi for MacCredentialSearch {
         search(by, query)
     }
 }
-// Type matching for search types. 
+// Type matching for search types.
 enum MacSearchType {
-    Label, 
-    Service, 
-    Account
+    Label,
+    Service,
+    Account,
 }
 // Perform search, can throw a SearchError, returns a CredentialSearchResult.
 // by must be "label", "service", or "account".
 fn search(by: &str, query: &str) -> CredentialSearchResult {
+    let mut new_search = item::ItemSearchOptions::new();
 
-    let mut new_search = item::ItemSearchOptions::new(); 
-        
     let search_default = &mut new_search
         .class(item::ItemClass::generic_password())
         .limit(item::Limit::All)
@@ -263,61 +262,74 @@ fn search(by: &str, query: &str) -> CredentialSearchResult {
         "label" => MacSearchType::Label,
         "service" => MacSearchType::Service,
         "account" => MacSearchType::Account,
-        _ => return Err(ErrorCode::SearchError("Invalid search parameter, not Label, Service, or Account".to_string()))
+        _ => {
+            return Err(ErrorCode::SearchError(
+                "Invalid search parameter, not Label, Service, or Account".to_string(),
+            ))
+        }
     };
 
     let search = match by {
         MacSearchType::Label => search_default.label(query).search(),
         MacSearchType::Service => search_default.service(query).search(),
-        MacSearchType::Account => search_default.account(query).search()
+        MacSearchType::Account => search_default.account(query).search(),
     };
 
-    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new(); 
+    let mut outer_map: HashMap<String, HashMap<String, String>> = HashMap::new();
 
     let results = match search {
         Ok(items) => items,
-        Err(err) => return Err(ErrorCode::SearchError(err.to_string()))
-    }; 
+        Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
+    };
 
     for item in results {
         match to_credential_search_result(item.simplify_dict(), &mut outer_map) {
-            Ok(_) => {}, 
-            Err(err) => return Err(ErrorCode::SearchError(err.to_string()))
+            Ok(_) => {}
+            Err(err) => return Err(ErrorCode::SearchError(err.to_string())),
         }
     }
 
     Ok(outer_map)
 }
 
-// The returned item from search is converted to CredentialSearchResult type. 
+// The returned item from search is converted to CredentialSearchResult type.
 // If none, a SearchError is returned for no items found. If results found, the "labl"
-// key is removed and placed in the outer map's key to differentiate between results. 
+// key is removed and placed in the outer map's key to differentiate between results.
 fn to_credential_search_result(
     item: Option<HashMap<String, String>>,
-    outer_map: &mut HashMap<String, HashMap<String, String>>
+    outer_map: &mut HashMap<String, HashMap<String, String>>,
 ) -> Result<()> {
     let mut result = match item {
-        None => return Err(ErrorCode::SearchError("Search returned no items".to_string())), 
-        Some(map) => map
+        None => {
+            return Err(ErrorCode::SearchError(
+                "Search returned no items".to_string(),
+            ))
+        }
+        Some(map) => map,
     };
 
-    let mut formatted: HashMap<String, String> = HashMap::new(); 
+    let mut formatted: HashMap<String, String> = HashMap::new();
 
     if result.get_key_value("svce").is_some() {
-        formatted.insert("Service".to_string(), result.get_key_value("svce").unwrap().1.to_string());
+        formatted.insert(
+            "Service".to_string(),
+            result.get_key_value("svce").unwrap().1.to_string(),
+        );
     }
 
     if result.get_key_value("acct").is_some() {
-        formatted.insert("Account".to_string(), result.get_key_value("acct").unwrap().1.to_string()); 
+        formatted.insert(
+            "Account".to_string(),
+            result.get_key_value("acct").unwrap().1.to_string(),
+        );
     }
 
-    let label = result.remove("labl").unwrap_or("EMPTY LABEL".to_string());  
+    let label = result.remove("labl").unwrap_or("EMPTY LABEL".to_string());
 
-    outer_map.insert(format!("{}", label), formatted);
+    outer_map.insert(label.to_string(), formatted);
 
     Ok(())
 }
-
 
 /// Map a Mac API error to a crate error with appropriate annotation
 ///
@@ -339,7 +351,7 @@ mod tests {
     use security_framework::item;
 
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error, Search, List, Limit};
+    use crate::{tests::generate_random_string, Entry, Error, Limit, List, Search};
 
     use super::{default_credential_builder, MacCredential};
     use std::collections::HashSet;
@@ -423,22 +435,22 @@ mod tests {
     }
 
     fn test_search(by: &str) {
-        let name = generate_random_string(); 
-        let entry = entry_new(&name, &name); 
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
         entry
             .set_password("test-search-password")
-            .expect("Failed to set password for test-search"); 
+            .expect("Failed to set password for test-search");
         let result = Search::new()
             .expect("Failed to create new search")
-            .by(by, &name); 
+            .by(by, &name);
         let list = List::list_credentials(result, Limit::All)
-            .expect("Failed to parse HashMap search result"); 
-        let actual: &MacCredential = entry 
+            .expect("Failed to parse HashMap search result");
+        let actual: &MacCredential = entry
             .get_credential()
             .downcast_ref()
             .expect("Not a mac credential");
 
-        let mut new_search = item::ItemSearchOptions::new(); 
+        let mut new_search = item::ItemSearchOptions::new();
 
         let search_default = &mut new_search
             .class(item::ItemClass::generic_password())
@@ -446,29 +458,20 @@ mod tests {
             .load_attributes(true);
 
         let vector_of_results = match by.to_ascii_lowercase().as_str() {
-            "account" => {
-                search_default
-                    .account(actual.account.as_str())
-                    .search()
-            },
-            "service" => {
-                search_default
-                    .service(actual.account.as_str())
-                    .search()
-            },
-            "label" => {
-                search_default
-                    .label(actual.account.as_str())
-                    .search()
-            },
-            _ => panic!()
-        }.expect("Failed to get vector of search results in system-framework");
+            "account" => search_default.account(actual.account.as_str()).search(),
+            "service" => search_default.service(actual.account.as_str()).search(),
+            "label" => search_default.label(actual.account.as_str()).search(),
+            _ => panic!(),
+        }
+        .expect("Failed to get vector of search results in system-framework");
 
-        let mut expected = String::new(); 
+        let mut expected = String::new();
 
         for item in vector_of_results {
-            let mut item = item.simplify_dict().expect("Unable to simplify to dictionary");
-            let label = format!("{}\n", &item.remove("labl").expect("No label found")); 
+            let mut item = item
+                .simplify_dict()
+                .expect("Unable to simplify to dictionary");
+            let label = format!("{}\n", &item.remove("labl").expect("No label found"));
             let service = format!("\tService:\t{}\n", actual.service);
             let account = format!("\tAccount:\t{}\n", actual.account);
             expected.push_str(&label);
@@ -476,14 +479,13 @@ mod tests {
             expected.push_str(&account);
         }
 
-        let expected_set: HashSet<&str> = expected.lines().collect(); 
-        let result_set: HashSet<&str> = list.lines().collect(); 
+        let expected_set: HashSet<&str> = expected.lines().collect();
+        let result_set: HashSet<&str> = list.lines().collect();
         assert_eq!(expected_set, result_set, "Search results do not match");
-        
+
         entry
             .delete_password()
             .expect("Failed to delete mac credential");
-        
     }
 
     #[test]
@@ -493,12 +495,11 @@ mod tests {
 
     #[test]
     fn test_search_by_label() {
-        test_search("label")        
+        test_search("label")
     }
 
     #[test]
     fn test_search_by_account() {
         test_search("account")
     }
-
 }

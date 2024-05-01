@@ -113,7 +113,9 @@ entry creation doesn't go through the platform credential manager.
 It's fine to create an entry on one thread and then immediately use
 it on a different thread.  This is thoroughly tested on all platforms.)
  */
-pub use credential::{Credential, CredentialBuilder, CredentialSearch, CredentialSearchResult, CredentialList, Limit};
+pub use credential::{
+    Credential, CredentialBuilder, CredentialList, CredentialSearch, CredentialSearchResult, Limit,
+};
 pub use error::{Error, Result};
 // Included keystore implementations and default choice thereof.
 
@@ -307,24 +309,23 @@ impl Entry {
 }
 
 fn default_credential_search() -> Result<Search> {
-    let credentials = default::default_credential_search(); 
-    Ok(Search {inner: credentials})
+    let credentials = default::default_credential_search();
+    Ok(Search { inner: credentials })
 }
 
-
 pub struct Search {
-    inner: Box<CredentialSearch>
+    inner: Box<CredentialSearch>,
 }
 
 impl Search {
     /// Create a new instance of the Credential Search.
-    /// 
+    ///
     /// The default credential search is used.
     pub fn new() -> Result<Search> {
         default_credential_search()
     }
     /// Specifies what parameter to search by and the query string
-    /// 
+    ///
     /// Can return a [SearchError](Error::SearchError)
     /// # Example
     ///     let search = keyring::Search::new().unwrap();
@@ -338,25 +339,21 @@ pub struct List {}
 
 impl List {
     /// List the credentials with given search result
-    /// 
+    ///
     /// Takes CredentialSearchResult type and converts to a string
     /// for printing. Matches the Limit type passed to constrain
     /// the amount of results added to the string
     pub fn list_credentials(search_result: CredentialSearchResult, limit: Limit) -> Result<String> {
         match limit {
-            Limit::All => {
-               Self::list_all(search_result)
-            }, 
-            Limit::Max(max) => {
-                Self::list_max(search_result, max)
-            }
+            Limit::All => Self::list_all(search_result),
+            Limit::Max(max) => Self::list_max(search_result, max),
         }
     }
     /// List all credential search results.
-    /// 
-    /// Is the result of passing the Limit::All type 
+    ///
+    /// Is the result of passing the Limit::All type
     /// to list_credentials.
-    fn list_all(result: CredentialSearchResult) -> Result<String> { 
+    fn list_all(result: CredentialSearchResult) -> Result<String> {
         let mut output = String::new();
         match result {
             Ok(search_result) => {
@@ -367,19 +364,19 @@ impl List {
                     }
                 }
                 Ok(output)
-            },
-            Err(err) => Err(Error::SearchError(err.to_string()))
+            }
+            Err(err) => Err(Error::SearchError(err.to_string())),
         }
     }
     /// List a certain amount of credential search results.
-    /// 
-    /// Is the result of passing the Limit::Max(i64) type 
+    ///
+    /// Is the result of passing the Limit::Max(i64) type
     /// to list_credentials. The 64 bit integer represents
-    /// the total of the results passed. 
+    /// the total of the results passed.
     /// They are not sorted or filtered.
     fn list_max(result: CredentialSearchResult, max: i64) -> Result<String> {
         let mut output = String::new();
-        let mut count = 1; 
+        let mut count = 1;
         match result {
             Ok(search_result) => {
                 for (outer_key, inner_map) in search_result {
@@ -387,14 +384,14 @@ impl List {
                     for (key, value) in inner_map {
                         output.push_str(&format!("\t{}:\t{}\n", key, value));
                     }
-                    count += 1; 
+                    count += 1;
                     if count > max {
-                        break; 
+                        break;
                     }
                 }
                 Ok(output)
-            },
-            Err(err) => Err(Error::SearchError(err.to_string()))
+            }
+            Err(err) => Err(Error::SearchError(err.to_string())),
         }
     }
 }

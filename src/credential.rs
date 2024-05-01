@@ -9,7 +9,7 @@ in a thread-safe way, a requirement captured in the [CredentialBuilder] and
 [CredentialApi] types that wrap them.
  */
 use super::Result;
-use std::{collections::HashMap, any::Any};
+use std::{any::Any, collections::HashMap};
 
 /// The API that [credentials](Credential) implement.
 pub trait CredentialApi {
@@ -94,25 +94,28 @@ pub type CredentialBuilder = dyn CredentialBuilderApi + Send + Sync;
 
 /// The API that [credential search](CredentialSearch) implements.
 pub trait CredentialSearchApi {
-    fn by(&self, by: &str, query: &str) -> Result<HashMap<String, HashMap<String, String>>>; 
+    fn by(&self, by: &str, query: &str) -> Result<HashMap<String, HashMap<String, String>>>;
 }
 
 /// A thread-safe implementation of the [CredentialSearch API](CredentialSearchApi).
-pub type CredentialSearch = dyn CredentialSearchApi + Send + Sync; 
+pub type CredentialSearch = dyn CredentialSearchApi + Send + Sync;
 
 /// Type alias to shorten the long (and ugly) Credential Search Result HashMap.
 pub type CredentialSearchResult = Result<HashMap<String, HashMap<String, String>>>;
 
 /// The API that [credential list](CredentialList) implements.
 pub trait CredentialListApi {
-    fn list_credentials(search_result: Result<HashMap<String, HashMap<String, String>>>, limit: Limit) -> Result<()>;
+    fn list_credentials(
+        search_result: Result<HashMap<String, HashMap<String, String>>>,
+        limit: Limit,
+    ) -> Result<()>;
 }
 
 /// A thread-safe implementation of the [CredentialList API](CredentialListApi).
-pub type CredentialList = dyn CredentialListApi + Send + Sync; 
+pub type CredentialList = dyn CredentialListApi + Send + Sync;
 
-/// Type matching enum, allows for constraint of the amount of results returned to the user. 
+/// Type matching enum, allows for constraint of the amount of results returned to the user.
 pub enum Limit {
-    All, 
-    Max(i64)
+    All,
+    Max(i64),
 }
