@@ -358,6 +358,9 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     }
     // this code from https://stackoverflow.com/a/48587463/558006
     let len = (0..).take_while(|&i| *ws.offset(i) != 0).count();
+    if len == 0 {
+        return String::new();
+    }
     let slice = std::slice::from_raw_parts(ws, len);
     String::from_utf16_lossy(slice)
 }
