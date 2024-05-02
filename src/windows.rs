@@ -326,6 +326,9 @@ fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
+    if blob_len == 0 {
+        return Ok(String::new());
+    }
     let blob = unsafe { std::slice::from_raw_parts(blob_pointer, blob_len) };
     // 3rd parties may write credential data with an odd number of bytes,
     // so we make sure that we don't try to decode those as utf16
@@ -355,6 +358,9 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     }
     // this code from https://stackoverflow.com/a/48587463/558006
     let len = (0..).take_while(|&i| *ws.offset(i) != 0).count();
+    if len == 0 {
+        return String::new();
+    }
     let slice = std::slice::from_raw_parts(ws, len);
     String::from_utf16_lossy(slice)
 }

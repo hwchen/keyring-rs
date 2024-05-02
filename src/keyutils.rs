@@ -241,7 +241,7 @@ impl KeyutilsCredential {
 
         // Construct the credential with a URI-style description
         let description = match target {
-            Some(value) if value.is_empty() => {
+            Some("") => {
                 return Err(ErrorCode::Invalid(
                     "target".to_string(),
                     "cannot be empty".to_string(),
