@@ -524,9 +524,10 @@ mod tests {
             .set_password(password)
             .expect("Not a keyutils credential");
         let query = format!("keyring-rs:{}@{}", name, name);
-        let result = Search::new()
-            .expect("Failed to build search")
-            .by("session", &query);
+        let result = Search {
+            inner: Box::new(super::KeyutilsCredentialSearch {}),
+        }
+        .by("session", &query);
         let list = List::list_credentials(result, Limit::All)
             .expect("Failed to parse string from HashMap result");
 
