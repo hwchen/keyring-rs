@@ -57,31 +57,20 @@ pub struct WinCredential {
     pub comment: String,
 }
 
-// Windows API type mappings:
-// DWORD is u32
-// LPCWSTR is *const u16
-// BOOL is i32 (false = 0, true = 1)
-// PCREDENTIALW = *mut CREDENTIALW
-
-impl CredentialApi for WinCredential {
+impl WinCredential {
     /// Create and write a credential with password for this entry.
+    ///
+    /// Password is stored as u8 byte sequence rather than converting it to u16
     ///
     /// The new credential replaces any existing one in the store.
     /// Since there is only one credential with a given _target name_,
     /// there is no chance of ambiguity.
-    fn set_password(&self, password: &str) -> Result<()> {
-        self.validate_attributes(password)?;
+    pub fn set_password_blob(&self, blob: &Vec<u8>) -> Result<()> {
+        self.validate_attributes_blob(blob)?;
         let mut username = to_wstr(&self.username);
         let mut target_name = to_wstr(&self.target_name);
         let mut target_alias = to_wstr(&self.target_alias);
         let mut comment = to_wstr(&self.comment);
-        // Password strings are converted to UTF-16, because that's the native
-        // charset for Windows strings.  This allows editing of the password in
-        // the Windows native UI.  But the storage for the credential is actually
-        // a little-endian blob, because passwords can contain anything.
-        let blob_u16 = to_wstr_no_null(password);
-        let mut blob = vec![0; blob_u16.len() * 2];
-        LittleEndian::write_u16_into(&blob_u16, &mut blob);
         let blob_len = blob.len() as u32;
         let flags = CRED_FLAGS::default();
         let cred_type = CRED_TYPE_GENERIC;
@@ -100,7 +89,7 @@ impl CredentialApi for WinCredential {
             Comment: comment.as_mut_ptr(),
             LastWritten: last_written,
             CredentialBlobSize: blob_len,
-            CredentialBlob: blob.as_mut_ptr(),
+            CredentialBlob: blob.clone().as_mut_ptr(),
             Persist: persist,
             AttributeCount: attribute_count,
             Attributes: attributes,
@@ -120,6 +109,39 @@ impl CredentialApi for WinCredential {
     ///
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
+    pub fn get_password_blob(&self) -> Result<Vec<u8>> {
+        self.extract_from_platform(|c| Ok(extract_password_blob(c)))
+    }
+}
+
+// Windows API type mappings:
+// DWORD is u32
+// LPCWSTR is *const u16
+// BOOL is i32 (false = 0, true = 1)
+// PCREDENTIALW = *mut CREDENTIALW
+
+impl CredentialApi for WinCredential {
+    /// Create and write a credential with password for this entry.
+    ///
+    /// The new credential replaces any existing one in the store.
+    /// Since there is only one credential with a given _target name_,
+    /// there is no chance of ambiguity.
+    fn set_password(&self, password: &str) -> Result<()> {
+        self.validate_attributes_password(password)?;
+        // Password strings are converted to UTF-16, because that's the native
+        // charset for Windows strings.  This allows editing of the password in
+        // the Windows native UI.  But the storage for the credential is actually
+        // a little-endian blob, because passwords can contain anything.
+        let blob_u16 = to_wstr_no_null(password);
+        let mut blob = vec![0; blob_u16.len() * 2];
+        LittleEndian::write_u16_into(&blob_u16, &mut blob);
+        self.set_password_blob(&blob)
+    }
+
+    /// Look up the password for this entry, if any.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
     fn get_password(&self) -> Result<String> {
         self.extract_from_platform(extract_password)
     }
@@ -129,7 +151,7 @@ impl CredentialApi for WinCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn delete_password(&self) -> Result<()> {
-        self.validate_attributes("")?;
+        self.validate_attributes()?;
         let target_name = to_wstr(&self.target_name);
         let cred_type = CRED_TYPE_GENERIC;
         match unsafe { CredDeleteW(target_name.as_ptr(), cred_type, 0) } {
@@ -146,7 +168,7 @@ impl CredentialApi for WinCredential {
 }
 
 impl WinCredential {
-    fn validate_attributes(&self, password: &str) -> Result<()> {
+    fn validate_attributes(&self) -> Result<()> {
         if self.username.len() > CRED_MAX_USERNAME_LENGTH as usize {
             return Err(ErrorCode::TooLong(
                 String::from("user"),
@@ -177,9 +199,27 @@ impl WinCredential {
                 CRED_MAX_STRING_LENGTH,
             ));
         }
+        Ok(())
+    }
+
+    fn validate_attributes_password(&self, password: &str) -> Result<()> {
+        self.validate_attributes()?;
+
         // We're going to store the password as UTF-16, so make sure to consider its length as UTF-16.
         // `encode_utf16` gives us the count of `u16`s, so we multiply by 2 to get the number of bytes.
         if password.encode_utf16().count() * 2 > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
+            return Err(ErrorCode::TooLong(
+                String::from("password"),
+                CRED_MAX_CREDENTIAL_BLOB_SIZE,
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_attributes_blob(&self, blob: &[u8]) -> Result<()> {
+        self.validate_attributes()?;
+
+        if blob.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize {
             return Err(ErrorCode::TooLong(
                 String::from("password"),
                 CRED_MAX_CREDENTIAL_BLOB_SIZE,
@@ -199,7 +239,7 @@ impl WinCredential {
     where
         F: FnOnce(&CREDENTIALW) -> Result<T>,
     {
-        self.validate_attributes("")?;
+        self.validate_attributes()?;
         let mut p_credential = MaybeUninit::uninit();
         // at this point, p_credential is just a pointer to nowhere.
         // The allocation happens in the `CredReadW` call below.
@@ -291,7 +331,7 @@ impl WinCredential {
                 comment: metadata,
             }
         };
-        credential.validate_attributes("")?;
+        credential.validate_attributes()?;
         Ok(credential)
     }
 }
@@ -322,14 +362,19 @@ impl CredentialBuilderApi for WinCredentialBuilder {
     }
 }
 
-fn extract_password(credential: &CREDENTIALW) -> Result<String> {
+fn extract_password_blob(credential: &CREDENTIALW) -> Vec<u8> {
     // get password blob
     let blob_pointer: *const u8 = credential.CredentialBlob;
     let blob_len: usize = credential.CredentialBlobSize as usize;
     if blob_len == 0 {
-        return Ok(String::new());
+        return Vec::new();
     }
     let blob = unsafe { std::slice::from_raw_parts(blob_pointer, blob_len) };
+    blob.to_vec()
+}
+
+fn extract_password(credential: &CREDENTIALW) -> Result<String> {
+    let blob = extract_password_blob(credential);
     // 3rd parties may write credential data with an odd number of bytes,
     // so we make sure that we don't try to decode those as utf16
     if blob.len() % 2 != 0 {
@@ -339,7 +384,7 @@ fn extract_password(credential: &CREDENTIALW) -> Result<String> {
     // Now we know this _can_ be a UTF-16 string, so convert it to
     // as UTF-16 vector and then try to decode it.
     let mut blob_u16 = vec![0; blob.len() / 2];
-    LittleEndian::read_u16_into(blob, &mut blob_u16);
+    LittleEndian::read_u16_into(blob.as_slice(), &mut blob_u16);
     String::from_utf16(&blob_u16).map_err(|_| ErrorCode::BadEncoding(blob.to_vec()))
 }
 
@@ -502,7 +547,7 @@ mod tests {
             }
             let expected_length = if attr == "password" { len * 2 } else { len };
             validate_attribute_too_long(
-                bad_cred.validate_attributes(password),
+                bad_cred.validate_attributes_password(password),
                 attr,
                 expected_length,
             );
@@ -522,7 +567,7 @@ mod tests {
         let password: String = (0..len).map(|_| "笑").collect();
 
         assert!(password.len() > CRED_MAX_CREDENTIAL_BLOB_SIZE as usize);
-        cred.validate_attributes(&password)
+        cred.validate_attributes_password(&password)
             .expect("Password of appropriate length in UTF16 was invalid");
     }
 
