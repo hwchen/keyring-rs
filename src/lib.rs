@@ -113,8 +113,11 @@ entry creation doesn't go through the platform credential manager.
 It's fine to create an entry on one thread and then immediately use
 it on a different thread.  This is thoroughly tested on all platforms.)
  */
+use std::collections::HashMap;
+
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
+use keyring_search::CredentialSearchResult;
 
 // Included keystore implementations and default choice thereof.
 
@@ -235,6 +238,47 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
     Ok(Entry { inner: credential })
 }
 
+fn default_search(service: bool, target: bool, user: bool, query: &str) -> CredentialSearchResult {
+    let search = match keyring_search::Search::new() {
+        Ok(search) => search,
+        Err(err) => return Err(keyring_search::Error::SearchError(err.to_string())),
+    };
+
+    if service {
+        return search.by_service(query);
+    } else if target {
+        return search.by_target(query);
+    } else if user {
+        return search.by_user(query);
+    } else {
+        let mut results = vec![];
+        if let Ok(service_result) = search.by_service(query) {
+            results.push(service_result)
+        }
+        if let Ok(target_result) = search.by_target(query) {
+            results.push(target_result)
+        }
+        if let Ok(user_result) = search.by_user(query) {
+            results.push(user_result)
+        }
+
+        if results.len() > 1 {
+            for index in 0..results.len() - 1 {
+                if results[0] == results[index] {
+                    results.remove(index);
+                }
+            }
+        }
+
+        let mut final_result: HashMap<String, HashMap<String, String>> = HashMap::new();
+        for result in results {
+            final_result.extend(result);
+        }
+
+        Ok(final_result)
+    }
+}
+
 #[derive(Debug)]
 pub struct Entry {
     inner: Box<Credential>,
@@ -305,6 +349,26 @@ impl Entry {
     pub fn get_credential(&self) -> &dyn std::any::Any {
         self.inner.as_any()
     }
+
+    pub fn search(query: &str) -> String {
+        let result = default_search(false, false, false, query);
+        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    }
+
+    pub fn search_services(query: &str) -> String {
+        let result = default_search(true, false, false, query);
+        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    }
+
+    pub fn search_targets(query: &str) -> String {
+        let result = default_search(false, true, false, query);
+        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    }
+
+    pub fn search_users(query: &str) -> String {
+        let result = default_search(false, false, true, query);
+        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    }
 }
 
 #[cfg(doctest)]
@@ -318,6 +382,8 @@ doc_comment::doctest!("../README.md", readme);
 // Since iOS doesn't use any of these generics, we allow dead code.
 #[allow(dead_code)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::{credential::CredentialApi, Entry, Error, Result};
 
     /// Create a platform-specific credential given the constructor, service, and user
@@ -439,5 +505,44 @@ mod tests {
             &entry,
             "このきれいな花は桜です",
         );
+    }
+
+    #[test]
+    pub fn test_search_no_duplicates() {
+        let names = vec![
+            generate_random_string(),
+            generate_random_string(),
+            generate_random_string(),
+        ];
+
+        let mut entries = Vec::new();
+
+        for name in &names {
+            entries.push(
+                Entry::new_with_target(&name, "test-service", "test-user")
+                    .expect("Error constructing entry"),
+            )
+        }
+
+        for entry in &entries {
+            entry
+                .set_password("test-password")
+                .expect("Error setting password")
+        }
+
+        let search_users = Entry::search_users("test");
+        let users_set: HashSet<&str> = search_users.lines().collect();
+        let search_services = Entry::search_services("test");
+        let services_set: HashSet<&str> = search_services.lines().collect();
+        let search_default = Entry::search("test");
+        let search_set: HashSet<&str> = search_default.lines().collect();
+
+        assert_eq!(users_set, services_set);
+        assert_eq!(users_set, search_set);
+        assert_eq!(services_set, search_set);
+
+        for entry in &entries {
+            entry.delete_password().expect("error deleting entry")
+        }
     }
 }
