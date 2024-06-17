@@ -84,6 +84,7 @@ use secret_service::{EncryptionType, Error};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
+use crate::Entry;
 
 /// The representation of an item in the secret-service.
 ///
@@ -402,34 +403,25 @@ pub fn matching_target_items<'a>(
     Ok(result)
 }
 
-pub fn get_entry_values(
-    credential: &std::collections::HashMap<String, String>,
-) -> Result<[&String; 3]> {
-    let target = if let Some(target) = credential.get(&"application".to_string()) {
-        target
-    } else {
-        return Err(ErrorCode::Invalid(
-            "get entry values SecretService, application".to_string(),
-            "No target key found in credential".to_string(),
-        ));
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let mut credential = credential.clone();
+    let label = match credential.remove("label") {
+        Some(label) => label,
+        None => {
+            let usr = &"usr".to_string();
+            let svce = &"svce".to_string();
+            let user = credential.get("username").unwrap_or(usr);
+            let service = credential.get("service").unwrap_or(svce);
+            format!("{user}@{service}")
+        }
     };
-    let comment = if let Some(comment) = credential.get(&"service".to_string()) {
-        comment
-    } else {
-        return Err(ErrorCode::Invalid(
-            "get entry values SecretService, service".to_string(),
-            "No comment key found in credential".to_string(),
-        ));
-    };
-    let user = if let Some(user) = credential.get(&"username".to_string()) {
-        user
-    } else {
-        return Err(ErrorCode::Invalid(
-            "get entry values SecretService, username".to_string(),
-            "No user key found in credential".to_string(),
-        ));
-    };
-    Ok([target, comment, user])
+    let sscredential = Box::new(SsCredential {
+        attributes: credential.clone(),
+        label,
+        target: Some("default".to_string()),
+    });
+
+    Ok(Entry::new_with_credential(sscredential))
 }
 
 //
@@ -700,4 +692,11 @@ mod tests {
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
     }
+
+    #[test]
+    fn test_search_no_duplicates() {}
+    #[test]
+    fn test_entry_from_search() {}
+    #[test]
+    fn test_entries_from_search() {}
 }

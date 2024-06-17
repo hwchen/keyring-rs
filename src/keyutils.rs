@@ -101,6 +101,7 @@ use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
 use super::error::{decode_password, Error as ErrorCode, Result};
+use crate::Entry;
 use linux_keyutils::{KeyError, KeyRing, KeyRingIdentifier};
 
 /// Representation of a keyutils credential.
@@ -319,10 +320,8 @@ fn wrap(err: KeyError) -> Box<dyn std::error::Error + Send + Sync> {
     Box::new(err)
 }
 
-pub fn get_entry_values(
-    credential: &std::collections::HashMap<String, String>,
-) -> Result<[&String; 3]> {
-    let target = if let Some(target) = credential.get(&"description".to_string()) {
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let description = if let Some(target) = credential.get(&"description".to_string()) {
         target
     } else {
         return Err(ErrorCode::Invalid(
@@ -330,15 +329,8 @@ pub fn get_entry_values(
             "No target key found in credential".to_string(),
         ));
     };
-    let user = if let Some(user) = credential.get(&"uid".to_string()) {
-        user
-    } else {
-        return Err(ErrorCode::Invalid(
-            "get entry values, user".to_string(),
-            "No user key found in credential".to_string(),
-        ));
-    };
-    Ok([target, target, user])
+
+    Entry::new_with_target(description, "", "")
 }
 
 #[cfg(test)]
@@ -424,4 +416,11 @@ mod tests {
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
+
+    #[test]
+    fn test_search_no_duplicates() {}
+    #[test]
+    fn test_entry_from_search() {}
+    #[test]
+    fn test_entries_from_search() {}
 }

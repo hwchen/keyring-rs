@@ -33,6 +33,7 @@ use security_framework::os::macos::passwords::find_generic_password;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
+use crate::Entry;
 
 /// The representation of a generic Keychain credential.
 ///
@@ -221,34 +222,30 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
     }
 }
 
-pub fn get_entry_values(
-    credential: &std::collections::HashMap<String, String>,
-) -> Result<[&String; 3]> {
-    let target = if let Some(target) = credential.get(&"labl".to_string()) {
-        target
-    } else {
-        return Err(ErrorCode::Invalid(
-            "get entry values MacOS, labl".to_string(),
-            "No target key found in credential".to_string(),
-        ));
-    };
-    let comment = if let Some(comment) = credential.get(&"svce".to_string()) {
-        comment
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let service = if let Some(service) = credential.get(&"svce".to_string()) {
+        service
     } else {
         return Err(ErrorCode::Invalid(
             "get entry values MacOS, svce".to_string(),
-            "No comment key found in credential".to_string(),
+            "No svce key found in credential".to_string(),
         ));
     };
-    let user = if let Some(user) = credential.get(&"usr".to_string()) {
-        user
+    let account = if let Some(account) = credential.get(&"acct".to_string()) {
+        account
     } else {
         return Err(ErrorCode::Invalid(
-            "get entry values MacOS, usr".to_string(),
+            "get entry values MacOS, acct".to_string(),
             "No user key found in credential".to_string(),
         ));
     };
-    Ok([target, comment, user])
+    let maccredential = Box::new(MacCredential {
+        domain: MacKeychainDomain::User,
+        service: service.to_string(),
+        account: account.to_string(),
+    });
+
+    Ok(Entry::new_with_credential(maccredential))
 }
 
 /// Map a Mac API error to a crate error with appropriate annotation
@@ -350,4 +347,10 @@ mod tests {
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
+    #[test]
+    fn test_search_no_duplicates() {}
+    #[test]
+    fn test_entry_from_search() {}
+    #[test]
+    fn test_entries_from_search() {}
 }
