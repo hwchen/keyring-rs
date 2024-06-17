@@ -402,6 +402,36 @@ pub fn matching_target_items<'a>(
     Ok(result)
 }
 
+pub fn get_entry_values(
+    credential: &std::collections::HashMap<String, String>,
+) -> Result<[&String; 3]> {
+    let target = if let Some(target) = credential.get(&"application".to_string()) {
+        target
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values SecretService, application".to_string(),
+            "No target key found in credential".to_string(),
+        ));
+    };
+    let comment = if let Some(comment) = credential.get(&"service".to_string()) {
+        comment
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values SecretService, service".to_string(),
+            "No comment key found in credential".to_string(),
+        ));
+    };
+    let user = if let Some(user) = credential.get(&"username".to_string()) {
+        user
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values SecretService, username".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+    Ok([target, comment, user])
+}
+
 //
 // Error utilities
 //

@@ -365,6 +365,36 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     String::from_utf16_lossy(slice)
 }
 
+pub fn get_entry_values(
+    credential: &std::collections::HashMap<String, String>,
+) -> Result<[&String; 3]> {
+    let target = if let Some(target) = credential.get(&"Target".to_string()) {
+        target
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, target".to_string(),
+            "No target key found in credential".to_string(),
+        ));
+    };
+    let comment = if let Some(comment) = credential.get(&"Comment".to_string()) {
+        comment
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, service/comment".to_string(),
+            "No comment key found in credential".to_string(),
+        ));
+    };
+    let user = if let Some(user) = credential.get(&"User".to_string()) {
+        user
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, user".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+    Ok([target, comment, user])
+}
+
 /// Windows error codes are `DWORDS` which are 32-bit unsigned ints.
 #[derive(Debug)]
 pub struct Error(pub u32);

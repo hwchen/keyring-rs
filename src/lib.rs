@@ -117,7 +117,7 @@ use std::collections::HashMap;
 
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
-use keyring_search::CredentialSearchResult;
+use keyring_search::{CredentialSearchResult, Error as SearchError, Search};
 
 // Included keystore implementations and default choice thereof.
 
@@ -239,17 +239,17 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
 }
 
 fn default_search(service: bool, target: bool, user: bool, query: &str) -> CredentialSearchResult {
-    let search = match keyring_search::Search::new() {
+    let search = match Search::new() {
         Ok(search) => search,
-        Err(err) => return Err(keyring_search::Error::SearchError(err.to_string())),
+        Err(err) => return Err(SearchError::SearchError(err.to_string())),
     };
 
     if service {
-        return search.by_service(query);
+        search.by_service(query)
     } else if target {
-        return search.by_target(query);
+        search.by_target(query)
     } else if user {
-        return search.by_user(query);
+        search.by_user(query)
     } else {
         let mut results = vec![];
         if let Ok(service_result) = search.by_service(query) {
@@ -261,7 +261,7 @@ fn default_search(service: bool, target: bool, user: bool, query: &str) -> Crede
         if let Ok(user_result) = search.by_user(query) {
             results.push(user_result)
         }
-
+        // More than 1 result, check for duplicates
         if results.len() > 1 {
             for index in 0..results.len() - 1 {
                 if results[0] == results[index] {
@@ -350,24 +350,89 @@ impl Entry {
         self.inner.as_any()
     }
 
-    pub fn search(query: &str) -> String {
-        let result = default_search(false, false, false, query);
-        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    /// Default search method.
+    ///
+    /// Takes in a query and searches all possible options,
+    /// filtering out duplicate results and performing the most
+    /// broad search.
+    pub fn search(query: &str) -> CredentialSearchResult {
+        default_search(false, false, false, query)
     }
 
-    pub fn search_services(query: &str) -> String {
-        let result = default_search(true, false, false, query);
-        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    /// Search credential services.
+    ///
+    /// Only searches based on the service a credential was
+    /// created under.
+    pub fn search_services(query: &str) -> CredentialSearchResult {
+        default_search(true, false, false, query)
     }
 
-    pub fn search_targets(query: &str) -> String {
-        let result = default_search(false, true, false, query);
-        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    /// Search credential targets.
+    ///
+    /// Only searches based on the target a credential was
+    /// created under.
+    pub fn search_targets(query: &str) -> CredentialSearchResult {
+        default_search(false, true, false, query)
     }
 
-    pub fn search_users(query: &str) -> String {
-        let result = default_search(false, false, true, query);
-        keyring_search::List::list_credentials(result, keyring_search::Limit::All).expect("Error")
+    /// Search credential users.
+    ///
+    /// Only searches based on the username a credential was
+    /// created under.
+    pub fn search_users(query: &str) -> CredentialSearchResult {
+        default_search(false, false, true, query)
+    }
+
+    /// Create entry from search results.
+    ///
+    /// Pass a `&CredentialSearchResult` and the ID to the credential.
+    /// `CredentialSearchResult` is a bilevel hashmap: `HashMap<String, HashMap<String, String>>`,
+    /// The outer map's key corresponds to the ID of the result from 1 to the length of the map.
+    /// The inner map contains the keys and values of the metadata of the result, i.e.
+    /// target, service, user, last modified/date written, etc. In the case of keyutils, the Linux
+    /// Kernel keystore provides IDs for all credentials, the user must know the ID of the credential 
+    /// to manipulate and pass this value to `from_search_results`. Since keyutils only returns one
+    /// result, this is the only valid parameter. 
+    /// # Example
+    /// First result:
+    /// ```rust
+    /// use keyring::Entry;
+    ///
+    /// let result = &Entry::search("Foo");
+    /// let entry = Entry::from_search_results(result, 1);
+    /// ```
+    /// All results:
+    /// ```rust
+    /// use keyring::Entry;
+    ///
+    /// let result = Entry::search("Foo");
+    /// let size = result.as_ref().expect("No results").keys().len();
+    /// let entries: Vec<Entry> = vec![];
+    /// for index in 0..=size {
+    ///     let entry = Entry::from_search_results(&result, index);
+    /// }
+    /// ```
+    pub fn from_search_results(result: &CredentialSearchResult, id: usize) -> Result<Entry> {
+        let result = match result {
+            Ok(result) => result,
+            Err(err) => {
+                return Err(Error::Invalid(
+                    "from search results".to_string(),
+                    err.to_string(),
+                ))
+            }
+        };
+
+        let credential = match result.get_key_value(&id.to_string()) {
+            Some(credential) => credential.1,
+            None => return Err(Error::NoEntry),
+        };
+        // values[0] = target
+        // values[1] = service
+        // values[2] = user
+        let values: [&String; 3] = default::get_entry_values(credential)?;
+
+        Self::new_with_target(values[0], values[1], values[2])
     }
 }
 
@@ -508,7 +573,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_search_no_duplicates() {
+    fn test_search_no_duplicates() {
         let names = vec![
             generate_random_string(),
             generate_random_string(),
@@ -530,11 +595,20 @@ mod tests {
                 .expect("Error setting password")
         }
 
-        let search_users = Entry::search_users("test");
+        let search_users = keyring_search::List::list_credentials(
+            &Entry::search_users("test"),
+            keyring_search::Limit::All,
+        );
         let users_set: HashSet<&str> = search_users.lines().collect();
-        let search_services = Entry::search_services("test");
+        let search_services = keyring_search::List::list_credentials(
+            &Entry::search_services("test"),
+            keyring_search::Limit::All,
+        );
         let services_set: HashSet<&str> = search_services.lines().collect();
-        let search_default = Entry::search("test");
+        let search_default = keyring_search::List::list_credentials(
+            &Entry::search("test"),
+            keyring_search::Limit::All,
+        );
         let search_set: HashSet<&str> = search_default.lines().collect();
 
         assert_eq!(users_set, services_set);
@@ -543,6 +617,111 @@ mod tests {
 
         for entry in &entries {
             entry.delete_password().expect("error deleting entry")
+        }
+    }
+
+    #[test]
+    fn test_entry_from_search() {
+        let name = generate_random_string();
+        let password1 = "password1";
+        let password2 = "password2";
+        let entry = Entry::new_with_target(&name, "test-service", "test-user")
+            .expect("Error creating new entry");
+        entry
+            .set_password(password1)
+            .expect("error setting password1");
+
+        let old_password = entry
+            .get_password()
+            .expect("failed to get password from old entry");
+        let results = &Entry::search(&name);
+
+        let result_entry =
+            Entry::from_search_results(results, 1).expect("Failed to create entry from results");
+        result_entry
+            .set_password(password2)
+            .expect("error setting password2");
+
+        let new_password = result_entry
+            .get_password()
+            .expect("Failed to get password from new entry");
+
+        assert_eq!(password1, old_password);
+        assert_eq!(password2, new_password);
+
+        result_entry
+            .delete_password()
+            .expect("Failed to delete new entry");
+        let e = entry.delete_password().unwrap_err();
+
+        assert!(matches!(e, Error::NoEntry));
+    }
+
+    #[test]
+    fn test_entries_from_search() {
+        let names = [
+            generate_random_string(),
+            generate_random_string(),
+            generate_random_string(),
+        ];
+
+        let mut entries: Vec<Entry> = vec![];
+        let password1 = "password1";
+        let password2 = "password2";
+        for name in names {
+            let entry = Entry::new_with_target(&name, "test-service", "test-user")
+                .expect("Error creating new entry");
+            entry
+                .set_password(password1)
+                .expect("error setting password1");
+            entries.push(entry);
+        }
+
+        let mut old_passwords = vec![];
+
+        for entry in &entries {
+            let old_password = entry
+                .get_password()
+                .expect("failed to get password from old entry");
+            old_passwords.push(old_password);
+        }
+
+        let result = &Entry::search("test");
+
+        let size = result
+            .as_ref()
+            .expect("Error getting size of outer map")
+            .keys()
+            .len(); 
+        let mut result_entries: Vec<Entry> = vec![];
+        for index in 1..=size {
+            let msg = format!("Failed to create entry at index: {index}");
+            let entry = Entry::from_search_results(result, index).expect(&msg);
+            entry
+                .set_password(&password2)
+                .expect("Error setting new password");
+            result_entries.push(entry);
+        }
+
+        let mut new_passwords = vec![];
+
+        for entry in &result_entries {
+            let new_password = entry.get_password().expect("error getting new password");
+            new_passwords.push(new_password);
+        }
+
+        for i in 0..new_passwords.len() {
+            assert_eq!(password1, old_passwords[i]);
+            assert_eq!(password2, new_passwords[i]);
+        }
+
+        for entry in &result_entries {
+            entry.delete_password().expect("Error deleting password");
+        }
+
+        for entry in &entries {
+            let e = entry.delete_password().unwrap_err();
+            assert!(matches!(e, Error::NoEntry));
         }
     }
 }
