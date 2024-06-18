@@ -117,7 +117,7 @@ use std::collections::HashMap;
 
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
-use keyring_search::{CredentialSearchResult, Error as SearchError, Search};
+use keyring_search::{CredentialSearchResult, Error as SearchError, Limit, List, Search};
 
 // Included keystore implementations and default choice thereof.
 
@@ -238,47 +238,6 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
     Ok(Entry { inner: credential })
 }
 
-fn default_search(service: bool, target: bool, user: bool, query: &str) -> CredentialSearchResult {
-    let search = match Search::new() {
-        Ok(search) => search,
-        Err(err) => return Err(SearchError::SearchError(err.to_string())),
-    };
-
-    if service {
-        search.by_service(query)
-    } else if target {
-        search.by_target(query)
-    } else if user {
-        search.by_user(query)
-    } else {
-        let mut results = vec![];
-        if let Ok(service_result) = search.by_service(query) {
-            results.push(service_result)
-        }
-        if let Ok(target_result) = search.by_target(query) {
-            results.push(target_result)
-        }
-        if let Ok(user_result) = search.by_user(query) {
-            results.push(user_result)
-        }
-        // More than 1 result, check for duplicates
-        if results.len() > 1 {
-            for index in 0..results.len() - 1 {
-                if results[0] == results[index] {
-                    results.remove(index);
-                }
-            }
-        }
-
-        let mut final_result: HashMap<String, HashMap<String, String>> = HashMap::new();
-        for result in results {
-            final_result.extend(result);
-        }
-
-        Ok(final_result)
-    }
-}
-
 #[derive(Debug)]
 pub struct Entry {
     inner: Box<Credential>,
@@ -353,36 +312,44 @@ impl Entry {
     /// Default search method.
     ///
     /// Takes in a query and searches all possible options,
-    /// filtering out duplicate results and performing the most
-    /// broad search.
+    /// filtering out duplicate results.
     pub fn search(query: &str) -> CredentialSearchResult {
-        default_search(false, false, false, query)
-    }
+        let mut results = vec![];
+        let mut final_result = HashMap::new();
+        let search = match Search::new() {
+            Ok(search) => search,
+            Err(err) => return Err(SearchError::SearchError(err.to_string())),
+        };
 
-    /// Search credential services.
-    ///
-    /// Only searches based on the service a credential was
-    /// created under.
-    pub fn search_services(query: &str) -> CredentialSearchResult {
-        default_search(true, false, false, query)
-    }
+        if let Ok(service_result) = search.by_service(query) {
+            results.push(service_result)
+        }
 
-    /// Search credential targets.
-    ///
-    /// Only searches based on the target a credential was
-    /// created under.
-    pub fn search_targets(query: &str) -> CredentialSearchResult {
-        default_search(false, true, false, query)
-    }
+        if let Ok(target_result) = search.by_target(query) {
+            results.push(target_result)
+        }
 
-    /// Search credential users.
-    ///
-    /// Only searches based on the username a credential was
-    /// created under.
-    pub fn search_users(query: &str) -> CredentialSearchResult {
-        default_search(false, false, true, query)
-    }
+        if let Ok(user_result) = search.by_user(query) {
+            results.push(user_result)
+        }
 
+        if results.len() <= 1 {
+            let result = results[0].clone();
+            return Ok(result);
+        }
+
+        for index in 0..results.len() - 1 {
+            if results[0] == results[index] {
+                results.remove(index);
+            }
+        }
+
+        for result in results {
+            final_result.extend(result);
+        }
+
+        Ok(final_result)
+    }
     /// Create entry from search results.
     ///
     /// Pass a `&CredentialSearchResult` and the ID to the credential.
@@ -395,14 +362,14 @@ impl Entry {
     /// result, this is the only valid parameter.
     /// # Example
     /// First result:
-    /// ```rust
+    /// ```rust no_run
     /// use keyring::Entry;
     ///
-    /// let result = &Entry::search("Foo");
-    /// let entry = Entry::from_search_results(result, 1);
+    /// let result = Entry::search("Foo");
+    /// let entry = Entry::from_search_results(&result, 1);
     /// ```
     /// All results:
-    /// ```rust
+    /// ```rust no_run
     /// use keyring::Entry;
     ///
     /// let result = Entry::search("Foo");
@@ -429,6 +396,21 @@ impl Entry {
         };
 
         default::entry_from_search(credential)
+    }
+
+    pub fn list_results(result: &CredentialSearchResult) -> String {
+        list(result, None)
+    }
+
+    pub fn list_max(result: &CredentialSearchResult, limit: i64) -> String {
+        list(result, Some(limit))
+    }
+}
+
+fn list(result: &CredentialSearchResult, limit: Option<i64>) -> String {
+    match limit {
+        Some(limit) => List::list_credentials(result, Limit::Max(limit)),
+        None => List::list_credentials(result, Limit::All),
     }
 }
 

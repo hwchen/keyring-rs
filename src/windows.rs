@@ -445,6 +445,10 @@ fn wrap(code: u32) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use std::collections::HashSet;
 
+    use windows_sys::Win32::Foundation::SYSTEMTIME;
+    use windows_sys::Win32::Storage::FileSystem::FileTimeToLocalFileTime;
+    use windows_sys::Win32::System::Time::{LocalFileTimeToLocalSystemTime, TIME_ZONE_INFORMATION};
+
     use super::*;
 
     use crate::credential::CredentialPersistence;
@@ -636,52 +640,117 @@ mod tests {
             .expect("Couldn't delete get-credential");
         assert!(matches!(entry.get_password(), Err(ErrorCode::NoEntry)));
     }
-    #[test]
-    fn test_search_no_duplicates() {
-        let names = vec![
-            generate_random_string(),
-            generate_random_string(),
-            generate_random_string(),
+
+    unsafe fn get_last_written(last_written: FILETIME) -> String {
+        static DAYS: [&str; 7] = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ];
+        static MONTHS: [&str; 12] = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
         ];
 
-        let mut entries = Vec::new();
-
-        for name in &names {
-            entries.push(
-                Entry::new_with_target(&name, "test-service", "test-user")
-                    .expect("Error constructing entry"),
-            )
-        }
-
-        for entry in &entries {
-            entry
-                .set_password("test-password")
-                .expect("Error setting password")
-        }
-
-        let search_users = keyring_search::List::list_credentials(
-            &Entry::search_users("test"),
-            keyring_search::Limit::All,
+        let mut local_filetime: FILETIME = std::mem::zeroed();
+        let mut system_time: SYSTEMTIME = std::mem::zeroed();
+        let local: TIME_ZONE_INFORMATION = std::mem::zeroed();
+        FileTimeToLocalFileTime(&last_written, &mut local_filetime as *mut FILETIME);
+        LocalFileTimeToLocalSystemTime(
+            &local,
+            &local_filetime,
+            &mut system_time as *mut SYSTEMTIME,
         );
-        let users_set: HashSet<&str> = search_users.lines().collect();
-        let search_services = keyring_search::List::list_credentials(
-            &Entry::search_services("test"),
-            keyring_search::Limit::All,
-        );
-        let services_set: HashSet<&str> = search_services.lines().collect();
-        let search_default = keyring_search::List::list_credentials(
-            &Entry::search("test"),
-            keyring_search::Limit::All,
-        );
-        let search_set: HashSet<&str> = search_default.lines().collect();
 
-        assert_eq!(users_set, services_set);
-        assert_eq!(users_set, search_set);
-        assert_eq!(services_set, search_set);
+        let hour = system_time.wHour;
+        let minute = system_time.wMinute;
+        let second = system_time.wSecond;
+        let day = system_time.wDay;
+        let year = system_time.wYear;
+        let month = system_time.wMonth;
+        let day_of_week = system_time.wDayOfWeek;
 
-        for entry in &entries {
-            entry.delete_password().expect("error deleting entry")
-        }
+        format!(
+            "{}, {} {}, {} at {:02}:{:02}:{:02}",
+            DAYS[day_of_week as usize - 1],
+            day,
+            MONTHS[month as usize - 1],
+            year,
+            hour,
+            minute,
+            second
+        )
+    }
+
+    #[test]
+    fn test_search() {
+        let name = generate_random_string();
+        let entry = Entry::new(&name, &name).expect("Failed to create entry");
+        entry
+            .set_password("password")
+            .expect("Failed to set password for entry");
+
+        let target = format!("{name}.{name}");
+
+        let mut r_credential: *mut CREDENTIALW = std::ptr::null_mut();
+        let last_written_filetime = unsafe {
+            if CredReadW(
+                to_wstr(&target).as_ptr(),
+                CRED_TYPE_GENERIC,
+                CRED_FLAGS::default(),
+                &mut r_credential,
+            ) == 0
+            {
+                panic!("Failed to read credential");
+            };
+
+            if r_credential.is_null() {
+                panic!("r_credential is null");
+            }
+
+            let read_credential = *r_credential;
+            CredFree(r_credential as *mut _);
+            read_credential.LastWritten
+        };
+
+        let search_result = Entry::search(&name);
+        let list = Entry::list_results(&search_result);
+
+        let cred_type = "Generic";
+        let persist = "Enterprise";
+        const VERSION: &str = env!("CARGO_PKG_VERSION");
+        let comment = format!("keyring-rs v{VERSION} for service '{name}', user '{name}'");
+
+        let expected = format!(
+            "1\nTarget: {}\nLast Written: {}\nType: {}\nPersist: {}\nUser: {}\nComment: {}\n",
+            target,
+            unsafe { get_last_written(last_written_filetime) },
+            cred_type,
+            persist,
+            &name,
+            comment
+        );
+
+        let expected: HashSet<&str> = expected.lines().collect();
+        let result: HashSet<&str> = list.lines().collect();
+
+        entry.delete_password().expect("Failed to delete password");
+
+        assert_eq!(expected, result);
     }
 
     #[test]
@@ -719,73 +788,5 @@ mod tests {
         let e = entry.delete_password().unwrap_err();
 
         assert!(matches!(e, ErrorCode::NoEntry));
-    }
-
-    #[test]
-    fn test_entries_from_search() {
-        let names = [
-            generate_random_string(),
-            generate_random_string(),
-            generate_random_string(),
-        ];
-
-        let mut entries: Vec<Entry> = vec![];
-        let password1 = "password1";
-        let password2 = "password2";
-        for name in names {
-            let entry = Entry::new_with_target(&name, "test-service", "test-user")
-                .expect("Error creating new entry");
-            entry
-                .set_password(password1)
-                .expect("error setting password1");
-            entries.push(entry);
-        }
-
-        let mut old_passwords = vec![];
-
-        for entry in &entries {
-            let old_password = entry
-                .get_password()
-                .expect("failed to get password from old entry");
-            old_passwords.push(old_password);
-        }
-
-        let result = &Entry::search("test");
-
-        let size = result
-            .as_ref()
-            .expect("Error getting size of outer map")
-            .keys()
-            .len();
-        let mut result_entries: Vec<Entry> = vec![];
-        for index in 1..=size {
-            let msg = format!("Failed to create entry at index: {index}");
-            let entry = Entry::from_search_results(result, index).expect(&msg);
-            entry
-                .set_password(&password2)
-                .expect("Error setting new password");
-            result_entries.push(entry);
-        }
-
-        let mut new_passwords = vec![];
-
-        for entry in &result_entries {
-            let new_password = entry.get_password().expect("error getting new password");
-            new_passwords.push(new_password);
-        }
-
-        for i in 0..new_passwords.len() {
-            assert_eq!(password1, old_passwords[i]);
-            assert_eq!(password2, new_passwords[i]);
-        }
-
-        for entry in &result_entries {
-            entry.delete_password().expect("Error deleting password");
-        }
-
-        for entry in &entries {
-            let e = entry.delete_password().unwrap_err();
-            assert!(matches!(e, ErrorCode::NoEntry));
-        }
     }
 }

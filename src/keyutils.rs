@@ -416,11 +416,4 @@ mod tests {
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
-
-    #[test]
-    fn test_search_no_duplicates() {}
-    #[test]
-    fn test_entry_from_search() {}
-    #[test]
-    fn test_entries_from_search() {}
 }

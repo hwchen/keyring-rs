@@ -692,11 +692,4 @@ mod tests {
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
     }
-
-    #[test]
-    fn test_search_no_duplicates() {}
-    #[test]
-    fn test_entry_from_search() {}
-    #[test]
-    fn test_entries_from_search() {}
 }
