@@ -341,7 +341,7 @@ impl Entry {
             results.push(user_result)
         }
 
-        if results.len() == 0 {
+        if results.is_empty() {
             return Err(SearchError::NoResults);
         } else if results.len() == 1 {
             let result = results[0].clone();
