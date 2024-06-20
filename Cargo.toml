@@ -26,7 +26,7 @@ linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-cryp
 linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
 linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
 linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
-linux-no-secret-service = ["linux-default-keyutils"]
+linux-no-secret-service = ["linux-default-keyutils", "keyring-search/linux-no-secret-service"]
 linux-default-keyutils = ["linux-keyutils", "keyring-search/linux-default-keyutils"]
 windows-test-threading = []
 

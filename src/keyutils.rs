@@ -419,6 +419,9 @@ mod tests {
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 
+    // The below functions are only used if --features "linux-no-secret-service' 
+    // is passed, therefore we allow dead code
+    #[allow(dead_code)]
     fn get_key_type(key_type: KeyType) -> String {
         match key_type {
             KeyType::KeyRing => "KeyRing".to_string(),
@@ -428,6 +431,7 @@ mod tests {
         }
     }
     // Converts permission bits to their corresponding permission characters to match keyctl command in terminal.
+    #[allow(dead_code)]
     fn get_permission_chars(permission_data: u8) -> String {
         let perm_types = [
             Permission::VIEW.bits(),
@@ -456,6 +460,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(
+        feature = "linux-no-secret-service",
+        not(feature = "secret-service")
+    ))]
     fn test_search() {
         let name = generate_random_string();
         let keyutils = KeyutilsCredential::new_with_target(Some(&name), &name, &name)
@@ -496,6 +504,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(
+        feature = "linux-no-secret-service",
+        not(feature = "secret-service")
+    ))]
     fn test_entry_from_search() {
         let name = generate_random_string();
         let password1 = "password1";
