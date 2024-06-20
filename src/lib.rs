@@ -117,7 +117,7 @@ use std::collections::HashMap;
 
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
-use keyring_search::{
+pub use keyring_search::{
     search::CredentialSearchApi, CredentialSearchResult, Error as SearchError, Limit, List, Search,
 };
 
