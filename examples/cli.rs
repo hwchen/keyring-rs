@@ -41,10 +41,14 @@ fn main() {
             Ok(()) => args.success_message_for(None, None),
             Err(err) => args.error_message_for(err),
         },
-        Command::Search { .. } => {
+        Command::Search { max, .. } => {
             let results = Entry::search(&args.get_query());
-            let list = Entry::list_max(&results, 5);
-
+            let list;
+            if let Some(max) = max {
+                list = Entry::list_max(&results, *max);
+            } else {
+                list = Entry::list_results(&results)
+            }
             println!("{list}");
             args.flush();
 
@@ -103,6 +107,9 @@ pub enum Command {
         /// The value to search for. If not specified, the
         /// query is collected interactively from the terminal.
         query: Option<String>,
+        #[clap(value_parser, default_value = None)]
+        /// Optional max value to limit search results
+        max: Option<i64>,
     },
 }
 
@@ -197,8 +204,10 @@ impl Cli {
 
     fn get_query(&self) -> String {
         match &self.command {
-            Command::Search { query: Some(query) } => query.clone(),
-            Command::Search { query: None } => {
+            Command::Search {
+                query: Some(query), ..
+            } => query.clone(),
+            Command::Search { query: None, .. } => {
                 print!("Search query: ");
                 self.flush();
                 let mut input = String::new();
