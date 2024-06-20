@@ -150,6 +150,31 @@ impl CredentialBuilderApi for IosCredentialBuilder {
     }
 }
 
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let service = if let Some(service) = credential.get(&"svce".to_string()) {
+        service
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values iOS, svce".to_string(),
+            "No svce key found in credential".to_string(),
+        ));
+    };
+    let account = if let Some(account) = credential.get(&"acct".to_string()) {
+        account
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values MacOS, acct".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+    let ioscredential = Box::new(IosCredential {
+        service: service.to_string(),
+        account: account.to_string(),
+    });
+
+    Ok(Entry::new_with_credential(maccredential))
+}
+
 /// Map an iOS API error to a crate error with appropriate annotation
 ///
 /// The iOS error code values used here are from
