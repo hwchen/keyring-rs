@@ -459,7 +459,7 @@ mod tests {
     }
 
     #[test]
-    fn entry_from_search() {
+    fn test_entry_from_search() {
         let name = generate_random_string();
         let password1 = "password1";
         let password2 = "password2";

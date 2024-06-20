@@ -412,7 +412,10 @@ pub fn entry_from_search(credential: &std::collections::HashMap<String, String>)
             let svce = &"svce".to_string();
             let user = credential.get("username").unwrap_or(usr);
             let service = credential.get("service").unwrap_or(svce);
-            format!("{user}@{service}")
+            format!(
+                "keyring-rs v{} for target 'default', service '{service}', user '{user}'",
+                env!("CARGO_PKG_VERSION")
+            )
         }
     };
     let sscredential = Box::new(SsCredential {
@@ -462,6 +465,8 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
 
@@ -691,5 +696,69 @@ mod tests {
             .delete_password()
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
+    }
+
+    #[test]
+    fn test_search() {
+        let name = generate_random_string();
+        let entry = Entry::new(&name, &name).expect("Failed to create credential for test search");
+
+        entry
+            .set_password("password")
+            .expect("Failed to set password for test search");
+
+        let search_result = Entry::search(&name);
+        let list = Entry::list_results(&search_result);
+        let actual: HashSet<&str> = list.lines().collect();
+
+        const VERSION: &str = env!("CARGO_PKG_VERSION");
+        let label = format!(
+            "label: keyring-rs v{VERSION} for target 'default', service '{name}', user '{name}'"
+        );
+        let target = "target: default";
+        let service = format!("service: {name}");
+        let username = format!("username: {name}");
+        let id = "1";
+        let application = "application: rust-keyring";
+
+        let expected_str = format!("{id}\n{label}\n{target}\n{username}\n{application}\n{service}");
+        let expected: HashSet<&str> = expected_str.lines().collect();
+
+        assert_eq!(expected, actual);
+
+        entry.delete_password().expect("Failed to delete password");
+    }
+
+    #[test]
+    fn test_entry_from_search() {
+        let name = generate_random_string();
+        let password1 = "password1";
+        let password2 = "password2";
+        let entry = Entry::new(&name, &name).expect("Failed to create credential for test search");
+
+        entry
+            .set_password(password1)
+            .expect("Failed to set password for test search");
+
+        let search_result = Entry::search(&name);
+        let new_entry = Entry::from_search_results(&search_result, 1)
+            .expect("Failed to create entry from search result");
+        new_entry
+            .set_password(password2)
+            .expect("Failed to set password for new entry");
+
+        let original_entry_password = entry
+            .get_password()
+            .expect("Failed to get original entry password");
+
+        assert_eq!(original_entry_password, password2);
+
+        new_entry
+            .delete_password()
+            .expect("Failed to delete new entry password");
+
+        let e = entry.get_password().unwrap_err();
+
+        assert!(matches!(e, Error::NoEntry));
     }
 }

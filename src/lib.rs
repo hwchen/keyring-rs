@@ -117,7 +117,9 @@ use std::collections::HashMap;
 
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
-use keyring_search::{CredentialSearchResult, Error as SearchError, Limit, List, Search};
+use keyring_search::{
+    search::CredentialSearchApi, CredentialSearchResult, Error as SearchError, Limit, List, Search,
+};
 
 // Included keystore implementations and default choice thereof.
 
@@ -309,6 +311,12 @@ impl Entry {
         self.inner.as_any()
     }
 
+    pub fn set_default_credential_search(
+        default_search: Box<dyn CredentialSearchApi + Send + Sync>,
+    ) -> keyring_search::Result<Search> {
+        keyring_search::set_default_credential_search(default_search)
+    }
+
     /// Default search method.
     ///
     /// Takes in a query and searches all possible options,
@@ -333,19 +341,20 @@ impl Entry {
             results.push(user_result)
         }
 
-        if results.len() <= 1 {
+        if results.len() == 0 {
+            return Err(SearchError::NoResults);
+        } else if results.len() == 1 {
             let result = results[0].clone();
             return Ok(result);
-        }
-
-        for index in 0..results.len() - 1 {
-            if results[0] == results[index] {
-                results.remove(index);
+        } else {
+            for index in 0..results.len() - 1 {
+                if results[0] == results[index] {
+                    results.remove(index);
+                }
             }
-        }
-
-        for result in results {
-            final_result.extend(result);
+            for result in results {
+                final_result.extend(result);
+            }
         }
 
         Ok(final_result)
@@ -375,7 +384,7 @@ impl Entry {
     /// let result = Entry::search("Foo");
     /// let size = result.as_ref().expect("No results").keys().len();
     /// let entries: Vec<Entry> = vec![];
-    /// for index in 0..=size {
+    /// for index in 1..=size {
     ///     let entry = Entry::from_search_results(&result, index);
     /// }
     /// ```

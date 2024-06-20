@@ -335,10 +335,12 @@ pub fn entry_from_search(credential: &std::collections::HashMap<String, String>)
 
 #[cfg(test)]
 mod tests {
-    use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
 
     use super::{default_credential_builder, KeyutilsCredential};
+    use crate::credential::CredentialPersistence;
+    use crate::{tests::generate_random_string, Entry, Error};
+    use linux_keyutils::{KeyRing, KeyRingIdentifier, KeyType, Permission};
+    use std::collections::HashSet;
 
     #[test]
     fn test_persistence() {
@@ -415,5 +417,126 @@ mod tests {
             .delete_password()
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+    }
+
+    fn get_key_type(key_type: KeyType) -> String {
+        match key_type {
+            KeyType::KeyRing => "KeyRing".to_string(),
+            KeyType::BigKey => "BigKey".to_string(),
+            KeyType::Logon => "Logon".to_string(),
+            KeyType::User => "User".to_string(),
+        }
+    }
+    // Converts permission bits to their corresponding permission characters to match keyctl command in terminal.
+    fn get_permission_chars(permission_data: u8) -> String {
+        let perm_types = [
+            Permission::VIEW.bits(),
+            Permission::READ.bits(),
+            Permission::WRITE.bits(),
+            Permission::SEARCH.bits(),
+            Permission::LINK.bits(),
+            Permission::SETATTR.bits(),
+            Permission::ALL.bits(),
+        ];
+
+        let perm_chars = ['v', 'r', 'w', 's', 'l', 'a', '-'];
+
+        let mut perm_string = String::new();
+        perm_string.push('-');
+
+        for i in (0..perm_types.len()).rev() {
+            if permission_data & perm_types[i] != 0 {
+                perm_string.push(perm_chars[i]);
+            } else {
+                perm_string.push('-');
+            }
+        }
+
+        perm_string
+    }
+
+    #[test]
+    fn test_search() {
+        let name = generate_random_string();
+        let keyutils = KeyutilsCredential::new_with_target(Some(&name), &name, &name)
+            .expect("Error creating entry");
+        let entry = Entry::new_with_credential(Box::new(keyutils));
+        entry
+            .set_password("test get_credential")
+            .expect("Can't set password for get_credential");
+
+        let search_result = Entry::search(&name);
+        let list = Entry::list_results(&search_result);
+        let expected: HashSet<&str> = list.lines().collect();
+
+        let keyring = KeyRing::from_special_id(KeyRingIdentifier::Session, false)
+            .expect("Failed to set keyring to session");
+        let credential = keyring
+            .search(&name)
+            .expect("No credential found with given name");
+        let metadata = credential
+            .metadata()
+            .expect("Failed to get metadata from credential");
+
+        let uid = metadata.get_uid();
+        let gid = metadata.get_gid();
+        let ktype = get_key_type(metadata.get_type());
+        let description = metadata.get_description();
+        let perms = get_permission_chars(metadata.get_perms().bits().to_be_bytes()[0]);
+        let id = credential.get_id().0;
+
+        let actual = format!(
+            "{id}\nperm: {perms}\nuid: {uid}\ngid: {gid}\ndescription: {description}\nktype: {ktype}\n"
+        );
+        let actual: HashSet<&str> = actual.lines().collect();
+
+        assert_eq!(actual, expected);
+
+        entry.delete_password().expect("Failed to delete password");
+    }
+
+    #[test]
+    fn test_entry_from_search() {
+        let name = generate_random_string();
+        let password1 = "password1";
+        let password2 = "password2";
+        let keyutils = KeyutilsCredential::new_with_target(Some(&name), &name, &name)
+            .expect("Error creating entry");
+        let entry = Entry::new_with_credential(Box::new(keyutils));
+        entry
+            .set_password(password1)
+            .expect("Can't set password for get_credential");
+
+        let search_result = Entry::search(&name);
+        let id = if let Ok(search_result) = &search_result {
+            let mut id = &String::new();
+            let cloned_map = &search_result.clone();
+            for (key, _) in cloned_map.iter() {
+                id = key;
+            }
+            id.parse::<usize>().expect("Failed to parse to usize")
+        } else {
+            panic!("No result found");
+        };
+
+        let searched_entry = Entry::from_search_results(&search_result, id)
+            .expect("Failed to create entry from search results");
+        searched_entry
+            .set_password(password2)
+            .expect("Failed to set password for searched entry");
+
+        let original_entry_password = entry
+            .get_password()
+            .expect("Failed to get original password");
+
+        assert_eq!(original_entry_password, password2);
+
+        searched_entry
+            .delete_password()
+            .expect("Failed to delete searched entry password");
+
+        let e = entry.get_password().unwrap_err();
+
+        assert!(matches!(e, Error::NoEntry));
     }
 }

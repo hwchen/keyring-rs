@@ -27,12 +27,12 @@ linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rus
 linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
 linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
 linux-no-secret-service = ["linux-default-keyutils"]
-linux-default-keyutils = ["linux-keyutils"]
+linux-default-keyutils = ["linux-keyutils", "keyring-search/linux-default-keyutils"]
 windows-test-threading = []
 
 [dependencies]
 lazy_static = "1"
-keyring-search = "1.1.1"
+keyring-search = "1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "2.6", optional = true }
