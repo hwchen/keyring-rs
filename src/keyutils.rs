@@ -419,7 +419,7 @@ mod tests {
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 
-    // The below functions are only used if --features "linux-no-secret-service' 
+    // The below functions are only used if --features "linux-no-secret-service'
     // is passed, therefore we allow dead code
     #[allow(dead_code)]
     fn get_key_type(key_type: KeyType) -> String {
@@ -460,10 +460,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(
-        feature = "linux-no-secret-service",
-        not(feature = "secret-service")
-    ))]
+    #[cfg(any(feature = "linux-no-secret-service", not(feature = "secret-service")))]
     fn test_search() {
         let name = generate_random_string();
         let keyutils = KeyutilsCredential::new_with_target(Some(&name), &name, &name)
@@ -504,10 +501,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(
-        feature = "linux-no-secret-service",
-        not(feature = "secret-service")
-    ))]
+    #[cfg(any(feature = "linux-no-secret-service", not(feature = "secret-service")))]
     fn test_entry_from_search() {
         let name = generate_random_string();
         let password1 = "password1";
