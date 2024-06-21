@@ -16,6 +16,7 @@ wildcards when looking up credentials by attribute value.)
 On iOS, the target parameter is ignored, because there is only one keychain
 that can be targeted to store a generic credential.
  */
+use crate::Entry;
 use security_framework::base::Error;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
@@ -163,7 +164,7 @@ pub fn entry_from_search(credential: &std::collections::HashMap<String, String>)
         account
     } else {
         return Err(ErrorCode::Invalid(
-            "get entry values MacOS, acct".to_string(),
+            "get entry values iOS, acct".to_string(),
             "No user key found in credential".to_string(),
         ));
     };
@@ -172,7 +173,7 @@ pub fn entry_from_search(credential: &std::collections::HashMap<String, String>)
         account: account.to_string(),
     });
 
-    Ok(Entry::new_with_credential(maccredential))
+    Ok(Entry::new_with_credential(ioscredential))
 }
 
 /// Map an iOS API error to a crate error with appropriate annotation
