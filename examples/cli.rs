@@ -49,9 +49,9 @@ fn main() {
             } else {
                 list = Entry::list_results(&results)
             }
+
             println!("{list}");
             args.flush();
-
             if list == "Search returned no results".to_string() {
                 std::process::exit(0)
             }
@@ -259,9 +259,7 @@ impl Cli {
             let entry = match Entry::from_search_results(&results, id) {
                 Ok(entry) => entry,
                 Err(err) => {
-                    if self.verbose {
-                        eprintln!("Could not create entry from credential '{id}': {err}");
-                    }
+                    self.error_message_for(err);
                     std::process::exit(1);
                 }
             };
@@ -285,8 +283,8 @@ impl Cli {
             Ok(id) => id,
             Err(err) => {
                 if self.verbose {
-                    eprintln!("Failed to parse ID from String to usize: {err}");
-                }
+                    eprintln!("Error parsing id to usize type: {err:#?}");
+                };
                 std::process::exit(1)
             }
         }
@@ -314,9 +312,7 @@ impl Cli {
                             std::process::exit(0);
                         }
                         Err(err) => {
-                            if self.verbose {
-                                eprintln!("Error setting password for credential {id}: {err}");
-                            }
+                            self.error_message_for(err);
                             std::process::exit(1);
                         }
                     };
@@ -325,9 +321,7 @@ impl Cli {
                     let password = match entry.get_password() {
                         Ok(password) => password,
                         Err(err) => {
-                            if self.verbose {
-                                eprintln!("Error getting entry password: {err}");
-                            }
+                            self.error_message_for(err);
                             std::process::exit(1)
                         }
                     };
@@ -342,9 +336,7 @@ impl Cli {
                             std::process::exit(0);
                         }
                         Err(err) => {
-                            if self.verbose {
-                                eprintln!("Error deleting credential {id}: {err}");
-                            }
+                            self.error_message_for(err);
                             std::process::exit(1);
                         }
                     };
