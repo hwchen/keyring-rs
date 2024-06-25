@@ -16,6 +16,7 @@ wildcards when looking up credentials by attribute value.)
 On iOS, the target parameter is ignored, because there is only one keychain
 that can be targeted to store a generic credential.
  */
+use crate::Entry;
 use security_framework::base::Error;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
@@ -148,6 +149,31 @@ impl CredentialBuilderApi for IosCredentialBuilder {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+}
+
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let service = if let Some(service) = credential.get(&"svce".to_string()) {
+        service
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values iOS, svce".to_string(),
+            "No svce key found in credential".to_string(),
+        ));
+    };
+    let account = if let Some(account) = credential.get(&"acct".to_string()) {
+        account
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values iOS, acct".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+    let ioscredential = Box::new(IosCredential {
+        service: service.to_string(),
+        account: account.to_string(),
+    });
+
+    Ok(Entry::new_with_credential(ioscredential))
 }
 
 /// Map an iOS API error to a crate error with appropriate annotation

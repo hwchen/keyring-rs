@@ -43,6 +43,8 @@ use windows_sys::Win32::Security::Credentials::{
     CRED_MAX_USERNAME_LENGTH, CRED_PERSIST_ENTERPRISE, CRED_TYPE_GENERIC,
 };
 
+use crate::Entry;
+
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{Error as ErrorCode, Result};
 
@@ -365,6 +367,42 @@ unsafe fn from_wstr(ws: *const u16) -> String {
     String::from_utf16_lossy(slice)
 }
 
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let target = if let Some(target) = credential.get(&"Target".to_string()) {
+        target
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, target".to_string(),
+            "No target key found in credential".to_string(),
+        ));
+    };
+    let comment = if let Some(comment) = credential.get(&"Comment".to_string()) {
+        comment
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, service/comment".to_string(),
+            "No comment key found in credential".to_string(),
+        ));
+    };
+    let user = if let Some(user) = credential.get(&"User".to_string()) {
+        user
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values Windows, user".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+
+    let wincredential = Box::new(WinCredential {
+        username: user.to_string(),
+        target_name: target.to_string(),
+        target_alias: "".to_string(),
+        comment: comment.to_string(),
+    });
+
+    Ok(Entry::new_with_credential(wincredential))
+}
+
 /// Windows error codes are `DWORDS` which are 32-bit unsigned ints.
 #[derive(Debug)]
 pub struct Error(pub u32);
@@ -405,6 +443,12 @@ fn wrap(code: u32) -> Box<dyn std::error::Error + Send + Sync> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use windows_sys::Win32::Foundation::SYSTEMTIME;
+    use windows_sys::Win32::Storage::FileSystem::FileTimeToLocalFileTime;
+    use windows_sys::Win32::System::Time::{LocalFileTimeToLocalSystemTime, TIME_ZONE_INFORMATION};
+
     use super::*;
 
     use crate::credential::CredentialPersistence;
@@ -595,5 +639,154 @@ mod tests {
             .delete_password()
             .expect("Couldn't delete get-credential");
         assert!(matches!(entry.get_password(), Err(ErrorCode::NoEntry)));
+    }
+
+    unsafe fn get_last_written(last_written: FILETIME) -> String {
+        static DAYS: [&str; 7] = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ];
+        static MONTHS: [&str; 12] = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ];
+
+        let mut local_filetime: FILETIME = std::mem::zeroed();
+        let mut system_time: SYSTEMTIME = std::mem::zeroed();
+        let local: TIME_ZONE_INFORMATION = std::mem::zeroed();
+        FileTimeToLocalFileTime(&last_written, &mut local_filetime as *mut FILETIME);
+        LocalFileTimeToLocalSystemTime(
+            &local,
+            &local_filetime,
+            &mut system_time as *mut SYSTEMTIME,
+        );
+
+        let hour = system_time.wHour;
+        let minute = system_time.wMinute;
+        let second = system_time.wSecond;
+        let day = system_time.wDay;
+        let year = system_time.wYear;
+        let month = system_time.wMonth;
+        let day_of_week = system_time.wDayOfWeek;
+
+        format!(
+            "{}, {} {}, {} at {:02}:{:02}:{:02}",
+            DAYS[day_of_week as usize - 1],
+            day,
+            MONTHS[month as usize - 1],
+            year,
+            hour,
+            minute,
+            second
+        )
+    }
+
+    #[test]
+    fn test_search() {
+        let name = generate_random_string();
+        let entry = Entry::new(&name, &name).expect("Failed to create entry");
+        entry
+            .set_password("password")
+            .expect("Failed to set password for entry");
+
+        let target = format!("{name}.{name}");
+
+        let mut r_credential: *mut CREDENTIALW = std::ptr::null_mut();
+        let last_written_filetime = unsafe {
+            if CredReadW(
+                to_wstr(&target).as_ptr(),
+                CRED_TYPE_GENERIC,
+                CRED_FLAGS::default(),
+                &mut r_credential,
+            ) == 0
+            {
+                panic!("Failed to read credential");
+            };
+
+            if r_credential.is_null() {
+                panic!("r_credential is null");
+            }
+
+            let read_credential = *r_credential;
+            CredFree(r_credential as *mut _);
+            read_credential.LastWritten
+        };
+
+        let search_result = Entry::search(&name);
+        let list = Entry::list_results(&search_result);
+
+        let cred_type = "Generic";
+        let persist = "Enterprise";
+        const VERSION: &str = env!("CARGO_PKG_VERSION");
+        let comment = format!("keyring-rs v{VERSION} for service '{name}', user '{name}'");
+
+        let expected = format!(
+            "1\nTarget: {}\nLast Written: {}\nType: {}\nPersist: {}\nUser: {}\nComment: {}\n",
+            target,
+            unsafe { get_last_written(last_written_filetime) },
+            cred_type,
+            persist,
+            &name,
+            comment
+        );
+
+        let expected: HashSet<&str> = expected.lines().collect();
+        let result: HashSet<&str> = list.lines().collect();
+
+        entry.delete_password().expect("Failed to delete password");
+
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_entry_from_search() {
+        let name = generate_random_string();
+        let password1 = "password1";
+        let password2 = "password2";
+        let entry = Entry::new_with_target(&name, "test-service", "test-user")
+            .expect("Error creating new entry");
+        entry
+            .set_password(password1)
+            .expect("error setting password1");
+
+        let old_password = entry
+            .get_password()
+            .expect("failed to get password from old entry");
+        let results = &Entry::search(&name);
+
+        let result_entry =
+            Entry::from_search_results(results, 1).expect("Failed to create entry from results");
+        result_entry
+            .set_password(password2)
+            .expect("error setting password2");
+
+        let new_password = result_entry
+            .get_password()
+            .expect("Failed to get password from new entry");
+
+        assert_eq!(password1, old_password);
+        assert_eq!(password2, new_password);
+
+        result_entry
+            .delete_password()
+            .expect("Failed to delete new entry");
+        let e = entry.delete_password().unwrap_err();
+
+        assert!(matches!(e, ErrorCode::NoEntry));
     }
 }

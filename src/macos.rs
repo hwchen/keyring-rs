@@ -33,6 +33,7 @@ use security_framework::os::macos::passwords::find_generic_password;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
+use crate::Entry;
 
 /// The representation of a generic Keychain credential.
 ///
@@ -221,6 +222,32 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
     }
 }
 
+pub fn entry_from_search(credential: &std::collections::HashMap<String, String>) -> Result<Entry> {
+    let service = if let Some(service) = credential.get(&"svce".to_string()) {
+        service
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values MacOS, svce".to_string(),
+            "No svce key found in credential".to_string(),
+        ));
+    };
+    let account = if let Some(account) = credential.get(&"acct".to_string()) {
+        account
+    } else {
+        return Err(ErrorCode::Invalid(
+            "get entry values MacOS, acct".to_string(),
+            "No user key found in credential".to_string(),
+        ));
+    };
+    let maccredential = Box::new(MacCredential {
+        domain: MacKeychainDomain::User,
+        service: service.to_string(),
+        account: account.to_string(),
+    });
+
+    Ok(Entry::new_with_credential(maccredential))
+}
+
 /// Map a Mac API error to a crate error with appropriate annotation
 ///
 /// The MacOS error code values used here are from
@@ -238,6 +265,19 @@ pub fn decode_error(err: Error) -> ErrorCode {
 
 #[cfg(test)]
 mod tests {
+    use core_foundation::base::{CFGetTypeID, CFTypeRef, TCFType, TCFTypeRef};
+    use core_foundation::date::{CFDate, CFDateRef};
+    use core_foundation::dictionary::{CFDictionary, CFDictionaryRef, CFMutableDictionary};
+    use std::collections::HashSet;
+
+    use core_foundation::number::{kCFBooleanTrue, CFNumber, CFNumberRef};
+    use core_foundation::propertylist::CFPropertyListSubClass;
+    use core_foundation::string::{CFString, CFStringRef};
+    use security_framework::os::macos::keychain::SecKeychain;
+    use security_framework_sys::base::errSecSuccess;
+    use security_framework_sys::item::{kSecReturnAttributes, kSecValueRef};
+    use security_framework_sys::keychain::SecPreferencesDomain;
+
     use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
 
@@ -319,5 +359,139 @@ mod tests {
             .delete_password()
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+    }
+    #[test]
+    fn test_search() {
+        let name = generate_random_string();
+        let entry = Entry::new(&name, &name).expect("Failed to create entry");
+        entry
+            .set_password("password")
+            .expect("Failed to set password");
+
+        let search_result = Entry::search(&name);
+        let list = Entry::list_results(&search_result);
+        let result: HashSet<&str> = list.lines().collect();
+
+        let keychain = SecKeychain::default_for_domain(SecPreferencesDomain::User)
+            .expect("Failed to get user keychain");
+        let item = keychain
+            .find_generic_password(&name, &name)
+            .expect("Failed to get genp")
+            .1;
+        let mut query: CFMutableDictionary<CFString, CFTypeRef> = CFMutableDictionary::new();
+        unsafe {
+            query.add(
+                &CFString::wrap_under_get_rule(kSecValueRef),
+                &item.as_CFTypeRef(),
+            );
+            query.add(
+                &CFString::wrap_under_get_rule(kSecReturnAttributes),
+                &kCFBooleanTrue.as_void_ptr(),
+            );
+        }
+
+        let mut ptr: CFTypeRef = std::ptr::null();
+
+        let status = unsafe {
+            security_framework_sys::keychain_item::SecItemCopyMatching(
+                query.as_concrete_TypeRef(),
+                &mut ptr as *mut _,
+            )
+        };
+
+        let mut expected = String::new();
+        if status == errSecSuccess {
+            let attributes: CFDictionary =
+                unsafe { CFDictionary::wrap_under_create_rule(ptr as CFDictionaryRef) };
+            let count = attributes.len() as isize;
+            let mut keys: Vec<CFTypeRef> = Vec::with_capacity(count as usize);
+            let mut values: Vec<CFTypeRef> = Vec::with_capacity(count as usize);
+
+            unsafe {
+                keys.set_len(count as usize);
+                values.set_len(count as usize);
+            }
+
+            let (keys, values) = attributes.get_keys_and_values();
+
+            for (key, value) in keys.into_iter().zip(values.into_iter()) {
+                let key_str =
+                    unsafe { CFString::wrap_under_get_rule(key as CFStringRef).to_string() };
+
+                let cfdate_id = CFDate::type_id();
+                let cfnumber_id = CFNumber::type_id();
+                let cfstring_id = CFString::type_id();
+
+                let value_str = match unsafe { CFGetTypeID(value) } {
+                    id if id == cfdate_id => {
+                        let new_str = format!("{:?}", unsafe {
+                            CFDate::wrap_under_get_rule(value as CFDateRef).to_CFPropertyList()
+                        });
+                        new_str.trim_matches('"').to_string()
+                    }
+                    id if id == cfnumber_id => {
+                        format!(
+                            "{}",
+                            unsafe { CFNumber::wrap_under_get_rule(value as CFNumberRef) }
+                                .to_i32()
+                                .unwrap()
+                        )
+                    }
+                    id if id == cfstring_id => {
+                        format!("{}", unsafe {
+                            CFString::wrap_under_get_rule(value as CFStringRef)
+                        })
+                    }
+                    _ => "Error getting type ID".to_string(),
+                };
+                if key_str == "crtr".to_string() {
+                    expected.push_str(format!("{}: unknown\n", key_str).as_str());
+                } else {
+                    expected.push_str(format!("{}: {}\n", key_str, value_str).as_str());
+                }
+            }
+        }
+
+        let mut expected: HashSet<&str> = expected.lines().collect();
+        expected.insert("1");
+        entry.delete_password().expect("Failed to delete entry");
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_entry_from_search() {
+        let name = generate_random_string();
+        let password1 = "password1";
+        let password2 = "password2";
+
+        let entry = Entry::new(&name, &name).expect("Failed to create entry for entry from search");
+        entry
+            .set_password(password1)
+            .expect("Failed to set password1 to original entry");
+
+        let search_result = Entry::search(&name);
+        let searched_entry = Entry::from_search_results(&search_result, 1)
+            .expect("Failed to create entry from search result");
+
+        searched_entry
+            .set_password(password2)
+            .expect("Failed to set password2 to searched entry");
+
+        let entry_password = entry
+            .get_password()
+            .expect("Failed to get password2 from original entry");
+        let searched_entry_password = searched_entry
+            .get_password()
+            .expect("Failed to get password2 from original entry");
+
+        assert_eq!(searched_entry_password, entry_password);
+
+        searched_entry
+            .delete_password()
+            .expect("Failed to delete password2 from searched entry");
+
+        let entry_password = entry.get_password().unwrap_err();
+
+        assert!(matches!(entry_password, Error::NoEntry));
     }
 }

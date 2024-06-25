@@ -113,8 +113,13 @@ entry creation doesn't go through the platform credential manager.
 It's fine to create an entry on one thread and then immediately use
 it on a different thread.  This is thoroughly tested on all platforms.)
  */
+use std::collections::HashMap;
+
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
+pub use keyring_search::{
+    search::CredentialSearchApi, CredentialSearchResult, Error as SearchError, Limit, List, Search,
+};
 
 // Included keystore implementations and default choice thereof.
 
@@ -304,6 +309,117 @@ impl Entry {
     /// what type of concrete object to cast to.
     pub fn get_credential(&self) -> &dyn std::any::Any {
         self.inner.as_any()
+    }
+
+    pub fn set_default_credential_search(
+        default_search: Box<dyn CredentialSearchApi + Send + Sync>,
+    ) -> keyring_search::Result<Search> {
+        keyring_search::set_default_credential_search(default_search)
+    }
+
+    /// Default search method.
+    ///
+    /// Takes in a query and searches all possible options,
+    /// filtering out duplicate results.
+    pub fn search(query: &str) -> CredentialSearchResult {
+        let mut results = vec![];
+        let mut final_result = HashMap::new();
+        let search = match Search::new() {
+            Ok(search) => search,
+            Err(err) => return Err(SearchError::SearchError(err.to_string())),
+        };
+
+        if let Ok(service_result) = search.by_service(query) {
+            results.push(service_result)
+        }
+
+        if let Ok(target_result) = search.by_target(query) {
+            results.push(target_result)
+        }
+
+        if let Ok(user_result) = search.by_user(query) {
+            results.push(user_result)
+        }
+
+        if results.is_empty() {
+            return Err(SearchError::NoResults);
+        } else if results.len() == 1 {
+            let result = results[0].clone();
+            return Ok(result);
+        } else {
+            for index in 0..results.len() - 1 {
+                if results[0] == results[index] {
+                    results.remove(index);
+                }
+            }
+            for result in results {
+                final_result.extend(result);
+            }
+        }
+
+        Ok(final_result)
+    }
+    /// Create entry from search results.
+    ///
+    /// Pass a `&CredentialSearchResult` and the ID to the credential.
+    /// `CredentialSearchResult` is a bilevel hashmap: `HashMap<String, HashMap<String, String>>`,
+    /// The outer map's key corresponds to the ID of the result from 1 to the length of the map.
+    /// The inner map contains the keys and values of the metadata of the result, i.e.
+    /// target, service, user, last modified/date written, etc. In the case of keyutils, the Linux
+    /// Kernel keystore provides IDs for all credentials, the user must know the ID of the credential
+    /// to manipulate and pass this value to `from_search_results`. Since keyutils only returns one
+    /// result, this is the only valid parameter.
+    /// # Example
+    /// First result:
+    /// ```rust no_run
+    /// use keyring::Entry;
+    ///
+    /// let result = Entry::search("Foo");
+    /// let entry = Entry::from_search_results(&result, 1);
+    /// ```
+    /// All results:
+    /// ```rust no_run
+    /// use keyring::Entry;
+    ///
+    /// let result = Entry::search("Foo");
+    /// let size = result.as_ref().expect("No results").keys().len();
+    /// let entries: Vec<Entry> = vec![];
+    /// for index in 1..=size {
+    ///     let entry = Entry::from_search_results(&result, index);
+    /// }
+    /// ```
+    pub fn from_search_results(result: &CredentialSearchResult, id: usize) -> Result<Entry> {
+        let result = match result {
+            Ok(result) => result,
+            Err(err) => {
+                return Err(Error::Invalid(
+                    "from search results".to_string(),
+                    err.to_string(),
+                ))
+            }
+        };
+
+        let credential = match result.get_key_value(&id.to_string()) {
+            Some(credential) => credential.1,
+            None => return Err(Error::NoEntry),
+        };
+
+        default::entry_from_search(credential)
+    }
+
+    pub fn list_results(result: &CredentialSearchResult) -> String {
+        list(result, None)
+    }
+
+    pub fn list_max(result: &CredentialSearchResult, limit: i64) -> String {
+        list(result, Some(limit))
+    }
+}
+
+fn list(result: &CredentialSearchResult, limit: Option<i64>) -> String {
+    match limit {
+        Some(limit) => List::list_credentials(result, Limit::Max(limit)),
+        None => List::list_credentials(result, Limit::All),
     }
 }
 
