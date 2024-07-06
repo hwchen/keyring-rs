@@ -117,6 +117,9 @@ file, but not their code.
 All v2 data is fully forward-compatible with v3 data;
 there have been no changes at all in that respect.
 
+The MSRV has been moved to 1.75, and all direct dependencies
+are at their latest stable versions.
+
 ## License
 
 Licensed under either of
