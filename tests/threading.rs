@@ -94,7 +94,7 @@ fn test_create_set_then_move() {
 }
 
 #[test]
-#[cfg(any(not(target_os = "windows"), feature = "windows-test-threading"))]
+#[cfg(not(target_os = "windows"))]
 fn test_simultaneous_create_set_then_move() {
     let mut handles = vec![];
     for i in 0..10 {
@@ -151,13 +151,10 @@ fn test_simultaneous_independent_create_set() {
 }
 
 #[test]
-#[cfg(not(all(feature = "linux-keyutils", not(feature = "secret-service"))))]
+#[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
 fn test_multiple_create_delete_single_thread() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let repeats = 10;
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
     let repeats = 10_000;
     for _i in 0..repeats {
         entry.set_password(&name).expect("Can't set ascii password");
@@ -177,17 +174,14 @@ fn test_multiple_create_delete_single_thread() {
 }
 
 #[test]
-#[cfg(not(all(feature = "linux-keyutils", not(feature = "secret-service"))))]
+#[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
 fn test_simultaneous_multiple_create_delete_single_thread() {
     let mut handles = vec![];
     for t in 0..10 {
-        let root = generate_random_string();
+        let name = generate_random_string();
         let test = move || {
-            let name = format!("{root}-{t}");
+            let name = format!("{name}-{t}");
             let entry = Entry::new(&name, &name).expect("Can't create entry");
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            let repeats = 10;
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
             let repeats = 10_000;
             for _i in 0..repeats {
                 entry.set_password(&name).expect("Can't set ascii password");

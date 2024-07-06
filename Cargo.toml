@@ -6,32 +6,28 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "2.3.3"
-rust-version = "1.68"
+version = "3.0.0-rc.1"
+rust-version = "1.70"
 edition = "2021"
 exclude = [".github/"]
 readme = "README.md"
 
 [features]
-default = ["platform-all"]
-platform-all = ["platform-linux", "platform-freebsd", "platform-openbsd", "platform-macos", "platform-ios", "platform-windows"]
-platform-linux = ["linux-secret-service", "linux-keyutils"]
-platform-freebsd = ["linux-secret-service"]
-platform-openbsd = ["linux-secret-service"]
-platform-macos = ["security-framework"]
-platform-ios = ["security-framework"]
-platform-windows = ["windows-sys", "byteorder"]
-linux-secret-service = ["linux-secret-service-rt-async-io-crypto-rust"]
-linux-secret-service-rt-async-io-crypto-rust = ["secret-service/rt-async-io-crypto-rust"]
-linux-secret-service-rt-tokio-crypto-rust = ["secret-service/rt-tokio-crypto-rust"]
-linux-secret-service-rt-async-io-crypto-openssl = ["secret-service/rt-async-io-crypto-openssl"]
-linux-secret-service-rt-tokio-crypto-openssl = ["secret-service/rt-tokio-crypto-openssl"]
-linux-no-secret-service = ["linux-default-keyutils"]
-linux-default-keyutils = ["linux-keyutils"]
-windows-test-threading = []
+linux-native = ["dep:linux-keyutils"]
+apple-native = ["dep:security-framework"]
+windows-native = ["dep:windows-sys", "dep:byteorder"]
+
+sync-secret-service = ["dep:dbus-secret-service"]
+async-secret-service = ["dep:secret-service", "dep:zbus"]
+crypto-rust = ["dbus-secret-service?/crypto-rust", "secret-service?/crypto-rust"]
+crypto-openssl = ["dbus-secret-service?/crypto-openssl", "secret-service?/crypto-openssl"]
+tokio = ["zbus?/tokio"]
+async-io = ["zbus?/async-io"]
+vendored = ["dbus-secret-service?/vendored", "openssl?/vendored"]
 
 [dependencies]
 lazy_static = "1"
+openssl = { version = "0.10.55", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "2.6", optional = true }
@@ -40,14 +36,20 @@ security-framework = { version = "2.6", optional = true }
 security-framework = { version = "2.6", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { version = "3", optional = true }
+secret-service = { version = "4", optional = true }
+zbus = { version = "4", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"], optional = true }
+dbus-secret-service = { version = "4.0.0-rc.2", optional = true }
 
 [target.'cfg(target_os = "freebsd")'.dependencies]
-secret-service = { version = "3", optional = true }
+secret-service = { version = "4", optional = true }
+zbus = { version = "4", optional = true }
+dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
-secret-service = { version = "3", optional = true }
+secret-service = { version = "4", optional = true }
+zbus = { version = "4", optional = true }
+dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = { version = "1.2", optional = true }

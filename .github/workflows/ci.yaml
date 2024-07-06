@@ -1,0 +1,76 @@
+name: CI
+
+on: [ workflow_dispatch, push, pull_request ]
+
+jobs:
+  ci_native:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v4
+
+      - name: Install rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy check
+        run: cargo clippy -- -D warnings
+
+      - name: Build and Test
+        run: cargo test --features=apple-native,windows-native,linux-native --verbose
+
+  ci_secret_service:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features:
+          - "linux-keyutils"
+          - "sync-secret-service"
+          - "sync-secret-service,crypto-rust"
+          - "sync-secret-service,crypto-openssl"
+          - "async-secret-service,tokio,crypto-rust"
+          - "async-secret-service,async-io,crypto-rust"
+          - "async-secret-service,tokio,crypto-openssl"
+          - "async-secret-service,async-io,crypto-openssl"
+
+    steps:
+      - name: Install CI dependencies
+        run: |
+          sudo apt update -y
+          sudo apt install -y libdbus-1-dev libssl-dev gnome-keyring
+
+      - name: Fetch head
+        uses: actions/checkout@v4
+
+      - name: Install rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: $test-cache-${{ steps.toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Start gnome-keyring
+        # run gnome-keyring with 'foobar' as password for the login keyring
+        # this will create a new login keyring and unlock it
+        # the login password doesn't matter, but the keyring must be unlocked for the tests to work
+        run: gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
+
+      - name: Run tests
+        # run tests single-threaded to avoid dbus race conditions
+        run: cargo test --features=${{ matrix.feature }} -- --test-threads=1
