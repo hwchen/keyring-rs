@@ -49,9 +49,8 @@ be aware that there are known issues with getting
 dbus and secret-service and the gnome keyring
 to work properly in headless environments.
 For a quick workaround, look at how this project's
-[CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml)
-uses the
-[linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script;
+[CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/ci.yaml)
+starts the Gnome keyring unlocked with a known password;
 a similar solution is also documented in the
 [Python Keyring docs](https://pypi.org/project/keyring/)
 (search for "Using Keyring on headless Linux systems").
@@ -79,8 +78,13 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-use secret_service::blocking::{Collection, Item, SecretService};
-use secret_service::{EncryptionType, Error};
+#[cfg(not(feature = "async-secret-service"))]
+use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
+#[cfg(feature = "async-secret-service")]
+use secret_service::{
+    blocking::{Collection, Item, SecretService},
+    EncryptionType, Error,
+};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -110,7 +114,11 @@ impl CredentialApi for SsCredential {
     /// When creating, the item is put into a collection named by the credential's `target`
     /// attribute.  
     fn set_password(&self, password: &str) -> Result<()> {
-        let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
+        #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
+        let session_type = EncryptionType::Dh;
+        #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
+        let session_type = EncryptionType::Plain;
+        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
         match self.map_matching_items(|i| set_item_password(i, password), true) {
             Ok(_) => return Ok(()),
@@ -249,7 +257,11 @@ impl SsCredential {
         F: Fn(&Item) -> Result<T>,
         T: Sized,
     {
-        let ss = SecretService::connect(EncryptionType::Dh).map_err(platform_failure)?;
+        #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
+        let session_type = EncryptionType::Dh;
+        #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
+        let session_type = EncryptionType::Plain;
+        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         let attributes: HashMap<&str, &str> = self.search_attributes().into_iter().collect();
         let search = ss.search_items(attributes).map_err(decode_error)?;
         let target = self.target.as_ref().ok_or_else(empty_target)?;
@@ -357,7 +369,7 @@ pub fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collectio
 ///
 /// The name `default` is specially interpreted to mean the default collection,
 /// which always exists.
-pub fn create_collection<'a>(ss: &'a SecretService<'a>, name: &str) -> Result<Collection<'a>> {
+pub fn create_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a>> {
     let collection = if name.eq("default") {
         ss.get_default_collection().map_err(decode_error)?
     } else {
@@ -410,14 +422,9 @@ pub fn matching_target_items<'a>(
 /// appropriate annotation.
 pub fn decode_error(err: Error) -> ErrorCode {
     match err {
-        Error::Crypto(_) => platform_failure(err),
-        Error::Zbus(_) => platform_failure(err),
-        Error::ZbusFdo(_) => platform_failure(err),
-        Error::Zvariant(_) => platform_failure(err),
         Error::Locked => no_access(err),
         Error::NoResult => no_access(err),
         Error::Prompt => no_access(err),
-        Error::Unavailable => platform_failure(err),
         _ => platform_failure(err),
     }
 }
@@ -434,7 +441,7 @@ fn no_access(err: Error) -> ErrorCode {
     ErrorCode::NoStorageAccess(wrap(err))
 }
 
-fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
+fn wrap(err: Error) -> Box<dyn std::error::Error + Send> {
     Box::new(err)
 }
 
@@ -525,21 +532,25 @@ mod tests {
     }
 
     fn probe_collection(name: &str) -> bool {
-        use secret_service::blocking::SecretService;
-        use secret_service::EncryptionType;
+        #[cfg(not(feature = "async-secret-service"))]
+        use dbus_secret_service::{EncryptionType, SecretService};
+        #[cfg(feature = "async-secret-service")]
+        use secret_service::{blocking::SecretService, EncryptionType};
 
         let ss =
-            SecretService::connect(EncryptionType::Dh).expect("Can't connect to secret service");
+            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
         let result = super::get_collection(&ss, name).is_ok();
         result
     }
 
     fn delete_collection(name: &str) {
-        use secret_service::blocking::SecretService;
-        pub use secret_service::EncryptionType;
+        #[cfg(not(feature = "async-secret-service"))]
+        use dbus_secret_service::{EncryptionType, SecretService};
+        #[cfg(feature = "async-secret-service")]
+        use secret_service::{blocking::SecretService, EncryptionType};
 
         let ss =
-            SecretService::connect(EncryptionType::Dh).expect("Can't connect to secret service");
+            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
         let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
         collection.delete().expect("Can't delete collection");
     }
