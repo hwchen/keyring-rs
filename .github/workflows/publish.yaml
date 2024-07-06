@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
         include:
           - os: windows-latest
             executable_name: examples/cli.exe
@@ -27,13 +27,13 @@ jobs:
       - name: Fetch head
         uses: actions/checkout@v4
 
-      - name: Install Rust Toolchain (stable)
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          components: rustfmt, clippy
+          toolchain: stable
 
-      - name: Build (release, locked)
-        run: cargo build --release --example cli
+      - name: Build
+        run: cargo build --release --features=apple-native,windows-native,linux-native --example cli
 
       - name: Post cli executable
         uses: svenstaro/upload-release-action@v2
