@@ -49,9 +49,8 @@ be aware that there are known issues with getting
 dbus and secret-service and the gnome keyring
 to work properly in headless environments.
 For a quick workaround, look at how this project's
-[CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/build.yaml)
-uses the
-[linux-test.sh](https://github.com/hwchen/keyring-rs/blob/master/linux-test.sh) script;
+[CI workflow](https://github.com/hwchen/keyring-rs/blob/master/.github/workflows/ci.yaml)
+starts the Gnome keyring unlocked with a known password;
 a similar solution is also documented in the
 [Python Keyring docs](https://pypi.org/project/keyring/)
 (search for "Using Keyring on headless Linux systems").
