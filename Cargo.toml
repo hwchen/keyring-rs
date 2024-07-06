@@ -26,7 +26,6 @@ async-io = ["zbus?/async-io"]
 vendored = ["dbus-secret-service?/vendored", "openssl?/vendored"]
 
 [dependencies]
-lazy_static = "1"
 openssl = { version = "0.10.55", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]

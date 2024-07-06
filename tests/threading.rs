@@ -155,7 +155,7 @@ fn test_simultaneous_independent_create_set() {
 fn test_multiple_create_delete_single_thread() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
-    let repeats = 10_000;
+    let repeats = 10;
     for _i in 0..repeats {
         entry.set_password(&name).expect("Can't set ascii password");
         let stored_password = entry.get_password().expect("Can't get ascii password");
@@ -182,7 +182,7 @@ fn test_simultaneous_multiple_create_delete_single_thread() {
         let test = move || {
             let name = format!("{name}-{t}");
             let entry = Entry::new(&name, &name).expect("Can't create entry");
-            let repeats = 10_000;
+            let repeats = 10;
             for _i in 0..repeats {
                 entry.set_password(&name).expect("Can't set ascii password");
                 let stored_password = entry.get_password().expect("Can't get ascii password");

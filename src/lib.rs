@@ -144,8 +144,8 @@ then retrieving that password will return a [BadEncoding](Error::BadEncoding) er
 The returned error will have the raw bytes attached,
 so you can access them.
 
-While this crate's code is thread-safe, not all of the underlying credential
-stores handle access from different threads reliably.
+While this crate's code is thread-safe, the underlying credential
+stores may not handle access from different threads reliably.
 In particular, accessing the same credential
 from multiple threads at the same time can fail, especially on
 Windows and Linux, because the accesses may not be serialized in the same order
@@ -270,16 +270,14 @@ pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
 }
 
 fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> Result<Entry> {
-    lazy_static::lazy_static! {
-        static ref DEFAULT: Box<CredentialBuilder> = default::default_credential_builder();
-    }
+    static DEFAULT: std::sync::OnceLock<Box<CredentialBuilder>> = std::sync::OnceLock::new();
     let guard = DEFAULT_BUILDER
         .read()
         .expect("Poisoned RwLock in keyring-rs: please report a bug!");
-    let builder = match guard.inner.as_ref() {
-        Some(builder) => builder,
-        None => &DEFAULT,
-    };
+    let builder = guard
+        .inner
+        .as_ref()
+        .unwrap_or_else(|| DEFAULT.get_or_init(|| default::default_credential_builder()));
     let credential = builder.build(target, service, user)?;
     Ok(Entry { inner: credential })
 }
