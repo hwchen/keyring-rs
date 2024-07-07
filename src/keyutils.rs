@@ -133,9 +133,13 @@ impl CredentialApi for KeyutilsCredential {
     /// Returns an [Invalid](ErrorCode::Invalid) error if the password
     /// is empty, because keyutils keys cannot have empty values.
     fn set_password(&self, password: &str) -> Result<()> {
-        if password.is_empty() {
+        self.set_secret(password.as_bytes())
+    }
+
+    fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        if secret.is_empty() {
             return Err(ErrorCode::Invalid(
-                "password".to_string(),
+                "secret".to_string(),
                 "cannot be empty".to_string(),
             ));
         }
@@ -158,6 +162,15 @@ impl CredentialApi for KeyutilsCredential {
     /// This requires a call to `Key::read` with checked conversions
     /// to a utf8 Rust string.
     fn get_password(&self) -> Result<String> {
+        let secret = self.get_secret()?;
+        // Attempt utf-8 conversion
+        decode_password(secret)
+    }
+
+    /// Retrieve a secret from the underlying store
+    ///
+    /// This requires a call to `Key::read`.
+    fn get_secret(&self) -> Result<Vec<u8>> {
         // Verify that the key exists and is valid
         let key = self
             .session
@@ -178,9 +191,7 @@ impl CredentialApi for KeyutilsCredential {
 
         // Read in the key (making sure we have enough room)
         let buffer = key.read_to_vec().map_err(decode_error)?;
-
-        // Attempt utf-8 conversion
-        decode_password(buffer)
+        Ok(buffer)
     }
 
     /// Delete a password from the underlying store.
@@ -194,7 +205,7 @@ impl CredentialApi for KeyutilsCredential {
     /// so a key that has been invalidated may still be found
     /// by get_password if it's called within milliseconds
     /// in *the same process* that deleted the key.
-    fn delete_password(&self) -> Result<()> {
+    fn delete_credential(&self) -> Result<()> {
         // Verify that the key exists and is valid
         let key = self
             .session
@@ -377,6 +388,11 @@ mod tests {
     }
 
     #[test]
+    fn test_round_trip_random_secret() {
+        crate::tests::test_round_trip_random_secret(entry_new);
+    }
+
+    #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
     }
@@ -398,7 +414,7 @@ mod tests {
             .expect("Can't set password for get_credential");
         assert!(credential.get_credential().is_ok());
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }

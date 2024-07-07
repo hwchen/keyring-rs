@@ -9,7 +9,7 @@ this module (currently) uses only the _account_ and _name_ attributes.
 
 For a given service/user pair,
 this module targets a generic credential in the User (login) keychain
-whose _account_ is the user and and whose _name_ is the service.
+whose _account_ is the user and whose _name_ is the service.
 Because of a quirk in the Mac keychain services API, neither the _account_
 nor the _name_ may be the empty string. (Empty strings are treated as
 wildcards when looking up credentials by attribute value.)
@@ -59,6 +59,18 @@ impl CredentialApi for MacCredential {
         Ok(())
     }
 
+    /// Create and write a credential with secret for this entry.
+    ///
+    /// The new credential replaces any existing one in the store.
+    /// Since there is only one credential with a given _account_ and _user_
+    /// in any given keychain, there is no chance of ambiguity.
+    fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        get_keychain(self)?
+            .set_generic_password(&self.service, &self.account, secret)
+            .map_err(decode_error)?;
+        Ok(())
+    }
+
     /// Look up the password for this entry, if any.
     ///
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
@@ -70,11 +82,22 @@ impl CredentialApi for MacCredential {
         decode_password(password_bytes.to_vec())
     }
 
+    /// Look up the secret for this entry, if any.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        let (password_bytes, _) =
+            find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
+                .map_err(decode_error)?;
+        Ok(password_bytes.to_vec())
+    }
+
     /// Delete the underlying generic credential for this entry, if any.
     ///
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
-    fn delete_password(&self) -> Result<()> {
+    fn delete_credential(&self) -> Result<()> {
         let (_, item) =
             find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
                 .map_err(decode_error)?;
@@ -223,7 +246,7 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
 
 /// Map a Mac API error to a crate error with appropriate annotation
 ///
-/// The MacOS error code values used here are from
+/// The macOS error code values used here are from
 /// [this reference](https://opensource.apple.com/source/libsecurity_keychain/libsecurity_keychain-78/lib/SecBase.h.auto.html)
 pub fn decode_error(err: Error) -> ErrorCode {
     match err.code() {
@@ -295,6 +318,11 @@ mod tests {
     }
 
     #[test]
+    fn test_round_trip_random_secret() {
+        crate::tests::test_round_trip_random_secret(entry_new);
+    }
+
+    #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
     }
@@ -316,7 +344,7 @@ mod tests {
             .expect("Can't set password for get_credential");
         assert!(credential.get_credential().is_ok());
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }

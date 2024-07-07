@@ -35,7 +35,7 @@ fn main() {
             }
             Err(err) => args.error_message_for(err),
         },
-        Command::Delete => match entry.delete_password() {
+        Command::Delete => match entry.delete_credential() {
             Ok(()) => args.success_message_for(None),
             Err(err) => args.error_message_for(err),
         },

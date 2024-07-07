@@ -25,7 +25,7 @@ and a user's name which together identify the entry.
 
 Passwords can be added to an entry using its `set_password` method.
 They can then be read back using the `get_password` method,
-and removed using the `delete_password` method.
+and removed using the `delete_credential` method.
 
 ```rust
 use keyring::{Entry, Result};
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
     entry.set_password("topS3cr3tP4$$w0rd")?;
     let password = entry.get_password()?;
     println!("My password is '{}'", password);
-    entry.delete_password()?;
+    entry.delete_credential()?;
     Ok(())
 }
 ```

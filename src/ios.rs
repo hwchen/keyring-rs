@@ -61,7 +61,7 @@ impl CredentialApi for IosCredential {
     ///
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
-    fn delete_password(&self) -> Result<()> {
+    fn delete_credential(&self) -> Result<()> {
         delete_generic_password(&self.service, &self.account).map_err(decode_error)?;
         Ok(())
     }

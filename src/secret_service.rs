@@ -114,13 +114,25 @@ impl CredentialApi for SsCredential {
     /// When creating, the item is put into a collection named by the credential's `target`
     /// attribute.  
     fn set_password(&self, password: &str) -> Result<()> {
+        self.set_secret(password.as_bytes())
+    }
+
+    /// Sets the secret on a unique matching item, if it exists, or creates one if necessary.
+    ///
+    /// If there are multiple matches,
+    /// returns an [Ambiguous](ErrorCode::Ambiguous) error with a credential for each
+    /// matching item.
+    ///
+    /// When creating, the item is put into a collection named by the credential's `target`
+    /// attribute.  
+    fn set_secret(&self, secret: &[u8]) -> Result<()> {
         #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
         let session_type = EncryptionType::Dh;
         #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
         let session_type = EncryptionType::Plain;
         let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
-        match self.map_matching_items(|i| set_item_password(i, password), true) {
+        match self.map_matching_items(|i| set_item_secret(i, secret), true) {
             Ok(_) => return Ok(()),
             Err(ErrorCode::NoEntry) => {}
             Err(err) => return Err(err),
@@ -135,7 +147,7 @@ impl CredentialApi for SsCredential {
             .create_item(
                 self.label.as_str(),
                 self.all_attributes(),
-                password.as_bytes(),
+                secret,
                 true, // replace
                 "text/plain",
             )
@@ -155,6 +167,18 @@ impl CredentialApi for SsCredential {
         Ok(passwords[0].clone())
     }
 
+    /// Gets the secret on a unique matching item, if it exists.
+    ///
+    /// If there are no
+    /// matching items, returns a [NoEntry](ErrorCode::NoEntry) error.
+    /// If there are multiple matches,
+    /// returns an [Ambiguous](ErrorCode::Ambiguous)
+    /// error with a credential for each matching item.
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        let secrets: Vec<Vec<u8>> = self.map_matching_items(get_item_secret, true)?;
+        Ok(secrets[0].clone())
+    }
+
     /// Deletes the unique matching item, if it exists.
     ///
     /// If there are no
@@ -162,7 +186,7 @@ impl CredentialApi for SsCredential {
     /// If there are multiple matches,
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
-    fn delete_password(&self) -> Result<()> {
+    fn delete_credential(&self) -> Result<()> {
         self.map_matching_items(delete_item, true)?;
         Ok(())
     }
@@ -235,7 +259,7 @@ impl SsCredential {
 
     /// If there are multiple matching items for this credential, delete all of them.
     ///
-    /// (This is useful if [delete_password](SsCredential::delete_password)
+    /// (This is useful if [delete_credential](SsCredential::delete_credential)
     /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn delete_all_passwords(&self) -> Result<()> {
         self.map_matching_items(delete_item, true)?;
@@ -378,10 +402,9 @@ pub fn create_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collec
     Ok(collection)
 }
 
-/// Given an existing item, set its password.
-pub fn set_item_password(item: &Item, password: &str) -> Result<()> {
-    item.set_secret(password.as_bytes(), "text/plain")
-        .map_err(decode_error)
+/// Given an existing item, set its secret.
+pub fn set_item_secret<S: AsRef<[u8]> + ?Sized>(item: &Item, secret: &S) -> Result<()> {
+    item.set_secret(secret, "text/plain").map_err(decode_error)
 }
 
 /// Given an existing item, retrieve and decode its password.
@@ -390,7 +413,13 @@ pub fn get_item_password(item: &Item) -> Result<String> {
     decode_password(bytes)
 }
 
-/// Given an existing item, delete it.
+//// Given an existing item, retrieve and decode its password.
+pub fn get_item_secret(item: &Item) -> Result<Vec<u8>> {
+    let secret = item.get_secret().map_err(decode_error)?;
+    Ok(secret)
+}
+
+// Given an existing item, delete it.
 pub fn delete_item(item: &Item) -> Result<()> {
     item.delete().map_err(decode_error)
 }
@@ -499,6 +528,11 @@ mod tests {
     }
 
     #[test]
+    fn test_round_trip_random_secret() {
+        crate::tests::test_round_trip_random_secret(entry_new);
+    }
+
+    #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
     }
@@ -526,7 +560,7 @@ mod tests {
             )
         }
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete get-credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
@@ -571,7 +605,7 @@ mod tests {
             .expect("Can't get password for new collection entry");
         assert_eq!(actual, password);
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for new collection entry");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
         delete_collection(&name);
@@ -614,15 +648,15 @@ mod tests {
             .expect("Can't get password for default collection");
         assert_eq!(actual3, password3);
         entry1
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for collection 1");
         assert!(matches!(entry1.get_password(), Err(Error::NoEntry)));
         entry2
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for collection 2");
         assert!(matches!(entry2.get_password(), Err(Error::NoEntry)));
         entry3
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
         delete_collection(&name1);
@@ -669,15 +703,15 @@ mod tests {
             .expect("Can't get password for default collection");
         assert_eq!(actual3, password3);
         entry1
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for collection 1");
         assert!(matches!(entry1.get_password(), Err(Error::NoEntry)));
         entry2
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for collection 2");
         assert!(matches!(entry2.get_password(), Err(Error::NoEntry)));
         entry3
-            .delete_password()
+            .delete_credential()
             .expect("Couldn't delete password for default collection");
         assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
     }
