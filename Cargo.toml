@@ -59,6 +59,10 @@ name = "iostest"
 path = "examples/ios.rs"
 crate-type = ["staticlib"]
 
+[[example]]
+name = "keyring-cli"
+path = "examples/cli.rs"
+
 [dev-dependencies]
 base64 = "0.22"
 clap = { version = "4", features = ["derive", "wrap_help"] }

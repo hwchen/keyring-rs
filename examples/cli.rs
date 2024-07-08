@@ -1,9 +1,8 @@
 extern crate keyring;
 
-use base64::Engine;
 use clap::Parser;
+
 use keyring::{Entry, Error, Result};
-use rpassword::prompt_password;
 
 fn main() {
     let mut args: Cli = Cli::parse();
@@ -124,14 +123,14 @@ impl Cli {
             let description = self.description();
             match err {
                 Error::NoEntry => {
-                    eprintln!("No password found for '{description}'");
+                    eprintln!("No credential found for '{description}'");
                 }
                 Error::Ambiguous(creds) => {
                     eprintln!("More than one credential found for '{description}': {creds:?}");
                 }
                 err => match self.command {
                     Command::Set { .. } => {
-                        eprintln!("Couldn't set password for '{description}': {err}");
+                        eprintln!("Couldn't set credential data for '{description}': {err}");
                     }
                     Command::Password => {
                         eprintln!("Couldn't get password for '{description}': {err}");
@@ -140,7 +139,7 @@ impl Cli {
                         eprintln!("Couldn't get secret for '{description}': {err}");
                     }
                     Command::Delete => {
-                        eprintln!("Couldn't set password for '{description}': {err}");
+                        eprintln!("Couldn't delete credential for '{description}': {err}");
                     }
                 },
             }
@@ -172,7 +171,7 @@ impl Cli {
                 eprintln!("Secret for '{description}' encodes as {secret}");
             }
             Command::Delete => {
-                eprintln!("Successfully deleted password for '{description}'");
+                eprintln!("Successfully deleted credential for '{description}'");
             }
         }
     }
@@ -181,7 +180,7 @@ impl Cli {
         match &self.command {
             Command::Set { password: Some(pw) } => password_or_secret(pw),
             Command::Set { password: None } => {
-                if let Ok(password) = prompt_password("Password: ") {
+                if let Ok(password) = rpassword::prompt_password("Password: ") {
                     password_or_secret(&password)
                 } else {
                     (None, None)
@@ -193,11 +192,15 @@ impl Cli {
 }
 
 fn secret_string(secret: &[u8]) -> String {
-    base64::prelude::BASE64_STANDARD.encode(secret)
+    use base64::prelude::*;
+
+    BASE64_STANDARD.encode(secret)
 }
 
 fn password_or_secret(input: &str) -> (Option<Vec<u8>>, Option<String>) {
-    match base64::prelude::BASE64_STANDARD.decode(input) {
+    use base64::prelude::*;
+
+    match BASE64_STANDARD.decode(input) {
         Ok(secret) => (Some(secret), None),
         Err(_) => (None, Some(input.to_string())),
     }
