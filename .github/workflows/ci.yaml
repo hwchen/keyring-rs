@@ -19,6 +19,15 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
 
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: $test-cache-${{ steps.toolchain.outputs.rustc_hash }}-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Format check
         run: cargo fmt --all -- --check
 
@@ -29,7 +38,7 @@ jobs:
         run: cargo test --features=apple-native,windows-native,linux-native --verbose
 
       - name: Build the CLI release
-        run: cargo build --release --features=apple-native,windows-native,linux-native --example cli
+        run: cargo build --release --features=apple-native,windows-native,linux-native --example keyring-cli
 
   ci_secret_service:
     runs-on: ubuntu-latest
