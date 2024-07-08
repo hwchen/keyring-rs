@@ -1,9 +1,9 @@
 extern crate keyring;
 
+use base64::Engine;
 use clap::Parser;
-use rpassword::prompt_password;
-
 use keyring::{Entry, Error, Result};
+use rpassword::prompt_password;
 
 fn main() {
     let mut args: Cli = Cli::parse();
@@ -22,21 +22,40 @@ fn main() {
     };
     match &args.command {
         Command::Set { .. } => {
-            let password = args.get_password();
-            match entry.set_password(&password) {
-                Ok(()) => args.success_message_for(Some(&password)),
-                Err(err) => args.error_message_for(err),
+            let (secret, password) = args.get_password();
+            if let Some(secret) = secret {
+                match entry.set_secret(&secret) {
+                    Ok(()) => args.success_message_for(Some(&secret), None),
+                    Err(err) => args.error_message_for(err),
+                }
+            } else if let Some(password) = password {
+                match entry.set_password(&password) {
+                    Ok(()) => args.success_message_for(None, Some(&password)),
+                    Err(err) => args.error_message_for(err),
+                }
+            } else {
+                if args.verbose {
+                    eprintln!("You must provide a password to the set command");
+                }
+                std::process::exit(1)
             }
         }
-        Command::Get => match entry.get_password() {
+        Command::Password => match entry.get_password() {
             Ok(password) => {
                 println!("{password}");
-                args.success_message_for(Some(&password));
+                args.success_message_for(None, Some(&password));
+            }
+            Err(err) => args.error_message_for(err),
+        },
+        Command::Secret => match entry.get_secret() {
+            Ok(secret) => {
+                println!("{}", secret_string(&secret));
+                args.success_message_for(Some(&secret), None);
             }
             Err(err) => args.error_message_for(err),
         },
         Command::Delete => match entry.delete_credential() {
-            Ok(()) => args.success_message_for(None),
+            Ok(()) => args.success_message_for(None, None),
             Err(err) => args.error_message_for(err),
         },
     }
@@ -76,7 +95,9 @@ pub enum Command {
         password: Option<String>,
     },
     /// Get the password from the secure store
-    Get,
+    Password,
+    /// Get the secret from the secure store
+    Secret,
     /// Delete the entry from the secure store
     Delete,
 }
@@ -112,8 +133,11 @@ impl Cli {
                     Command::Set { .. } => {
                         eprintln!("Couldn't set password for '{description}': {err}");
                     }
-                    Command::Get => {
+                    Command::Password => {
                         eprintln!("Couldn't get password for '{description}': {err}");
+                    }
+                    Command::Secret => {
+                        eprintln!("Couldn't get secret for '{description}': {err}");
                     }
                     Command::Delete => {
                         eprintln!("Couldn't set password for '{description}': {err}");
@@ -124,19 +148,28 @@ impl Cli {
         std::process::exit(1)
     }
 
-    fn success_message_for(&self, password: Option<&str>) {
+    fn success_message_for(&self, secret: Option<&[u8]>, password: Option<&str>) {
         if !self.verbose {
             return;
         }
         let description = self.description();
         match self.command {
             Command::Set { .. } => {
-                let pw = password.unwrap();
-                eprintln!("Set password '{pw}' for '{description}'");
+                if let Some(pw) = password {
+                    eprintln!("Set password for '{description}' to '{pw}'");
+                }
+                if let Some(secret) = secret {
+                    let secret = secret_string(secret);
+                    eprintln!("Set secret for '{description}' to decode of '{secret}'");
+                }
             }
-            Command::Get => {
+            Command::Password => {
                 let pw = password.unwrap();
-                eprintln!("Got password '{pw}' for '{description}'");
+                eprintln!("Password for '{description}' is '{pw}'");
+            }
+            Command::Secret => {
+                let secret = secret_string(secret.unwrap());
+                eprintln!("Secret for '{description}' encodes as {secret}");
             }
             Command::Delete => {
                 eprintln!("Successfully deleted password for '{description}'");
@@ -144,22 +177,28 @@ impl Cli {
         }
     }
 
-    fn get_password(&self) -> String {
+    fn get_password(&self) -> (Option<Vec<u8>>, Option<String>) {
         match &self.command {
-            Command::Set {
-                password: Some(password),
-            } => password.clone(),
+            Command::Set { password: Some(pw) } => password_or_secret(pw),
             Command::Set { password: None } => {
                 if let Ok(password) = prompt_password("Password: ") {
-                    password
+                    password_or_secret(&password)
                 } else {
-                    if self.verbose {
-                        eprintln!("Failed to read password from terminal");
-                    }
-                    std::process::exit(1)
+                    (None, None)
                 }
             }
-            _ => String::new(),
+            _ => (None, None),
         }
+    }
+}
+
+fn secret_string(secret: &[u8]) -> String {
+    base64::prelude::BASE64_STANDARD.encode(secret)
+}
+
+fn password_or_secret(input: &str) -> (Option<Vec<u8>>, Option<String>) {
+    match base64::prelude::BASE64_STANDARD.decode(input) {
+        Ok(secret) => (Some(secret), None),
+        Err(_) => (None, Some(input.to_string())),
     }
 }

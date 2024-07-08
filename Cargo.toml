@@ -60,6 +60,7 @@ path = "examples/ios.rs"
 crate-type = ["staticlib"]
 
 [dev-dependencies]
+base64 = "0.22"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 rpassword = "7"
 rand = "0.8"
