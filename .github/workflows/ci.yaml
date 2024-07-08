@@ -84,7 +84,7 @@ jobs:
 
       - name: Run tests
         # run tests single-threaded to avoid dbus race conditions
-        run: cargo test --features=${{ matrix.feature }} -- --test-threads=1
+        run: cargo test --features=${{ matrix.features }} -- --test-threads=1
 
   msrv_native:
     runs-on: ubuntu-latest
