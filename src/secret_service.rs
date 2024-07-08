@@ -403,7 +403,7 @@ pub fn create_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collec
 }
 
 /// Given an existing item, set its secret.
-pub fn set_item_secret<S: AsRef<[u8]> + ?Sized>(item: &Item, secret: &S) -> Result<()> {
+pub fn set_item_secret(item: &Item, secret: &[u8]) -> Result<()> {
     item.set_secret(secret, "text/plain").map_err(decode_error)
 }
 
