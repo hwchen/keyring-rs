@@ -6,7 +6,7 @@ use keyring::{Entry, Error, Result};
 
 fn main() {
     let mut args: Cli = Cli::parse();
-    if args.user.is_empty() || args.user.eq_ignore_ascii_case("<whoami>") {
+    if args.user.is_empty() || args.user.eq_ignore_ascii_case("<logged-in username>") {
         args.user = whoami::username()
     }
     let entry = match args.entry_for() {
@@ -65,19 +65,21 @@ fn main() {
 /// Keyring CLI: A command-line interface to platform secure storage
 pub struct Cli {
     #[clap(short, long, action)]
-    /// Write debugging info to stderr (shows passwords)
+    /// Write debugging info to stderr, including retrieved passwords
+    /// and secrets. If an operation fails, error information is provided.
     pub verbose: bool,
 
     #[clap(short, long, value_parser)]
-    /// The target for the entry
+    /// The (optional) target for the entry.  If none is provided,
+    /// the entry will be created from the service and user only.
     pub target: Option<String>,
 
     #[clap(short, long, value_parser, default_value = "keyring-cli")]
-    /// The service name for the entry
+    /// The service for the entry.
     pub service: String,
 
-    #[clap(short, long, value_parser, default_value = "<whoami>")]
-    /// The user to store/retrieve the password for
+    #[clap(short, long, value_parser, default_value = "<logged-in username>")]
+    /// The user for the entry.
     pub user: String,
 
     #[clap(subcommand)]
@@ -89,15 +91,22 @@ pub enum Command {
     /// Set the password in the secure store
     Set {
         #[clap(value_parser)]
-        /// The password to set. If not specified, the password
-        /// is collected interactively from the terminal
+        /// The password to set into the secure store.
+        /// If it's a valid base64 encoding (with padding),
+        /// it will be decoded and used to set the binary secret.
+        /// Otherwise, it will be interpreted as a string password.
+        /// If no password is specified, it will be
+        /// collected interactively (without echo)
+        /// from the terminal.
         password: Option<String>,
     },
-    /// Get the password from the secure store
+    /// Retrieve the (string) password from the secure store
+    /// and write it to the standard output.
     Password,
-    /// Get the secret from the secure store
+    /// Retrieve the (binary) secret from the secure store
+    /// and write it in base64 encoding to the standard output.
     Secret,
-    /// Delete the entry from the secure store
+    /// Delete the underlying credential from the secure store.
     Delete,
 }
 
