@@ -45,7 +45,6 @@ jobs:
     strategy:
       matrix:
         features:
-          - "linux-keyutils"
           - "sync-secret-service"
           - "sync-secret-service,crypto-rust"
           - "sync-secret-service,crypto-openssl"
