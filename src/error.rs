@@ -4,11 +4,10 @@ Platform-independent error model.
 
 There is an escape hatch here for surfacing platform-specific
 error information returned by the platform-specific storage provider,
-but (like all credential-related data) the concrete objects returned
-must be both Send and Sync so credentials remain Send + Sync.
-(Since most platform errors are integer error codes, this requirement
+but the concrete objects returned must be `Send` so they can be
+moved from one thread to another. (Since most platform errors
+are integer error codes, this requirement
 is not much of a burden on the platform-specific store providers.)
-
  */
 
 use crate::Credential;
@@ -18,8 +17,9 @@ use crate::Credential;
 /// More details, if relevant, are contained in the associated value,
 /// which may be platform-specific.
 ///
-/// Because future releases may add variants to this enum, clients should
-/// always be prepared for that.
+/// This enum is non-exhaustive so that more values can be added to it
+/// without a SemVer break. Clients should always have default handling
+/// for variants they don't understand.
 #[non_exhaustive]
 pub enum Error {
     /// This indicates runtime failure in the underlying

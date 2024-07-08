@@ -19,7 +19,8 @@ This crate implements a very simple, platform-independent concrete object called
 Each entry is identified by a <_service name_, _user name_> pair of UTF-8 strings,
 optionally augmented by a _target_ string (which can be used to distinguish two entries
 that have the same _service name_ and _user name_).
-Entries support setting, getting, and forgetting (aka deleting) passwords (UTF-8 strings).
+Entries support setting, getting, and forgetting (aka deleting) passwords (UTF-8 strings)
+and binary secrets (byte arrays).
 
 Entries provide persistence for their passwords by wrapping credentials held in platform-specific
 credential stores.  The implementations of these platform-specific stores are captured
@@ -27,11 +28,12 @@ in two types (with associated traits):
 
 - a _credential builder_, represented by the [CredentialBuilder] type
 (and [CredentialBuilderApi](credential::CredentialBuilderApi) trait).  Credential
-builders are given the identifying information provided for an entry and maps
-it to the identifying information for a matching platform-specific credential.
+builders are given the identifying information provided for an entry and map
+it to the identifying information for a platform-specific credential.
 - a _credential_, represented by the [Credential] type
 (and [CredentialApi](credential::CredentialApi) trait).  The platform-specific credential
-identified by a builder for an entry is what provides the secure storage for that entry's password.
+identified by a builder for an entry is what provides the secure storage
+for that entry's password/secret.
 
 ## Crate-provided Credential Stores
 
@@ -40,11 +42,13 @@ or more implementations of credential stores on each platform.
 These implementations work by mapping the data used to identify an entry
 to data used to identify platform-specific storage objects.
 For example, on macOS, the service and user provided for an entry
-are mapped to the service and user attributes that identify an element
-in the macOS keychain.
+are mapped to the service and user attributes that identify a
+generic credential in the macOS keychain.
 
-Typically, platform-specific stores have a richer model of an entry than
-the one used by this crate.  They expose their specific model in the
+Typically, platform-specific stores (called _keystores_ in this crate)
+have a richer model of a credential than
+the one used by this crate to identify entries.
+These keystores expose their specific model in the
 concrete credential objects they use to implement the Credential trait.
 In order to allow clients to access this richer model, the Credential trait
 has an [as_any](credential::CredentialApi::as_any) method that returns a
@@ -138,11 +142,14 @@ view the storage module documentation for your desired platform.)
 
 ## Caveats
 
-This module manipulates passwords as UTF-8 encoded strings,
+This module expects passwords to be UTF-8 encoded strings,
 so if a third party has stored an arbitrary byte string
-then retrieving that password will return a [BadEncoding](Error::BadEncoding) error.
+then retrieving that as a password will return a
+[BadEncoding](Error::BadEncoding) error.
 The returned error will have the raw bytes attached,
-so you can access them.
+so you can access them, but you can also just fetch
+them directly using [Entry::get_secret] rather than
+[Entry:get_password].
 
 While this crate's code is thread-safe, the underlying credential
 stores may not handle access from different threads reliably.
