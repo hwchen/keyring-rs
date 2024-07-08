@@ -39,7 +39,7 @@ use std::sync::Mutex;
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
-use super::error::{Error, Result};
+use super::error::{decode_password, Error, Result};
 
 /// The concrete mock credential
 ///
@@ -67,7 +67,7 @@ impl Default for MockCredential {
 /// Most keystore implementation hide their internals.)
 #[derive(Debug, Default)]
 pub struct MockData {
-    pub password: Option<String>,
+    pub secret: Option<Vec<u8>>,
     pub error: Option<Error>,
 }
 
@@ -83,7 +83,25 @@ impl CredentialApi for MockCredential {
         let err = data.error.take();
         match err {
             None => {
-                data.password = Some(password.to_string());
+                data.secret = Some(password.as_bytes().to_vec());
+                Ok(())
+            }
+            Some(err) => Err(err),
+        }
+    }
+
+    /// Set a password on a mock credential.
+    ///
+    /// If there is an error in the mock, it will be returned
+    /// and the password will _not_ be set.  The error will
+    /// be cleared, so calling again will set the password.
+    fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        let mut inner = self.inner.lock().expect("Can't access mock data for set");
+        let data = inner.get_mut();
+        let err = data.error.take();
+        match err {
+            None => {
+                data.secret = Some(secret.to_vec());
                 Ok(())
             }
             Some(err) => Err(err),
@@ -99,7 +117,24 @@ impl CredentialApi for MockCredential {
         let data = inner.get_mut();
         let err = data.error.take();
         match err {
-            None => match &data.password {
+            None => match &data.secret {
+                None => Err(Error::NoEntry),
+                Some(val) => decode_password(val.clone()),
+            },
+            Some(err) => Err(err),
+        }
+    }
+
+    /// Get the password from a mock credential, if any.
+    ///
+    /// If there is an error set in the mock, it will
+    /// be returned instead of a password.
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        let mut inner = self.inner.lock().expect("Can't access mock data for get");
+        let data = inner.get_mut();
+        let err = data.error.take();
+        match err {
+            None => match &data.secret {
                 None => Err(Error::NoEntry),
                 Some(val) => Ok(val.clone()),
             },
@@ -114,7 +149,7 @@ impl CredentialApi for MockCredential {
     ///
     /// If there is no password, a [NoEntry](Error::NoEntry) error
     /// will be returned.
-    fn delete_password(&self) -> Result<()> {
+    fn delete_credential(&self) -> Result<()> {
         let mut inner = self
             .inner
             .lock()
@@ -122,9 +157,9 @@ impl CredentialApi for MockCredential {
         let data = inner.get_mut();
         let err = data.error.take();
         match err {
-            None => match data.password {
+            None => match data.secret {
                 Some(_) => {
-                    data.password = None;
+                    data.secret = None;
                     Ok(())
                 }
                 None => Err(Error::NoEntry),
@@ -215,107 +250,32 @@ mod tests {
 
     #[test]
     fn test_missing_entry() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Missing entry has password"
-        )
+        crate::tests::test_missing_entry(entry_new);
     }
 
     #[test]
     fn test_empty_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        let in_pass = "";
-        entry
-            .set_password(in_pass)
-            .expect("Can't set empty password");
-        let out_pass = entry.get_password().expect("Can't get empty password");
-        assert_eq!(
-            in_pass, out_pass,
-            "Retrieved and set empty passwords don't match"
-        );
-        entry.delete_password().expect("Can't delete password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted password"
-        )
+        crate::tests::test_empty_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted ascii password"
-        )
+        crate::tests::test_round_trip_ascii_password(entry_new);
     }
 
     #[test]
     fn test_round_trip_non_ascii_password() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't set non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete non-ascii password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted non-ascii password"
-        )
+        crate::tests::test_round_trip_non_ascii_password(entry_new);
+    }
+
+    #[test]
+    fn test_round_trip_random_secret() {
+        crate::tests::test_round_trip_random_secret(entry_new);
     }
 
     #[test]
     fn test_update() {
-        let name = generate_random_string();
-        let entry = entry_new(&name, &name);
-        let password = "test ascii password";
-        entry
-            .set_password(password)
-            .expect("Can't set initial ascii password");
-        let stored_password = entry.get_password().expect("Can't get ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and set initial ascii passwords don't match"
-        );
-        let password = "このきれいな花は桜です";
-        entry
-            .set_password(password)
-            .expect("Can't update ascii with non-ascii password");
-        let stored_password = entry.get_password().expect("Can't get non-ascii password");
-        assert_eq!(
-            stored_password, password,
-            "Retrieved and updated non-ascii passwords don't match"
-        );
-        entry
-            .delete_password()
-            .expect("Can't delete updated password");
-        assert!(
-            matches!(entry.get_password(), Err(Error::NoEntry)),
-            "Able to read a deleted updated password"
-        )
+        crate::tests::test_update(entry_new);
     }
 
     #[test]
@@ -351,10 +311,12 @@ mod tests {
         );
         mock.set_error(Error::TooLong("mock".to_string(), 3));
         assert!(
-            matches!(entry.delete_password(), Err(Error::TooLong(_, 3))),
+            matches!(entry.delete_credential(), Err(Error::TooLong(_, 3))),
             "delete: No error"
         );
-        entry.delete_password().expect("delete: Error not cleared");
+        entry
+            .delete_credential()
+            .expect("delete: Error not cleared");
         assert!(
             matches!(entry.get_password(), Err(Error::NoEntry)),
             "Able to read a deleted ascii password"

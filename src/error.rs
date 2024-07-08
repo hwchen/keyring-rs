@@ -66,7 +66,7 @@ impl std::fmt::Display for Error {
                 write!(f, "Couldn't access platform secure storage: {err}")
             }
             Error::NoEntry => write!(f, "No matching entry found in secure storage"),
-            Error::BadEncoding(_) => write!(f, "Password cannot be UTF-8 encoded"),
+            Error::BadEncoding(_) => write!(f, "Data is not UTF-8 encoded"),
             Error::TooLong(name, len) => write!(
                 f,
                 "Attribute '{name}' is longer than platform limit of {len} chars"

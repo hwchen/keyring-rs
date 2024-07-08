@@ -27,7 +27,7 @@ fn test_create_then_move() {
             "Retrieved and set non-ascii passwords don't match"
         );
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Can't delete non-ascii password");
         assert!(
             matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -52,7 +52,7 @@ fn test_simultaneous_create_then_move() {
                 "Retrieved and set ascii passwords don't match"
             );
             entry
-                .delete_password()
+                .delete_credential()
                 .expect("Can't delete ascii password");
             assert!(
                 matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -82,7 +82,7 @@ fn test_create_set_then_move() {
             "Retrieved and set ascii passwords don't match"
         );
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Can't delete ascii password");
         assert!(
             matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -108,7 +108,7 @@ fn test_simultaneous_create_set_then_move() {
                 "Retrieved and set ascii passwords don't match"
             );
             entry
-                .delete_password()
+                .delete_credential()
                 .expect("Can't delete ascii password");
             assert!(
                 matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -136,7 +136,7 @@ fn test_simultaneous_independent_create_set() {
                 "Retrieved and set ascii passwords don't match"
             );
             entry
-                .delete_password()
+                .delete_credential()
                 .expect("Can't delete ascii password");
             assert!(
                 matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -164,7 +164,7 @@ fn test_multiple_create_delete_single_thread() {
             "Retrieved and set ascii passwords don't match"
         );
         entry
-            .delete_password()
+            .delete_credential()
             .expect("Can't delete ascii password");
         assert!(
             matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -191,7 +191,7 @@ fn test_simultaneous_multiple_create_delete_single_thread() {
                     "Retrieved and set ascii passwords don't match"
                 );
                 entry
-                    .delete_password()
+                    .delete_credential()
                     .expect("Can't delete ascii password");
                 assert!(
                     matches!(entry.get_password(), Err(Error::NoEntry)),

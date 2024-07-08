@@ -43,7 +43,7 @@ fn test_empty_password_input() {
     entry.set_password(in_pass).unwrap();
     let out_pass = entry.get_password().unwrap();
     assert_eq!(in_pass, out_pass);
-    entry.delete_password().unwrap();
+    entry.delete_credential().unwrap();
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted password"
@@ -57,7 +57,7 @@ fn test_round_trip_ascii_password() {
     entry.set_password(password).unwrap();
     let stored_password = entry.get_password().unwrap();
     assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
+    entry.delete_credential().unwrap();
     assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
@@ -68,7 +68,7 @@ fn test_round_trip_non_ascii_password() {
     entry.set_password(password).unwrap();
     let stored_password = entry.get_password().unwrap();
     assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
+    entry.delete_credential().unwrap();
     assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
@@ -83,7 +83,7 @@ fn test_update_password() {
     entry.set_password(password).unwrap();
     let stored_password = entry.get_password().unwrap();
     assert_eq!(stored_password, password);
-    entry.delete_password().unwrap();
+    entry.delete_credential().unwrap();
     assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }
 
@@ -104,6 +104,6 @@ fn test_get_credential() {
         .set_password("test get password")
         .expect("Can't set password for get_credential");
     assert!(credential.get_credential().is_ok());
-    entry.delete_password().unwrap();
+    entry.delete_credential().unwrap();
     assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
 }

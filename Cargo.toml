@@ -6,8 +6,8 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "3.0.0-rc.1"
-rust-version = "1.70"
+version = "3.0.0-rc.2"
+rust-version = "1.75"
 edition = "2021"
 exclude = [".github/"]
 readme = "README.md"
@@ -59,7 +59,12 @@ name = "iostest"
 path = "examples/ios.rs"
 crate-type = ["staticlib"]
 
+[[example]]
+name = "keyring-cli"
+path = "examples/cli.rs"
+
 [dev-dependencies]
+base64 = "0.22"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 rpassword = "7"
 rand = "0.8"

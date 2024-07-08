@@ -13,20 +13,33 @@ use std::any::Any;
 
 /// The API that [credentials](Credential) implement.
 pub trait CredentialApi {
-    /// Set the credential's password.
+    /// Set the credential's password (a string).
     ///
     /// This will persist the password in the underlying store.
     fn set_password(&self, password: &str) -> Result<()>;
-    /// Retrieve a password from the credential, if one has been set.
+
+    /// Set the credential's secret (a byte array).
+    ///
+    /// This will persist the secret in the underlying store.
+    fn set_secret(&self, password: &[u8]) -> Result<()>;
+
+    /// Retrieve a password (a string) from the credential, if one has been set.
     ///
     /// This has no effect on the underlying store.
     fn get_password(&self) -> Result<String>;
-    /// Forget the credential's password, if one has been set.
+
+    /// Retrieve a secret (a byte array) from the credential, if one has been set.
     ///
-    /// This will also remove the credential from the underlying store,
-    /// so a second call to delete_password will return
+    /// This has no effect on the underlying store.
+    fn get_secret(&self) -> Result<Vec<u8>>;
+
+    /// Delete the underlying credential, if there is one.
+    ///
+    /// This is not idempotent if the credential existed!
+    /// A second call to delete_credential will return
     /// a [NoEntry](crate::Error::NoEntry) error.
-    fn delete_password(&self) -> Result<()>;
+    fn delete_credential(&self) -> Result<()>;
+
     /// Return the underlying concrete object cast to [Any].
     ///
     /// This allows clients

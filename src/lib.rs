@@ -318,6 +318,17 @@ impl Entry {
         self.inner.set_password(password)
     }
 
+    /// Set the secret for this entry.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
+    pub fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        self.inner.set_secret(secret)
+    }
+
     /// Retrieve the password saved for this entry.
     ///
     /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
@@ -331,7 +342,7 @@ impl Entry {
         self.inner.get_password()
     }
 
-    /// Delete the password for this entry.
+    /// Retrieve the secret saved for this entry.
     ///
     /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
     ///
@@ -340,8 +351,25 @@ impl Entry {
     /// that matches this entry.  This can only happen
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
-    pub fn delete_password(&self) -> Result<()> {
-        self.inner.delete_password()
+    pub fn get_secret(&self) -> Result<Vec<u8>> {
+        self.inner.get_secret()
+    }
+
+    /// Delete the underlying credential for this entry.
+    ///
+    /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
+    ///
+    /// Note: This does _not_ affect the lifetime of the [Entry]
+    /// structure, which is controlled by Rust.  It only
+    /// affects the underlying credential store.
+    pub fn delete_credential(&self) -> Result<()> {
+        self.inner.delete_credential()
     }
 
     /// Return a reference to this entry's wrapped credential.
@@ -366,6 +394,7 @@ doc_comment::doctest!("../README.md", readme);
 #[allow(dead_code)]
 mod tests {
     use super::{credential::CredentialApi, Entry, Error, Result};
+    use rand::Rng;
 
     /// Create a platform-specific credential given the constructor, service, and user
     pub fn entry_from_constructor<F, T>(f: F, service: &str, user: &str) -> Entry
@@ -394,9 +423,31 @@ mod tests {
             "Passwords don't match for {case}: set='{in_pass}', get='{out_pass}'",
         );
         entry
-            .delete_password()
+            .delete_credential()
             .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
         let password = entry.get_password();
+        assert!(
+            matches!(password, Err(Error::NoEntry)),
+            "Read deleted password for {case}",
+        );
+    }
+
+    /// A basic round-trip unit test given an entry and a password.
+    pub fn test_round_trip_secret(case: &str, entry: &Entry, in_secret: &[u8]) {
+        entry
+            .set_secret(in_secret)
+            .unwrap_or_else(|err| panic!("Can't set secret for {case}: {err:?}"));
+        let out_secret = entry
+            .get_secret()
+            .unwrap_or_else(|err| panic!("Can't get secret for {case}: {err:?}"));
+        assert_eq!(
+            in_secret, &out_secret,
+            "Passwords don't match for {case}: set='{in_secret:?}', get='{out_secret:?}'",
+        );
+        entry
+            .delete_credential()
+            .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
+        let password = entry.get_secret();
         assert!(
             matches!(password, Err(Error::NoEntry)),
             "Read deleted password for {case}",
@@ -472,6 +523,17 @@ mod tests {
         let name = generate_random_string();
         let entry = f(&name, &name);
         test_round_trip("non-ascii password", &entry, "このきれいな花は桜です");
+    }
+
+    pub fn test_round_trip_random_secret<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        let mut secret: [u8; 16] = [0; 16];
+        rand::rngs::OsRng.fill(&mut secret);
+        test_round_trip_secret("non-ascii password", &entry, &secret);
     }
 
     pub fn test_update<F>(f: F)

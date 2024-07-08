@@ -27,7 +27,7 @@ fn test_empty_password() {
         in_pass, out_pass,
         "Retrieved and set empty passwords don't match"
     );
-    entry.delete_password().expect("Can't delete password");
+    entry.delete_credential().expect("Can't delete password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted password"
@@ -48,7 +48,7 @@ fn test_round_trip_ascii_password() {
         "Retrieved and set ascii passwords don't match"
     );
     entry
-        .delete_password()
+        .delete_credential()
         .expect("Can't delete ascii password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
@@ -70,11 +70,33 @@ fn test_round_trip_non_ascii_password() {
         "Retrieved and set non-ascii passwords don't match"
     );
     entry
-        .delete_password()
+        .delete_credential()
         .expect("Can't delete non-ascii password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted non-ascii password"
+    )
+}
+
+#[test]
+fn test_round_trip_random_secret() {
+    use rand::{rngs::OsRng, Rng};
+    let name = generate_random_string();
+    let entry = Entry::new(&name, &name).expect("Can't create entry");
+    let mut secret: [u8; 16] = [0; 16];
+    OsRng.fill(&mut secret);
+    entry.set_secret(&secret).expect("Can't set random secret");
+    let stored_secret = entry.get_secret().expect("Can't get random secret");
+    assert_eq!(
+        &stored_secret, &secret,
+        "Retrieved and set random secrets don't match"
+    );
+    entry
+        .delete_credential()
+        .expect("Can't delete random secret");
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Able to read a deleted random secret"
     )
 }
 
@@ -101,7 +123,7 @@ fn test_update() {
         "Retrieved and updated non-ascii passwords don't match"
     );
     entry
-        .delete_password()
+        .delete_credential()
         .expect("Can't delete updated password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
