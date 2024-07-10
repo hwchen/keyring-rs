@@ -43,7 +43,7 @@ dbus-secret-service = { version = "4.0.0-rc.2", optional = true }
 [target.'cfg(target_os = "freebsd")'.dependencies]
 secret-service = { version = "4", optional = true }
 zbus = { version = "4", optional = true }
-dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
+dbus-secret-service = { version = "4.0.1", optional = true }
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
 secret-service = { version = "4", optional = true }
