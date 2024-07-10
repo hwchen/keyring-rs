@@ -470,7 +470,7 @@ fn no_access(err: Error) -> ErrorCode {
     ErrorCode::NoStorageAccess(wrap(err))
 }
 
-fn wrap(err: Error) -> Box<dyn std::error::Error + Send> {
+fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
     Box::new(err)
 }
 
