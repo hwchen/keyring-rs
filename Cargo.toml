@@ -6,7 +6,7 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "3.0.0"
+version = "3.0.1"
 rust-version = "1.75"
 edition = "2021"
 exclude = [".github/"]
@@ -43,7 +43,7 @@ dbus-secret-service = { version = "4.0.0-rc.2", optional = true }
 [target.'cfg(target_os = "freebsd")'.dependencies]
 secret-service = { version = "4", optional = true }
 zbus = { version = "4", optional = true }
-dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
+dbus-secret-service = { version = "4.0.1", optional = true }
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
 secret-service = { version = "4", optional = true }
