@@ -89,7 +89,7 @@ fn test_update_password() {
 
 #[cfg(target_os = "ios")]
 fn test_get_credential() {
-    use keyring::default::IosCredential;
+    use keyring::ios::IosCredential;
     let name = "test_get_credential".to_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let credential: &IosCredential = entry

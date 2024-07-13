@@ -42,8 +42,17 @@ impl CredentialApi for IosCredential {
     /// Since there is only one credential with a given _account_ and _user_
     /// in any given keychain, there is no chance of ambiguity.
     fn set_password(&self, password: &str) -> Result<()> {
-        set_generic_password(&self.service, &self.account, password.as_bytes())
-            .map_err(decode_error)?;
+        self.set_secret(password.as_bytes())?;
+        Ok(())
+    }
+
+    /// Create and write a credential with secret for this entry.
+    ///
+    /// The new credential replaces any existing one in the store.
+    /// Since there is only one credential with a given _account_ and _user_
+    /// in any given keychain, there is no chance of ambiguity.
+    fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        set_generic_password(&self.service, &self.account, secret).map_err(decode_error)?;
         Ok(())
     }
 
@@ -52,9 +61,16 @@ impl CredentialApi for IosCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_password(&self) -> Result<String> {
-        let password_bytes =
-            get_generic_password(&self.service, &self.account).map_err(decode_error)?;
-        decode_password(password_bytes.to_vec())
+        let password_bytes = self.get_secret()?;
+        decode_password(password_bytes)
+    }
+
+    /// Look up the secret for this entry, if any.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        get_generic_password(&self.service, &self.account).map_err(decode_error)
     }
 
     /// Delete the underlying generic credential for this entry, if any.
