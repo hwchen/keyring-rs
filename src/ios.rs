@@ -62,7 +62,7 @@ impl CredentialApi for IosCredential {
     /// credential in the store.
     fn get_password(&self) -> Result<String> {
         let password_bytes = self.get_secret()?;
-        decode_password(password_bytes.to_vec())
+        decode_password(password_bytes)
     }
 
     /// Look up the secret for this entry, if any.
