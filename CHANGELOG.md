@@ -1,3 +1,14 @@
+## Version 3.0.2
+- add missing implementations for iOS `set_secret` and `get_secret`
+
+## Version 3.0.1
+- add back missing `Sync` trait on errors.
+
+## Version 3.0.0
+- add `dbus-secret-service` dependency to allow use on \*n\*x without an async runtime
+- (API change) rework feature controls on included keystores: now there is a feature for each keystore, and that keystore is included in a build if and only if its feature is specified *and* the keystore is supported by the target OS.
+- (API change) add direct support for setting and reading binary secret data, not just UTF-8 strings.
+
 ## Version 2.0.1
 - fix the example in the README.
 

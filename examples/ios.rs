@@ -40,10 +40,14 @@ fn test_empty_password_input() {
     let name = "test_empty_password_input".to_string();
     let entry = Entry::new(&name, &name).expect("Failed to create entry");
     let in_pass = "";
-    entry.set_password(in_pass).unwrap();
-    let out_pass = entry.get_password().unwrap();
+    entry
+        .set_password(in_pass)
+        .expect("Couldn't set empty password");
+    let out_pass = entry.get_password().expect("Couldn't get empty password");
     assert_eq!(in_pass, out_pass);
-    entry.delete_credential().unwrap();
+    entry
+        .delete_credential()
+        .expect("Couldn't delete credential with empty password");
     assert!(
         matches!(entry.get_password(), Err(Error::NoEntry)),
         "Able to read a deleted password"
@@ -91,19 +95,22 @@ fn test_update_password() {
 fn test_get_credential() {
     use keyring::ios::IosCredential;
     let name = "test_get_credential".to_string();
-    let entry = Entry::new(&name, &name).expect("Can't create entry");
+    let entry = Entry::new(&name, &name).expect("Can't create entry for get_credential");
     let credential: &IosCredential = entry
         .get_credential()
         .downcast_ref()
-        .expect("Not a mac credential");
+        .expect("Not an iOS credential");
     assert!(
         credential.get_credential().is_err(),
         "Platform credential shouldn't exist yet!"
     );
     entry
-        .set_password("test get password")
-        .expect("Can't set password for get_credential");
+        .set_password("test get password for get_credential")
+        .expect("Can't get password for get_credential");
     assert!(credential.get_credential().is_ok());
     entry.delete_credential().unwrap();
-    assert!(matches!(entry.get_password(), Err(Error::NoEntry)))
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Platform credential exists after delete password"
+    )
 }

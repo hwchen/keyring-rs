@@ -6,7 +6,7 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "3.0.1"
+version = "3.0.2-rc.1"
 rust-version = "1.75"
 edition = "2021"
 exclude = [".github/"]
@@ -28,11 +28,8 @@ vendored = ["dbus-secret-service?/vendored", "openssl?/vendored"]
 [dependencies]
 openssl = { version = "0.10.55", optional = true }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = { version = "2.6", optional = true }
-
-[target.'cfg(target_os = "ios")'.dependencies]
-security-framework = { version = "2.6", optional = true }
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]  # see issue #190
+security-framework = { git = "https://github.com/brotskydotcom/rust-security-framework.git", branch = "fix-issue-206", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "4", optional = true }
