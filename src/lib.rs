@@ -169,8 +169,8 @@ pub mod mock;
 // no duplicate keystores on any platform
 //
 #[cfg(any(
-    all(feature = "linux-keyutils", feature = "sync-secret-service"),
-    all(feature = "linux-keyutils", feature = "async-secret-service"),
+    all(feature = "linux-native", feature = "sync-secret-service"),
+    all(feature = "linux-native", feature = "async-secret-service"),
     all(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
 compile_error!("You can enable at most one keystore per target architecture");
@@ -179,9 +179,9 @@ compile_error!("You can enable at most one keystore per target architecture");
 // Pick the *nix keystore
 //
 
-#[cfg(all(target_os = "linux", feature = "linux-keyutils"))]
+#[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
-#[cfg(all(target_os = "linux", feature = "linux-keyutils"))]
+#[cfg(all(target_os = "linux", feature = "linux-native"))]
 use keyutils as default;
 
 #[cfg(all(
@@ -198,7 +198,7 @@ use secret_service as default;
 #[cfg(all(
     target_os = "linux",
     not(any(
-        feature = "linux-keyutils",
+        feature = "linux-native",
         feature = "sync-secret-service",
         feature = "async-secret-service"
     ))
