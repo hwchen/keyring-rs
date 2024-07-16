@@ -99,6 +99,7 @@ Thanks to the following for helping make this library better, whether through co
 - @Alexei-Barnes
 - @benwr
 - @bhkaminski
+- @Brooooooklyn
 - @brotskydotcom
 - @complexspaces
 - @connor4312

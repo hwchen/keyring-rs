@@ -147,7 +147,7 @@ impl CredentialApi for KeyutilsCredential {
         // Add to the session keyring
         let key = self
             .session
-            .add_key(&self.description, password)
+            .add_key(&self.description, secret)
             .map_err(decode_error)?;
 
         // Directly link to the persistent keyring as well
