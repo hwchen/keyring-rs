@@ -6,7 +6,26 @@ This module defines a plug and play model for platform-specific credential store
 The model comprises two traits: [CredentialBuilderApi] for the underlying store
 and [CredentialApi] for the entries in the store.  These traits must be implemented
 in a thread-safe way, a requirement captured in the [CredentialBuilder] and
-[CredentialApi] types that wrap them.
+[Credential] types that wrap them.
+
+Note that you must have an instance of a credential builder in
+your hands in order to call the [CredentialBuilder] API.  Because each credential
+builder implementation lives in a platform-specific module, the cross-platform way to
+get your hands on the one currently being used to create entries is to ask
+for the builder from the `default` module alias.  For example, to
+determine whether the credential builder currently being used
+persists its credentials across machine reboots, you might use a snippet like this:
+
+```rust
+use keyring::{default, credential};
+
+let persistence = default::default_credential_builder().persistence();
+if  matches!(persistence, credential::CredentialPersistence::UntilDelete) {
+    println!("The default credential builder persists credentials on disk!")
+} else {
+    println!("The default credential builder doesn't persist credentials on disk!")
+}
+```
  */
 use super::Result;
 use std::any::Any;

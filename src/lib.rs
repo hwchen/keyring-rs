@@ -148,8 +148,8 @@ then retrieving that as a password will return a
 [BadEncoding](Error::BadEncoding) error.
 The returned error will have the raw bytes attached,
 so you can access them, but you can also just fetch
-them directly using [Entry::get_secret] rather than
-[Entry:get_password].
+them directly using [get_secret](Entry::get_password) rather than
+[get_password](Entry::get_secret).
 
 While this crate's code is thread-safe, the underlying credential
 stores may not handle access from different threads reliably.
@@ -182,7 +182,7 @@ compile_error!("You can enable at most one keystore per target architecture");
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
-use keyutils as default;
+pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
@@ -193,7 +193,7 @@ pub mod secret_service;
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
-use secret_service as default;
+pub use secret_service as default;
 
 #[cfg(all(
     target_os = "linux",
@@ -203,12 +203,12 @@ use secret_service as default;
         feature = "async-secret-service"
     ))
 ))]
-use mock as default;
+pub use mock as default;
 #[cfg(all(
     any(target_os = "freebsd", target_os = "openbsd"),
     not(any(feature = "sync-secret-service", feature = "async-secret-service"))
 ))]
-use mock as default;
+pub use mock as default;
 
 //
 // pick the Apple keystore
@@ -216,16 +216,16 @@ use mock as default;
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
 pub mod macos;
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
-use macos as default;
+pub use macos as default;
 #[cfg(all(target_os = "macos", not(feature = "apple-native")))]
-use mock as default;
+pub use mock as default;
 
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
 pub mod ios;
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
-use ios as default;
+pub use ios as default;
 #[cfg(all(target_os = "ios", not(feature = "apple-native")))]
-use mock as default;
+pub use mock as default;
 
 //
 // pick the Windows keystore
@@ -234,9 +234,9 @@ use mock as default;
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub mod windows;
 #[cfg(all(target_os = "windows", not(feature = "windows-native")))]
-use mock as default;
+pub use mock as default;
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
-use windows as default;
+pub use windows as default;
 
 #[cfg(not(any(
     target_os = "linux",
@@ -246,7 +246,7 @@ use windows as default;
     target_os = "ios",
     target_os = "windows",
 )))]
-use mock as default;
+pub use mock as default;
 
 pub mod credential;
 pub mod error;
