@@ -65,11 +65,23 @@ To enable the stores you want, you use features: there is one feature for each p
 
 If you don't enable any credential stores that are supported on a specific target, the _mock_ keystore will be the default on that target. If you enable multiple credential stores for a specific target, you will get a compile error. See the [developer docs](https://docs.rs/keyring/) for details of which features control the inclusion of which credential stores (and which platforms each credential store targets).
 
-Please note: Since neither the maintainers nor GitHub do testing on BSD variants, we rely on contributors to support these platforms. Thanks for your help!
+### Platform-specific issues
+
+Since neither the maintainers nor GitHub do testing on BSD variants, we rely on contributors to support these platforms. Thanks for your help!
+
+If you use the *Secret Service* as your credential store, be aware of the following:
+
+* Access to credential stores via this crate is always *synchronous*; that is, it blocks the thread on which it was invoked.  This is true *even if* your feature set specifies using the Zbus-based `secret-service` crate, which offers an async interface, because this crate always uses the blocking interface.  If your application is using an async runtime already, and you build with the `async-secret-service` feature in this crate, you should (1) specify the same async runtime you are using as a feature for this crate, and (2) be sure to have a separate thread that is used for all `keyring` calls that access the credential store. Failure to use a separate thread is known to cause deadlocks.
+* Because credential store access from this crate is always synchronous, there is really no reason not to use the `sync-secret-service` feature (rather than `async-secret-service`) with this crate, *even if* your code is already using one of the async runtimes. Yes, this feature requires that `libdbus` be installed on your user’s machines, but it is by default in all desktop OS installs that include a Secret Service implementation (such as the Gnome Keyring or the KWallet). If you want to be extra careful, you can use the additional `vendored` feature to this crate to statically link the dbus library with your app so it’s not required on user machines. Just keep in mind that, in the event of an update to `libdbus`, using the `vendored` feature will require a rebuild of your app to get the `libdbus` update to your users.
+* Every call to the Secret Service is done via an inter-process call, which takes time (typically tens if not hundreds of milliseconds). If, for some reason, your code is pounding on the Secret Service like a database, you will want to implement a write-through transactional backing cache to protect your users from slowdowns. The `mock` credential store can be adapted for this purpose.
+
+If you use the *Windows-native credential store*, be careful about multi-threaded access, because the Windows credential store does not guarantee your calls will be serialized in the order they are made.  Always access any single credential from just one thread at a time, and if you are doing operations on multiple credentials that require a particular serialization order, perform all those operations from the same thread.
+
+The *macOS and iOS credential stores* do not allow service or user names to be empty, because empty fields are treated as wildcards on lookup.  Use some default, non-empty value instead.
 
 ## Upgrading from v2
 
-The major functional change between v2 and v3 is the addition of synchronous support for the Secret Service via the [dbus-secret-service crate](https://crates.io/crates/dbus-secret-service). This means that keyring users of the Secret Service no longer need to link with an async runtime.
+The major functional change between v2 and v3 is the addition of synchronous support for the Secret Service via the [dbus-secret-service crate](https://crates.io/crates/dbus-secret-service). This means that keyring users of the Secret Service no longer need to link with an async runtime. (There are other advantages as well; see [above](#platform-specific-issues) for details.)
 
 The main API change between v2 and v3 is the addition of support for non-string (i.e., binary) "password" data. To accommodate this, two changes have been made:
 
