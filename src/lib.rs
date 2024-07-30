@@ -27,13 +27,13 @@ credential stores.  The implementations of these platform-specific stores are ca
 in two types (with associated traits):
 
 - a _credential builder_, represented by the [CredentialBuilder] type
-(and [CredentialBuilderApi](credential::CredentialBuilderApi) trait).  Credential
-builders are given the identifying information provided for an entry and map
-it to the identifying information for a platform-specific credential.
+  (and [CredentialBuilderApi](credential::CredentialBuilderApi) trait).  Credential
+  builders are given the identifying information provided for an entry and map
+  it to the identifying information for a platform-specific credential.
 - a _credential_, represented by the [Credential] type
-(and [CredentialApi](credential::CredentialApi) trait).  The platform-specific credential
-identified by a builder for an entry is what provides the secure storage
-for that entry's password/secret.
+  (and [CredentialApi](credential::CredentialApi) trait).  The platform-specific credential
+  identified by a builder for an entry is what provides the secure storage
+  for that entry's password/secret.
 
 ## Crate-provided Credential Stores
 
@@ -72,32 +72,32 @@ credential stores you intend to use.
 
 Here are the available credential store features:
 
-* `apple-native`: Provides access to the Keychain credential store on macOS and iOS.
+- `apple-native`: Provides access to the Keychain credential store on macOS and iOS.
 
-* `windows-native`: Provides access to the Windows Credential Store on Windows.
+- `windows-native`: Provides access to the Windows Credential Store on Windows.
 
-* `linux-native`: Provides access to the `keyutils` storage on Linux.
+- `linux-native`: Provides access to the `keyutils` storage on Linux.
 
-* `sync-secret-service`: Provides access to the DBus-based
-[Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
-storage on Linux, FreeBSD, and OpenBSD.  This is a _synchronous_ keystore that provides
-support for encrypting secrets when they are transferred across the bus. If you wish
-to use this encryption support, additionally specify one (and only one) of the
-`crypto-rust` or `crypto-openssl` features (to choose the implementation libraries
-used for the encryption). By default, this keystore requires that the DBus library be
-installed on the user's machine (and the openSSL library if you specify it for
-encryption), but you can avoid this requirement by specifying the `vendored` feature
-(which will cause the build to include those libraries statically).
+- `sync-secret-service`: Provides access to the DBus-based
+  [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
+  storage on Linux, FreeBSD, and OpenBSD.  This is a _synchronous_ keystore that provides
+  support for encrypting secrets when they are transferred across the bus. If you wish
+  to use this encryption support, additionally specify one (and only one) of the
+  `crypto-rust` or `crypto-openssl` features (to choose the implementation libraries
+  used for the encryption). By default, this keystore requires that the DBus library be
+  installed on the user's machine (and the openSSL library if you specify it for
+  encryption), but you can avoid this requirement by specifying the `vendored` feature
+  (which will cause the build to include those libraries statically).
 
-* `async-secret-service`: Provides access to the DBus-based
-[Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
-storage on Linux, FreeBSD, and OpenBSD.  This is an _asynchronous_ keystore that
-always encrypts secrets when they are transferred across the bus. You _must_ specify
-both an async runtime feature (either `tokio` or `async-io`) and a cryptographic
-implementation (either `crypto-rust` or `crypto-openssl`) when using this
-keystore. If you want to use openSSL encryption but those libraries are not
-installed on the user's machine, specify the `vendored` feature
-to statically link them with the built crate.
+- `async-secret-service`: Provides access to the DBus-based
+  [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
+  storage on Linux, FreeBSD, and OpenBSD.  This is an _asynchronous_ keystore that
+  always encrypts secrets when they are transferred across the bus. You _must_ specify
+  both an async runtime feature (either `tokio` or `async-io`) and a cryptographic
+  implementation (either `crypto-rust` or `crypto-openssl`) when using this
+  keystore. If you want to use openSSL encryption but those libraries are not
+  installed on the user's machine, specify the `vendored` feature
+  to statically link them with the built crate.
 
 ## Client-provided Credential Stores
 
@@ -106,16 +106,16 @@ are free to provide their own secure stores and use those.  There are
 two mechanisms provided for this:
 
 - Clients can give their desired credential builder to the crate
-for use by the [Entry::new] and [Entry::new_with_target] calls.
-This is done by making a call to [set_default_credential_builder].
-The major advantage of this approach is that client code remains
-independent of the credential builder being used.
+  for use by the [Entry::new] and [Entry::new_with_target] calls.
+  This is done by making a call to [set_default_credential_builder].
+  The major advantage of this approach is that client code remains
+  independent of the credential builder being used.
 
 - Clients can construct their concrete credentials directly and
-then turn them into entries by using the [Entry::new_with_credential]
-call. The major advantage of this approach is that credentials
-can be identified however clients want, rather than being restricted
-to the simple model used by this crate.
+  then turn them into entries by using the [Entry::new_with_credential]
+  call. The major advantage of this approach is that credentials
+  can be identified however clients want, rather than being restricted
+  to the simple model used by this crate.
 
 ## Mock Credential Store
 
