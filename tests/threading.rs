@@ -67,7 +67,7 @@ fn test_simultaneous_create_then_move() {
 }
 
 #[test]
-#[cfg(any(not(target_os = "windows"), feature = "windows-test-threading"))]
+#[cfg(not(target_os = "windows"))]
 fn test_create_set_then_move() {
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
