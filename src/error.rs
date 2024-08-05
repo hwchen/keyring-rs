@@ -77,7 +77,7 @@ impl std::fmt::Display for Error {
             Error::Ambiguous(items) => {
                 write!(
                     f,
-                    "Entry is matched by {} credendials: {items:?}",
+                    "Entry is matched by {} credentials: {items:?}",
                     items.len(),
                 )
             }
