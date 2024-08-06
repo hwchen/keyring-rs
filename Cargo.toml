@@ -49,7 +49,7 @@ dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = { version = "1.2", optional = true }
-windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Security_Credentials"], optional = true }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Credentials"], optional = true }
 
 [[example]]
 name = "iostest"
