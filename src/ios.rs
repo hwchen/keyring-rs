@@ -16,6 +16,7 @@ wildcards when looking up credentials by attribute value.)
 On iOS, the target parameter is ignored, because there is only one keychain
 that can be targeted to store a generic credential.
  */
+
 use security_framework::base::Error;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
@@ -86,6 +87,11 @@ impl CredentialApi for IosCredential {
     /// be downgraded to an [IosCredential] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 

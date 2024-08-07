@@ -196,6 +196,11 @@ impl CredentialApi for SsCredential {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
 }
 
 impl SsCredential {
@@ -266,7 +271,7 @@ impl SsCredential {
         Ok(())
     }
 
-    /// Map a function over all of the items matching this credential.
+    /// Map a function over the items matching this credential.
     ///
     /// Items are unlocked before the function is applied.
     ///

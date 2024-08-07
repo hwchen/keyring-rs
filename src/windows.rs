@@ -29,6 +29,7 @@ the order in which they were made.  Careful testing has
 shown that modifying the same entry in the same (almost simultaneous) order from
 different threads produces different results on different runs.
 */
+
 use byteorder::{ByteOrder, LittleEndian};
 use std::iter::once;
 use std::mem::MaybeUninit;
@@ -165,6 +166,11 @@ impl CredentialApi for WinCredential {
     /// be downgraded to a [WinCredential] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 

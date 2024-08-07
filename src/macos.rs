@@ -27,6 +27,7 @@ name as the target parameter to `Entry::new_with_target`.
 Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic)
 will be mapped to `User`.
  */
+
 use security_framework::base::Error;
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
@@ -109,6 +110,11 @@ impl CredentialApi for MacCredential {
     /// be downgraded to a [MacCredential] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 

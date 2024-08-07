@@ -174,6 +174,11 @@ impl CredentialApi for MockCredential {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
+    }
 }
 
 impl MockCredential {
