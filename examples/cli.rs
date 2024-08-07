@@ -6,7 +6,7 @@ use keyring::{Entry, Error, Result};
 
 fn main() {
     let mut args: Cli = Cli::parse();
-    if args.user.is_empty() || args.user.eq_ignore_ascii_case("<logged-in username>") {
+    if args.user.eq_ignore_ascii_case("<logged-in username>") {
         args.user = whoami::username()
     }
     let entry = match args.entry_for() {

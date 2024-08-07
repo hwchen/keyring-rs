@@ -27,8 +27,9 @@ if  matches!(persistence, credential::CredentialPersistence::UntilDelete) {
 }
 ```
  */
-use super::Result;
 use std::any::Any;
+
+use super::Result;
 
 /// The API that [credentials](Credential) implement.
 pub trait CredentialApi {
@@ -66,16 +67,29 @@ pub trait CredentialApi {
     /// can do platform-specific things with it (e.g.,
     /// query its attributes in the underlying store).
     fn as_any(&self) -> &dyn Any;
-}
 
-impl std::fmt::Debug for Credential {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.as_any().fmt(f)
+    /// The Debug trait call for the object.
+    ///
+    /// This is used to implement the Debug trait on this type; it
+    /// allows generic code to provide debug printing as provided by
+    /// the underlying concrete object.
+    ///
+    /// We provide a (useless) default implementation for backward
+    /// compatibility with existing implementors who may have not
+    /// implemented the Debug trait for their credential objects
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self.as_any(), f)
     }
 }
 
 /// A thread-safe implementation of the [Credential API](CredentialApi).
 pub type Credential = dyn CredentialApi + Send + Sync;
+
+impl std::fmt::Debug for Credential {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug_fmt(f)
+    }
+}
 
 /// A descriptor for the lifetime of stored credentials, returned from
 /// a credential store's [persistence](CredentialBuilderApi::persistence) call.

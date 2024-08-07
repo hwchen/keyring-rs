@@ -97,6 +97,7 @@ Alternatively, you can drop the secret-service credential store altogether
 with `--no-default-features` and `--features linux-no-secret-service`.
 
  */
+
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
@@ -222,6 +223,11 @@ impl CredentialApi for KeyutilsCredential {
     /// can do platform-specific things with it.
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    /// Expose the concrete debug formatter for use via the [Credential] trait
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(self, f)
     }
 }
 
