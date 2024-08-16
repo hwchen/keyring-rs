@@ -28,19 +28,26 @@ This provides better compatibility with 3rd party clients that may already
 have created items that match the entry, and reduces the chance
 of ambiguity in later searches.
 
-## Async runtime required
+## keyring v1 incompatibility
 
-While this crate uses the secret-service via its blocking API,
-the secret-service crate is built on zbus which always talks to the dbus via async calls.
-Thus, using the secret-service implies using an async runtime under the covers.
-If you are already using an async runtime,
-you can use keyring features to make sure that secret-service
-uses a compatible runtime. But be careful: if you make keyring calls
-on the main thread in this situation, you will likely crash because
-you will block the main thread (see\
+In order to fix
+[this bug](https://github.com/hwchen/keyring-rs/issues/204)
+efficiently, this implementation can no longer access
+credentials that have no `target` attribute.  Since keyring v1
+didn't set this attribute, any old credentials left from v1
+will have to be upgraded to a v3-compatible format
+using platform-specific code. You can use the new secret-service-specific
+entry creation call [new_with_no_target] to
+create an [Entry] that will retrieve a v1 password and/or delete it.
+
+## Tokio runtime caution
+
+If you are using the `async-secret-service` with this crate,
+and specifying `tokio` as your runtime, be careful:
+if you make keyring calls on the main thread, you will likely deadlock (see\
 [this issue on GitHub](https://github.com/hwchen/keyring-rs/issues/132)
-for details).  You will need to spawn a separate thread on which
-you make your keyring calls so the main thread doesn't block.
+for details).  You need to spawn a separate thread on which
+you make your keyring calls to avoid this.
 
 ## Headless usage
 
@@ -233,6 +240,26 @@ impl SsCredential {
         })
     }
 
+    /// Create a credential that has *no* target and the given service and user.
+    ///
+    /// This emulates what keyring v1 did, and can be very handy when you need to
+    /// access an old v1 credential that's in your secret service default collection.
+    pub fn new_with_no_target(service: &str, user: &str) -> Result<Self> {
+        let attributes = HashMap::from([
+            ("service".to_string(), service.to_string()),
+            ("username".to_string(), user.to_string()),
+            ("application".to_string(), "rust-keyring".to_string()),
+        ]);
+        Ok(Self {
+            attributes,
+            label: format!(
+                "keyring-rs v{} for no target, service '{service}', user '{user}'",
+                env!("CARGO_PKG_VERSION"),
+            ),
+            target: None,
+        })
+    }
+
     /// Create a credential from an underlying item.
     ///
     /// The created credential will have all the attributes and label
@@ -293,16 +320,13 @@ impl SsCredential {
         let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         let attributes: HashMap<&str, &str> = self.search_attributes().into_iter().collect();
         let search = ss.search_items(attributes).map_err(decode_error)?;
-        let target = self.target.as_ref().ok_or_else(empty_target)?;
-        let unlocked = matching_target_items(&search.unlocked, target)?;
-        let locked = matching_target_items(&search.locked, target)?;
         if require_unique {
-            let count = locked.len() + unlocked.len();
+            let count = search.locked.len() + search.unlocked.len();
             if count == 0 {
                 return Err(ErrorCode::NoEntry);
             } else if count > 1 {
                 let mut creds: Vec<Box<Credential>> = vec![];
-                for item in locked.into_iter().chain(unlocked.into_iter()) {
+                for item in search.locked.iter().chain(search.unlocked.iter()) {
                     let cred = Self::new_from_item(item)?;
                     creds.push(Box::new(cred))
                 }
@@ -310,10 +334,10 @@ impl SsCredential {
             }
         }
         let mut results: Vec<T> = vec![];
-        for item in unlocked.into_iter() {
+        for item in search.unlocked.iter() {
             results.push(f(item)?);
         }
-        for item in locked.into_iter() {
+        for item in search.locked.iter() {
             item.unlock().map_err(decode_error)?;
             results.push(f(item)?);
         }
@@ -335,6 +359,9 @@ impl SsCredential {
     /// but this just selects the ones we search on
     fn search_attributes(&self) -> HashMap<&str, &str> {
         let mut result: HashMap<&str, &str> = HashMap::new();
+        if self.target.is_some() {
+            result.insert("target", self.attributes["target"].as_str());
+        }
         result.insert("service", self.attributes["service"].as_str());
         result.insert("username", self.attributes["username"].as_str());
         result
@@ -427,25 +454,6 @@ pub fn get_item_secret(item: &Item) -> Result<Vec<u8>> {
 // Given an existing item, delete it.
 pub fn delete_item(item: &Item) -> Result<()> {
     item.delete().map_err(decode_error)
-}
-
-/// Given a slice of items, filter out the ones that have an explicit target
-/// attribute that doesn't match the given target.
-///
-/// References to the matching items are returned in a new vector.
-pub fn matching_target_items<'a>(
-    source: &'a [Item<'a>],
-    target: &str,
-) -> Result<Vec<&'a Item<'a>>> {
-    let mut result: Vec<&'a Item<'a>> = vec![];
-    for i in source.iter() {
-        match i.get_attributes().map_err(decode_error)?.get("target") {
-            None => result.push(i),
-            Some(item_target) if target.eq(item_target) => result.push(i),
-            _ => {}
-        }
-    }
-    Ok(result)
 }
 
 //
