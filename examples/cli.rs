@@ -78,7 +78,7 @@ mod v1 {
     any(feature = "sync-secret-service", feature = "async-secret-service")
 )))]
 mod v1 {
-    use keyring::{Entry, Result};
+    use keyring::Entry;
 
     /// For everything but the secret service, v1 entries are the same as
     /// regular entries with the default target.
