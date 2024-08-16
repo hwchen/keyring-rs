@@ -286,7 +286,7 @@ impl SsCredential {
     /// (This is useful if [get_password](SsCredential::get_password)
     /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn get_all_passwords(&self) -> Result<Vec<String>> {
-        self.map_matching_items(get_item_password, true)
+        self.map_matching_items(get_item_password, false)
     }
 
     /// If there are multiple matching items for this credential, delete all of them.
@@ -294,7 +294,7 @@ impl SsCredential {
     /// (This is useful if [delete_credential](SsCredential::delete_credential)
     /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn delete_all_passwords(&self) -> Result<()> {
-        self.map_matching_items(delete_item, true)?;
+        self.map_matching_items(delete_item, false)?;
         Ok(())
     }
 
