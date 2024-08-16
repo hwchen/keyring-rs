@@ -60,18 +60,44 @@ fn main() {
     }
 }
 
+#[cfg(all(
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+    any(feature = "sync-secret-service", feature = "async-secret-service")
+))]
+mod v1 {
+    use keyring::{secret_service::SsCredential, Entry, Result};
+
+    /// Create a v1-like entry (one with no target attribute)
+    pub fn new_entry(service: &str, user: &str) -> Result<Entry> {
+        let cred = SsCredential::new_with_no_target(service, user)?;
+        Ok(Entry::new_with_credential(Box::new(cred)))
+    }
+}
+#[cfg(not(all(
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+    any(feature = "sync-secret-service", feature = "async-secret-service")
+)))]
+mod v1 {
+    use keyring::{Entry, Result};
+
+    /// For everything but the secret service, v1 entries are the same as
+    /// regular entries with the default target.
+    pub fn new_entry(service: &str, user: &str) -> keyring::Result<Entry> {
+        Entry::new(service, user)
+    }
+}
+
 #[derive(Debug, Parser)]
 #[clap(author = "github.com/hwchen/keyring-rs")]
 /// Keyring CLI: A command-line interface to platform secure storage
 pub struct Cli {
-    #[clap(short, long, action)]
-    /// Write debugging info to stderr, including retrieved passwords
-    /// and secrets. If an operation fails, error information is provided.
+    #[clap(short, long, action, verbatim_doc_comment)]
+    /// Write debugging info to stderr, including retrieved passwords and secrets.
+    /// If an operation fails, detailed error information is provided.
     pub verbose: bool,
 
     #[clap(short, long, value_parser)]
-    /// The (optional) target for the entry.  If none is provided,
-    /// the entry will be created from the service and user only.
+    /// The (optional) target for the entry.
     pub target: Option<String>,
 
     #[clap(short, long, value_parser, default_value = "keyring-cli")]
@@ -81,6 +107,12 @@ pub struct Cli {
     #[clap(short, long, value_parser, default_value = "<logged-in username>")]
     /// The user for the entry.
     pub user: String,
+
+    #[clap(long, action, verbatim_doc_comment)]
+    /// Whether to look for v1 entries (that have no target).
+    /// N.B.: v1 entries can only be read or deleted, not set.
+    /// This may also find v2/v3 entries that have a target.
+    pub v1: bool,
 
     #[clap(subcommand)]
     pub command: Command,
@@ -120,7 +152,13 @@ impl Cli {
     }
 
     fn entry_for(&self) -> Result<Entry> {
-        if let Some(target) = &self.target {
+        if self.v1 {
+            if self.target.is_some() {
+                eprintln!("usage error: You cannot specify both --target and --v1");
+                std::process::exit(1)
+            }
+            v1::new_entry(&self.service, &self.user)
+        } else if let Some(target) = &self.target {
             Entry::new_with_target(target, &self.service, &self.user)
         } else {
             Entry::new(&self.service, &self.user)
