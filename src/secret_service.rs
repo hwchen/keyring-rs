@@ -28,18 +28,6 @@ This provides better compatibility with 3rd party clients that may already
 have created items that match the entry, and reduces the chance
 of ambiguity in later searches.
 
-## keyring v1 incompatibility
-
-In order to fix
-[this bug](https://github.com/hwchen/keyring-rs/issues/204)
-efficiently, this implementation can no longer access
-credentials that have no `target` attribute.  Since keyring v1
-didn't set this attribute, any old credentials left from v1
-will have to be upgraded to a v3-compatible format
-using platform-specific code. You can use the new secret-service-specific
-entry creation call [new_with_no_target] to
-create an [Entry] that will retrieve a v1 password and/or delete it.
-
 ## Tokio runtime caution
 
 If you are using the `async-secret-service` with this crate,
@@ -224,6 +212,7 @@ impl SsCredential {
             return Err(empty_target());
         }
         let target = target.unwrap_or("default");
+
         let attributes = HashMap::from([
             ("service".to_string(), service.to_string()),
             ("username".to_string(), user.to_string()),
@@ -318,10 +307,13 @@ impl SsCredential {
         #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
         let session_type = EncryptionType::Plain;
         let ss = SecretService::connect(session_type).map_err(platform_failure)?;
-        let attributes: HashMap<&str, &str> = self.search_attributes().into_iter().collect();
+        let attributes: HashMap<&str, &str> = self.search_attributes(false).into_iter().collect();
         let search = ss.search_items(attributes).map_err(decode_error)?;
+        let count = search.locked.len() + search.unlocked.len();
+        if count == 0 && matches!(self.target.as_ref(), Some(t) if t == "default") {
+            return self.map_matching_legacy_items(ss, f, require_unique);
+        }
         if require_unique {
-            let count = search.locked.len() + search.unlocked.len();
             if count == 0 {
                 return Err(ErrorCode::NoEntry);
             } else if count > 1 {
@@ -344,6 +336,61 @@ impl SsCredential {
         Ok(results)
     }
 
+    /// Map a function over items that older versions of keyring
+    /// would have matched against this credential.
+    ///
+    /// Keyring v1 created secret service items that had no target attribute, and it was
+    /// only able to create items in the default collection. Keyring v2, and Keyring v3.1,
+    /// in order to be able to find items set by keyring v1, would first look for items
+    /// everywhere independent of target attribute, and then filter those found by the value
+    /// of the target attribute. But this matching behavior overgeneralized when the keyring
+    /// was locked at the time of the search (see
+    /// [issue #204](https://github.com/hwchen/keyring-rs/issues/204) for details).
+    ///
+    /// As of keyring v3.2, the service-wide search behavior was changed to require a
+    /// matching target on items. But, as pointed out in
+    /// [issue #207](https://github.com/hwchen/keyring-rs/issues/207),
+    /// this meant that items set by keyring v1 (or by 3rd party tools that didn't set
+    /// the target attribute) would not be found, even if they were in the default
+    /// collection.
+    ///
+    /// So with keyring v3.2.1, if the service-wide search fails to find any matching
+    /// credential, and the credential being searched for has the default target (or
+    /// no target), we fall back and search the default collection for a v1-style credential.
+    /// That preserves the legacy behavior at the cost of a second round-trip through
+    /// the secret service for the collection search.
+    pub fn map_matching_legacy_items<F, T>(
+        &self,
+        ss: SecretService,
+        f: F,
+        require_unique: bool,
+    ) -> Result<Vec<T>>
+    where
+        F: Fn(&Item) -> Result<T>,
+        T: Sized,
+    {
+        let collection = ss.get_default_collection().map_err(decode_error)?;
+        let attributes = self.search_attributes(true);
+        let search = collection.search_items(attributes).map_err(decode_error)?;
+        if require_unique {
+            if search.len() == 0 && require_unique {
+                return Err(ErrorCode::NoEntry);
+            } else if search.len() > 1 {
+                let mut creds: Vec<Box<Credential>> = vec![];
+                for item in search.iter() {
+                    let cred = Self::new_from_item(item)?;
+                    creds.push(Box::new(cred))
+                }
+                return Err(ErrorCode::Ambiguous(creds));
+            }
+        }
+        let mut results: Vec<T> = vec![];
+        for item in search.iter() {
+            results.push(f(item)?);
+        }
+        Ok(results)
+    }
+
     /// Using strings in the credential map makes managing the lifetime
     /// of the credential much easier.  But since the secret service expects
     /// a map from &str to &str, we have this utility to transform the
@@ -357,9 +404,9 @@ impl SsCredential {
 
     /// Similar to [all_attributes](SsCredential::all_attributes),
     /// but this just selects the ones we search on
-    fn search_attributes(&self) -> HashMap<&str, &str> {
+    fn search_attributes(&self, omit_target: bool) -> HashMap<&str, &str> {
         let mut result: HashMap<&str, &str> = HashMap::new();
-        if self.target.is_some() {
+        if self.target.is_some() && !omit_target {
             result.insert("target", self.attributes["target"].as_str());
         }
         result.insert("service", self.attributes["service"].as_str());
@@ -423,8 +470,7 @@ pub fn get_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collectio
 ///
 /// If a collection with that name already exists, it is returned.
 ///
-/// The name `default` is specially interpreted to mean the default collection,
-/// which always exists.
+/// The name `default` is specially interpreted to mean the default collection.
 pub fn create_collection<'a>(ss: &'a SecretService, name: &str) -> Result<Collection<'a>> {
     let collection = if name.eq("default") {
         ss.get_default_collection().map_err(decode_error)?
@@ -578,30 +624,6 @@ mod tests {
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
     }
 
-    fn probe_collection(name: &str) -> bool {
-        #[cfg(not(feature = "async-secret-service"))]
-        use dbus_secret_service::{EncryptionType, SecretService};
-        #[cfg(feature = "async-secret-service")]
-        use secret_service::{blocking::SecretService, EncryptionType};
-
-        let ss =
-            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
-        let result = super::get_collection(&ss, name).is_ok();
-        result
-    }
-
-    fn delete_collection(name: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
-        use dbus_secret_service::{EncryptionType, SecretService};
-        #[cfg(feature = "async-secret-service")]
-        use secret_service::{blocking::SecretService, EncryptionType};
-
-        let ss =
-            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
-        let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
-        collection.delete().expect("Can't delete collection");
-    }
-
     #[test]
     #[ignore = "can't be run headless, because it needs to prompt"]
     fn test_create_new_target_collection() {
@@ -677,55 +699,53 @@ mod tests {
     }
 
     #[test]
-    fn test_existing_target_works_as_expected() {
-        let name1 = "test_keyring1";
-        let name2 = "test_keyring2";
-        if !probe_collection(name1) || !probe_collection(name2) {
-            println!("Skipping target test since needed collections don't exist or are locked");
-            return;
-        }
-        let credential1 = SsCredential::new_with_target(Some(name1), name1, name1)
-            .expect("Can't create credential1 with new collection");
-        let entry1 = Entry::new_with_credential(Box::new(credential1));
-        let credential2 = SsCredential::new_with_target(Some(name2), name1, name1)
-            .expect("Can't create credential2 with new collection");
-        let entry2 = Entry::new_with_credential(Box::new(credential2));
-        let entry3 = Entry::new(name1, name1).expect("Can't create entry in default collection");
-        let password1 = "password for collection 1";
-        let password2 = "password for collection 2";
-        let password3 = "password for default collection";
-        entry1
-            .set_password(password1)
-            .expect("Can't set password for collection 1");
-        entry2
-            .set_password(password2)
-            .expect("Can't set password for collection 2");
-        entry3
-            .set_password(password3)
-            .expect("Can't set password for default collection");
-        let actual1 = entry1
+    fn test_legacy_entry() {
+        let name = generate_random_string();
+        let pw = "test password";
+        let v3_entry = Entry::new(&name, &name).expect("Can't create v3 entry");
+        let _ = v3_entry.get_password().expect_err("Found v3 entry");
+        create_v1_entry(&name, pw);
+        let password = v3_entry.get_password().expect("Can't find v1 entry");
+        assert_eq!(password, pw);
+        v3_entry.delete_credential().expect("Can't delete v1 entry");
+        let _ = v3_entry
             .get_password()
-            .expect("Can't get password for collection 1");
-        assert_eq!(actual1, password1);
-        let actual2 = entry2
-            .get_password()
-            .expect("Can't get password for collection 2");
-        assert_eq!(actual2, password2);
-        let actual3 = entry3
-            .get_password()
-            .expect("Can't get password for default collection");
-        assert_eq!(actual3, password3);
-        entry1
-            .delete_credential()
-            .expect("Couldn't delete password for collection 1");
-        assert!(matches!(entry1.get_password(), Err(Error::NoEntry)));
-        entry2
-            .delete_credential()
-            .expect("Couldn't delete password for collection 2");
-        assert!(matches!(entry2.get_password(), Err(Error::NoEntry)));
-        entry3
-            .delete_credential()
-            .expect("Couldn't delete password for default collection");
-        assert!(matches!(entry3.get_password(), Err(Error::NoEntry)));
+            .expect_err("Got password for v1 entry after delete");
+    }
+
+    fn delete_collection(name: &str) {
+        #[cfg(not(feature = "async-secret-service"))]
+        use dbus_secret_service::{EncryptionType, SecretService};
+        #[cfg(feature = "async-secret-service")]
+        use secret_service::{blocking::SecretService, EncryptionType};
+
+        let ss =
+            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
+        let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
+        collection.delete().expect("Can't delete collection");
+    }
+
+    fn create_v1_entry(name: &str, password: &str) {
+        #[cfg(not(feature = "async-secret-service"))]
+        use dbus_secret_service::{EncryptionType, SecretService};
+        #[cfg(feature = "async-secret-service")]
+        use secret_service::{blocking::SecretService, EncryptionType};
+
+        let cred = SsCredential::new_with_no_target(name, name)
+            .expect("Can't create credential with no target");
+        let ss =
+            SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
+        let collection = ss
+            .get_default_collection()
+            .expect("Can't get default collection");
+        collection
+            .create_item(
+                cred.label.as_str(),
+                cred.all_attributes(),
+                password.as_bytes(),
+                true, // replace
+                "text/plain",
+            )
+            .expect("Can't create item with no target in default collection");
     }
 }
