@@ -61,7 +61,7 @@ This crate provides built-in implementations of the following platform-specific 
 * _macOS_, _iOS_: The local keychain.
 * _Windows_: The Windows Credential Manager.
 
-To enable the stores you want, you use features: there is one feature for each possibly-included credential store. If you specify a feature (e.g., `dbus-secret-service`) _and_ your target platform (e.g., `freebsd`) supports that credential store, it will be included as the default credential store in that build. That way you can have a build command that specifies a single credential store for each of your target platforms, and use that same build command for all targets.
+To enable the stores you want, you use features: there is one feature for each possibly-included credential store. If you specify a feature (e.g., `dbus-secret-service`) _and_ your target platform (e.g., `freebsd`) supports that credential store, it will be included as the default credential store in that build. That way you can have a build command that specifies a single credential store for each of your target platforms, and use that same build command for all targets. (You cannot enable more than one keystore for a given platform, except when producing docs.)
 
 If you don't enable any credential stores that are supported on a specific target, the _mock_ keystore will be the default on that target. If you enable multiple credential stores for a specific target, you will get a compile error. See the [developer docs](https://docs.rs/keyring/) for details of which features control the inclusion of which credential stores (and which platforms each credential store targets).
 
@@ -91,7 +91,7 @@ The main API change between v2 and v3 is the addition of support for non-string 
 
 Another API change between v2 and v3 is that the notion of a default feature set has gone away: you must now specify explicitly which crate-supported keystores you want included (other than the `mock` keystore, which is always present). So all keyring client developers will need to update their `Cargo.toml` file to use the new features correctly.
 
-All v2 data is fully forward-compatible with v3 data; there have been no changes at all in that respect. _However_, unlike v2, the v3 implementation of the secret service credential store will _not_ read credentials that were written by the v1 keyring. (For details about why this decision was made, see [this issue](https://github.com/hwchen/keyring-rs/issues/204)). Keyring clients who use the secret service and are still using old v1 credentials should replace those credentials with v2/v3 credentials. The CLI has been extended to allow reading and deleting v1 credentials (and thus provides sample code for how to do this).
+All v2 data is fully forward-compatible with v3 data; there have been no changes at all in that respect.
 
 The MSRV has been moved to 1.75, and all direct dependencies are at their latest stable versions.
 
