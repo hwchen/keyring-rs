@@ -316,7 +316,7 @@ impl SsCredential {
         let search = ss.search_items(attributes).map_err(decode_error)?;
         let count = search.locked.len() + search.unlocked.len();
         if count == 0 && matches!(self.target.as_ref(), Some(t) if t == "default") {
-            return self.map_matching_legacy_items(ss, f, require_unique);
+            return self.map_matching_legacy_items(&ss, f, require_unique);
         }
         if require_unique {
             if count == 0 {
@@ -366,7 +366,7 @@ impl SsCredential {
     /// the secret service for the collection search.
     pub fn map_matching_legacy_items<F, T>(
         &self,
-        ss: SecretService,
+        ss: &SecretService,
         f: F,
         require_unique: bool,
     ) -> Result<Vec<T>>
