@@ -12,20 +12,25 @@ implementation uses the following attributes:
 - `application` (optional & always set to `rust-keyring`)
 
 Existing items are always searched for at the service level, which
-means all collections are searched.  Only the required attributes are used in searches,
-so 3rd party clients (such as v1 of this crate) that use matching service and user fields
-will have their items found by our searches.  (Items we write with
-the same service and user attributes but different target attributes will also come
-back in searches, but they are filtered out of the results automatically.)
+means all collections are searched. The search attributes used are
+`target` (set from the entry target), `service` (set from the entry
+service), and `username` (set from the entry user). Because earlier
+versions of this crate did not set the `target` attribute on credentials
+that were stored in the default collection, a fallback search is done
+for items in the default collection with no `target` attribute *if
+the original search for all three attributes returns no matches*.
 
-New items are always created with all four attributes, and if they have
-a non-default target then they are created in a collection whose label matches
-the target (creating it if necessary).
+New items are always created with all three search attributes, and
+they are given a label that identifies the crate and version and
+attributes used in the entry. If a target other than `default` is
+specified for the entry, then a collection labeled with that target
+will be created (if necessary) to hold the new item.
 
 Setting the password on an entry will always update the password on an
 existing item in preference to creating a new item.
-This provides better compatibility with 3rd party clients that may already
-have created items that match the entry, and reduces the chance
+This provides better compatibility with 3rd party clients, as well as earlier
+versions of this crate, that may already
+have created items that match the entry, and thus reduces the chance
 of ambiguity in later searches.
 
 ## Tokio runtime caution

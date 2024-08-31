@@ -91,7 +91,7 @@ The main API change between v2 and v3 is the addition of support for non-string 
 
 Another API change between v2 and v3 is that the notion of a default feature set has gone away: you must now specify explicitly which crate-supported keystores you want included (other than the `mock` keystore, which is always present). So all keyring client developers will need to update their `Cargo.toml` file to use the new features correctly.
 
-All v2 data is fully forward-compatible with v3 data; there have been no changes at all in that respect. _However_, unlike v2, the v3 implementation of the secret service credential store will _not_ read credentials that were written by the v1 keyring. (For details about why this decision was made, see [this issue](https://github.com/hwchen/keyring-rs/issues/204)). Keyring clients who use the secret service and are still using old v1 credentials should replace those credentials with v2/v3 credentials. The CLI has been extended to allow reading and deleting v1 credentials (and thus provides sample code for how to do this).
+All v2 data is fully forward-compatible with v3 data; there have been no changes at all in that respect.
 
 The MSRV has been moved to 1.75, and all direct dependencies are at their latest stable versions.
 
