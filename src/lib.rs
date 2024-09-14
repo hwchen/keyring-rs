@@ -308,6 +308,17 @@ impl Entry {
     /// Create an entry for the given service and user.
     ///
     /// The default credential builder is used.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an [Error] if the `service` or `user` values are invalid.
+    /// The specific reasons for invalidity are platform-dependent, but include length constraints.
+    ///
+    /// # Panics
+    ///
+    /// In the very unlikely event that the internal credential builder's `RwLock`` is poisoned, this function
+    /// will panic. If you encounter this, and especially if you can reproduce it, please report a bug with the
+    /// details (and preferably a backtrace) so the developers can investigate.
     pub fn new(service: &str, user: &str) -> Result<Entry> {
         build_default_credential(None, service, user)
     }
