@@ -311,16 +311,14 @@ impl Entry {
     ///
     /// # Errors
     ///
-    /// This function will return an [`Error`] if the `service` or `user` values are invalid.
+    /// This function will return an [Error] if the `service` or `user` values are invalid.
     /// The specific reasons for invalidity are platform-dependent, but include length constraints.
-    ///
-    /// [`Error`]: Error
     ///
     /// # Panics
     ///
-    /// This function may panic if the internal credential builder's `RwLock` is poisoned. This
-    /// would typically happen if a thread panicked while holding a lock. If you encounter this,
-    /// it is considered a serious bug and should be reported.
+    /// In the very unlikely event that the internal credential builder's `RwLock`` is poisoned, this function
+    /// will panic. If you encounter this, and especially if you can reproduce it, please report a bug with the
+    /// details (and preferably a backtrace) so the developers can investigate.
     pub fn new(service: &str, user: &str) -> Result<Entry> {
         build_default_credential(None, service, user)
     }
