@@ -135,6 +135,7 @@ Thanks to the following for helping make this library better, whether through co
 - @russellbanks
 - @ryanavella
 - @samuela
+- @ShaunSHamilton
 - @stankec
 - @steveatinfincia
 - @Sytten
