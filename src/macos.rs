@@ -213,7 +213,7 @@ impl CredentialBuilderApi for MacCredentialBuilder {
         service: &str,
         user: &str,
         _: HashMap<&str, &str>,
-    ) -> crate::Result<Box<Credential>> {
+    ) -> Result<Box<Credential>> {
         self.build(target, service, user)
     }
 

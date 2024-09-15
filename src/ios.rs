@@ -21,6 +21,7 @@ use security_framework::base::Error;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
+use std::collections::HashMap;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -72,6 +73,18 @@ impl CredentialApi for IosCredential {
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
         get_generic_password(&self.service, &self.account).map_err(decode_error)
+    }
+
+    /// Look up the attributes for this entry.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// matching credential in the store.
+    fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        get_generic_password(&self.service, &self.account).map_err(decode_error)?;
+        let mut map: HashMap<String, String> = HashMap::new();
+        map.insert("account".to_string(), self.account.clone());
+        map.insert("service".to_string(), self.service.clone());
+        Ok(map)
     }
 
     /// Delete the underlying generic credential for this entry, if any.
@@ -163,6 +176,20 @@ impl CredentialBuilderApi for IosCredentialBuilder {
         Ok(Box::new(IosCredential::new_with_target(
             target, service, user,
         )?))
+    }
+
+    /// Build an [IosCredential] with additional attributes.
+    ///
+    /// Since this implementation doesn't know of any additional attributes,
+    /// the additional attributes are completely ignored.
+    fn build_with_attributes(
+        &self,
+        target: Option<&str>,
+        service: &str,
+        user: &str,
+        _: HashMap<&str, &str>,
+    ) -> Result<Box<Credential>> {
+        self.build(target, service, user)
     }
 
     /// Return the underlying builder object with an `Any` type so that it can
