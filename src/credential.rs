@@ -28,6 +28,7 @@ if  matches!(persistence, credential::CredentialPersistence::UntilDelete) {
 ```
  */
 use std::any::Any;
+use std::collections::HashMap;
 
 use super::Result;
 
@@ -52,6 +53,19 @@ pub trait CredentialApi {
     ///
     /// This has no effect on the underlying store.
     fn get_secret(&self) -> Result<Vec<u8>>;
+
+    /// Get the attributes on this credential from the underlying credential store.
+    ///
+    /// Almost all credential stores allow assigning named attributes to credentials.
+    /// Which attributes are allowed by which stores varies widely.
+    ///
+    /// The attributes returned by this call
+    /// include any that are used by this crate to identify
+    /// the `target`, `service`, and `user` of the credential.
+    /// The attributes used may not have those names; see the documentation
+    /// of each credential store for details of which attributes are used
+    /// and which additional attributes are returned by this call.
+    fn get_attributes(&self) -> Result<HashMap<String, String>>;
 
     /// Delete the underlying credential, if there is one.
     ///
@@ -112,6 +126,39 @@ pub trait CredentialBuilderApi {
     /// This typically has no effect on the content of the underlying store.
     /// A credential need not be persisted until its password is set.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>>;
+
+    /// Create a credential with additional platform-specific attributes.
+    ///
+    /// Almost all credential stores allow assigning named attributes to credentials.
+    /// In order to improve interoperability with 3rd-party software, you can
+    /// specify the desired values for attributes other than the ones that
+    /// are used by this crate to identify the `target`, `service`, and `user`
+    /// values of the credential.
+    ///
+    /// The attributes specified in this call are only applied when the credential
+    /// is first created in the underlying store, which is when the very first
+    /// secret value is assigned to the credential.  If a credential already exists
+    /// with the `target`, `service`, and `user` values specified in this call,
+    /// any additional attributes specified in it will be ignored.
+    ///
+    /// You can use the [CredentialApi::get_attributes] call to find out what
+    /// additional attributes are present on an existing credential. If you wish to
+    /// change those attributes, you will need to delete the existing credential,
+    /// then specify those attributes in this call, and the set a secret to create
+    /// the new credential with those attributes.
+    ///
+    /// Note that credential stores vary widely in what attributes they
+    /// allow and which are used by this crate.  The documentation of the
+    /// credential store implementations in this crate identify both
+    /// which attributes they use and which others can be set.
+    fn build_with_attributes(
+        &self,
+        target: Option<&str>,
+        service: &str,
+        user: &str,
+        attributes: HashMap<&str, &str>,
+    ) -> Result<Box<Credential>>;
+
     /// Return the underlying concrete object cast to [Any].
     ///
     /// Because credential builders need not have any internal structure,

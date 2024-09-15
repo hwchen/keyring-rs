@@ -4,7 +4,8 @@
 
 To facilitate testing of clients, this crate provides a Mock credential store
 that is platform-independent, provides no persistence, and allows the client
-to specify the return values (including errors) for each call.
+to specify the return values (including errors) for each call. The credentials
+in this store have no attributes at all.
 
 To use this credential store instead of the default, make this call during
 application startup _before_ creating any entries:
@@ -34,6 +35,7 @@ entry.set_password("test").expect("error has been cleared");
 ```
  */
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use super::credential::{
@@ -142,6 +144,13 @@ impl CredentialApi for MockCredential {
         }
     }
 
+    /// Get the attributes on a mock credential.
+    ///
+    /// This always returns an empty map.
+    fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        Ok(HashMap::new())
+    }
+
     /// Delete the password in a mock credential
     ///
     /// If there is an error, it will be returned and
@@ -214,8 +223,21 @@ impl CredentialBuilderApi for MockCredentialBuilder {
     /// Since mocks don't persist between sessions,  all mocks
     /// start off without passwords.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        let credential = MockCredential::new_with_target(target, service, user).unwrap();
+        let credential = MockCredential::new_with_target(target, service, user)?;
         Ok(Box::new(credential))
+    }
+
+    /// Build a mock credential with additional attributes.
+    ///
+    /// Since mock credentials have no attributes, any passed attributes are ignored.
+    fn build_with_attributes(
+        &self,
+        target: Option<&str>,
+        service: &str,
+        user: &str,
+        _: HashMap<&str, &str>,
+    ) -> Result<Box<Credential>> {
+        self.build(target, service, user)
     }
 
     /// Get an [Any][std::any::Any] reference to the mock credential builder.

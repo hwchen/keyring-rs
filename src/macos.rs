@@ -5,7 +5,7 @@
 macOS credential stores are called keychains.
 The OS automatically creates three of them (or four if removable media is being used).
 Generic credentials on macOS can be identified by a large number of _key/value_ attributes;
-this module (currently) uses only the _account_ and _name_ attributes.
+this module uses only the _account_ and _name_ attributes and ignores all others.
 
 For a given service/user pair,
 this module targets a generic credential in the User (login) keychain
@@ -27,6 +27,7 @@ name as the target parameter to `Entry::new_with_target`.
 Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic)
 will be mapped to `User`.
  */
+use std::collections::HashMap;
 
 use security_framework::base::Error;
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
@@ -92,6 +93,20 @@ impl CredentialApi for MacCredential {
             find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
                 .map_err(decode_error)?;
         Ok(password_bytes.to_vec())
+    }
+
+    /// Look up the attributes for this entry.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// matching credential in the store.
+    fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        let (_, _) =
+            find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
+                .map_err(decode_error)?;
+        let mut map: HashMap<String, String> = HashMap::new();
+        map.insert("account".to_string(), self.account.clone());
+        map.insert("service".to_string(), self.service.clone());
+        Ok(map)
     }
 
     /// Delete the underlying generic credential for this entry, if any.
@@ -186,6 +201,20 @@ impl CredentialBuilderApi for MacCredentialBuilder {
         Ok(Box::new(MacCredential::new_with_target(
             target, service, user,
         )?))
+    }
+
+    /// Build a [MacCredential] with additional attributes.
+    ///
+    /// Since this implementation doesn't know of any additional attributes,
+    /// the additional attributes are completely ignored.
+    fn build_with_attributes(
+        &self,
+        target: Option<&str>,
+        service: &str,
+        user: &str,
+        _: HashMap<&str, &str>,
+    ) -> crate::Result<Box<Credential>> {
+        self.build(target, service, user)
     }
 
     /// Return the underlying builder object with an `Any` type so that it can
