@@ -2,13 +2,18 @@
 
 # Linux kernel (keyutils) credential store
 
-Modern linux kernels have a built-in secure store, [keyutils](https://www.man7.org/linux/man-pages/man7/keyutils.7.html).
-This module (written primarily by [@landhb](https://github.com/landhb)) uses that secure store
-as the persistent back end for entries.
+Modern linux kernels have a built-in secure store,
+[keyutils](https://www.man7.org/linux/man-pages/man7/keyutils.7.html).
+This module (written primarily by [@landhb](https://github.com/landhb))
+uses that secure store as the persistent back end for entries.
 
 Entries in keyutils are identified by a string `description`.  If an entry is created with
 an explicit `target`, that value is used as the keyutils description.  Otherwise, the string
 `keyring-rs:user@service` is used (where user and service come from the entry creation call).
+
+There is no notion of attribute other than the description supported by keyutils,
+so the [get_attributes](Entry::get_attributes) and [update_attributes](Entry::update_attributes)
+calls are both no-ops for this credential store.
 
 # Persistence
 
@@ -401,6 +406,11 @@ mod tests {
     #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
+    }
+
+    #[test]
+    fn test_noop_get_update_attributes() {
+        crate::tests::test_noop_get_update_attributes(entry_new);
     }
 
     #[test]

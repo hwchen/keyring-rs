@@ -672,7 +672,7 @@ mod tests {
         }
         entry
             .delete_credential()
-            .unwrap_or_else(|err| panic!("Can't delete password for attribute test: {err:?}"));
+            .unwrap_or_else(|err| panic!("Can't delete credential for attribute test: {err:?}"));
         assert!(
             matches!(entry.get_attributes(), Err(Error::NoEntry)),
             "Read deleted credential in attribute test",
