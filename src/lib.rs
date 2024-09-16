@@ -160,8 +160,10 @@ they are made. And for RPC-based credential stores such as the dbus-based Secret
 Service, accesses from multiple threads (and even the same thread very quickly)
 are not recommended, as they may cause the RPC mechanism to fail.
  */
+
 pub use credential::{Credential, CredentialBuilder};
 pub use error::{Error, Result};
+use std::collections::HashMap;
 
 pub mod mock;
 
@@ -383,6 +385,42 @@ impl Entry {
         self.inner.get_secret()
     }
 
+    /// Get the attributes on the underlying credential for this entry.
+    ///
+    /// Some of the underlying credential stores allow credentials to have named attributes
+    /// that can be set to string values. See the documentation for each credential store
+    /// for a list of which attribute names are supported by that store.
+    ///
+    /// Returns a [NoEntry](Error::NoEntry) error if there isn't a credential for this entry.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
+    pub fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        self.inner.get_attributes()
+    }
+
+    /// Update the attributes on the underlying credential for this entry.
+    ///
+    /// Some of the underlying credential stores allow credentials to have named attributes
+    /// that can be set to string values. See the documentation for each credential store
+    /// for a list of which attribute names can be given values by this call. To support
+    /// cross-platform use, each credential store ignores (without error) any specified attributes
+    /// that aren't supported by that store.
+    ///
+    /// Returns a [NoEntry](Error::NoEntry) error if there isn't a credential for this entry.
+    ///
+    /// Can return an [Ambiguous](Error::Ambiguous) error
+    /// if there is more than one platform credential
+    /// that matches this entry.  This can only happen
+    /// on some platforms, and then only if a third-party
+    /// application wrote the ambiguous credential.
+    pub fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
+        self.inner.update_attributes(attributes)
+    }
+
     /// Delete the underlying credential for this entry.
     ///
     /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
@@ -423,6 +461,7 @@ doc_comment::doctest!("../README.md", readme);
 mod tests {
     use super::{credential::CredentialApi, Entry, Error, Result};
     use rand::Rng;
+    use std::collections::HashMap;
 
     /// Create a platform-specific credential given the constructor, service, and user
     pub fn entry_from_constructor<F, T>(f: F, service: &str, user: &str) -> Entry
@@ -431,6 +470,25 @@ mod tests {
         T: 'static + CredentialApi + Send + Sync,
     {
         match f(None, service, user) {
+            Ok(credential) => Entry::new_with_credential(Box::new(credential)),
+            Err(err) => {
+                panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
+            }
+        }
+    }
+
+    /// Create a platform-specific credential given the constructor, service, user, and attributes
+    pub fn entry_from_constructor_and_attributes<F, T>(
+        f: F,
+        service: &str,
+        user: &str,
+        attrs: &HashMap<&str, &str>,
+    ) -> Entry
+    where
+        F: FnOnce(Option<&str>, &str, &str, &HashMap<&str, &str>) -> Result<T>,
+        T: 'static + CredentialApi + Send + Sync,
+    {
+        match f(None, service, user, attrs) {
             Ok(credential) => Entry::new_with_credential(Box::new(credential)),
             Err(err) => {
                 panic!("Couldn't create entry (service: {service}, user: {user}): {err:?}")
@@ -575,6 +633,49 @@ mod tests {
             "updated non-ascii password",
             &entry,
             "このきれいな花は桜です",
+        );
+    }
+
+    pub fn test_noop_get_update_attributes<F>(f: F)
+    where
+        F: FnOnce(&str, &str) -> Entry,
+    {
+        let name = generate_random_string();
+        let entry = f(&name, &name);
+        assert!(
+            matches!(entry.get_attributes(), Err(Error::NoEntry)),
+            "Read missing credential in attribute test",
+        );
+        let mut map: HashMap<&str, &str> = HashMap::new();
+        map.insert("test attribute name", "test attribute value");
+        assert!(
+            matches!(entry.update_attributes(&map), Err(Error::NoEntry)),
+            "Updated missing credential in attribute test",
+        );
+        // create the credential and test again
+        entry
+            .set_password("test password for attributes")
+            .unwrap_or_else(|err| panic!("Can't set password for attribute test: {err:?}"));
+        match entry.get_attributes() {
+            Err(err) => panic!("Couldn't get attributes: {err:?}"),
+            Ok(attrs) if attrs.is_empty() => {}
+            Ok(attrs) => panic!("Unexpected attributes: {attrs:?}"),
+        }
+        assert!(
+            matches!(entry.update_attributes(&map), Ok(())),
+            "Couldn't update attributes in attribute test",
+        );
+        match entry.get_attributes() {
+            Err(err) => panic!("Couldn't get attributes after update: {err:?}"),
+            Ok(attrs) if attrs.is_empty() => {}
+            Ok(attrs) => panic!("Unexpected attributes after update: {attrs:?}"),
+        }
+        entry
+            .delete_credential()
+            .unwrap_or_else(|err| panic!("Can't delete password for attribute test: {err:?}"));
+        assert!(
+            matches!(entry.get_attributes(), Err(Error::NoEntry)),
+            "Read deleted credential in attribute test",
         );
     }
 }

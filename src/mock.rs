@@ -17,7 +17,7 @@ set_default_credential_builder(mock::default_credential_builder());
 You can then create entries as you usually do, and call their usual methods
 to set, get, and delete passwords.  There is no persistence other than
 in the entry itself, so getting a password before setting it will always result
-in a [NotFound](Error::NoEntry) error.
+in a [NoEntry](Error::NoEntry) error.
 
 If you want a method call on an entry to fail in a specific way, you can
 downcast the entry to a [MockCredential] and then call [set_error](MockCredential::set_error)
@@ -35,7 +35,6 @@ entry.set_password("test").expect("error has been cleared");
 ```
  */
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::sync::Mutex;
 
 use super::credential::{
@@ -144,13 +143,6 @@ impl CredentialApi for MockCredential {
         }
     }
 
-    /// Get the attributes on a mock credential.
-    ///
-    /// This always returns an empty map.
-    fn get_attributes(&self) -> Result<HashMap<String, String>> {
-        Ok(HashMap::new())
-    }
-
     /// Delete the password in a mock credential
     ///
     /// If there is an error, it will be returned and
@@ -227,19 +219,6 @@ impl CredentialBuilderApi for MockCredentialBuilder {
         Ok(Box::new(credential))
     }
 
-    /// Build a mock credential with additional attributes.
-    ///
-    /// Since mock credentials have no attributes, any passed attributes are ignored.
-    fn build_with_attributes(
-        &self,
-        target: Option<&str>,
-        service: &str,
-        user: &str,
-        _: HashMap<&str, &str>,
-    ) -> Result<Box<Credential>> {
-        self.build(target, service, user)
-    }
-
     /// Get an [Any][std::any::Any] reference to the mock credential builder.
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -303,6 +282,11 @@ mod tests {
     #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        crate::tests::test_noop_get_update_attributes(entry_new);
     }
 
     #[test]

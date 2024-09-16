@@ -2,26 +2,29 @@
 
 # iOS Keychain credential store
 
-iOS credential stores are called Keychains.  On iOS there is only one of these.
-Generic credentials on iOS can be identified by a large number of _key/value_ attributes;
-this module (currently) uses only the _account_ and _name_ attributes.
+All credentials on iOS are stored in secure stores called _keychains_.
+On iOS there is only one of these, and it has no name.  The target
+attribute of an [Entry](crate::Entry), for consistency with macOS,
+determines which keychain an entry's credential is created in
+searched for.  On iOS, then, entries must have no target or use
+the specially named target `default`.
 
-For a given service/user pair,
-this module targets a generic credential in the User (login) keychain
-whose _account_ is the user and and whose _name_ is the service.
+For a given service/user pair, this module creates/searches for a credential
+in the target keychain whose _account_ attribute holds the user
+and whose _name_ attribute holds the service.
 Because of a quirk in the iOS keychain services API, neither the _account_
 nor the _name_ may be the empty string. (Empty strings are treated as
 wildcards when looking up credentials by attribute value.)
 
-On iOS, the target parameter is ignored, because there is only one keychain
-that can be targeted to store a generic credential.
+Credentials on iOS can have a large number of _key/value_ attributes,
+but this module controls the _account_ and _name_ attributes and
+ignores all the others. so clients can't use it to access or update any attributes.
  */
 
 use security_framework::base::Error;
 use security_framework::passwords::{
     delete_generic_password, get_generic_password, set_generic_password,
 };
-use std::collections::HashMap;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -73,18 +76,6 @@ impl CredentialApi for IosCredential {
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
         get_generic_password(&self.service, &self.account).map_err(decode_error)
-    }
-
-    /// Look up the attributes for this entry.
-    ///
-    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
-    /// matching credential in the store.
-    fn get_attributes(&self) -> Result<HashMap<String, String>> {
-        get_generic_password(&self.service, &self.account).map_err(decode_error)?;
-        let mut map: HashMap<String, String> = HashMap::new();
-        map.insert("account".to_string(), self.account.clone());
-        map.insert("service".to_string(), self.service.clone());
-        Ok(map)
     }
 
     /// Delete the underlying generic credential for this entry, if any.
@@ -176,20 +167,6 @@ impl CredentialBuilderApi for IosCredentialBuilder {
         Ok(Box::new(IosCredential::new_with_target(
             target, service, user,
         )?))
-    }
-
-    /// Build an [IosCredential] with additional attributes.
-    ///
-    /// Since this implementation doesn't know of any additional attributes,
-    /// the additional attributes are completely ignored.
-    fn build_with_attributes(
-        &self,
-        target: Option<&str>,
-        service: &str,
-        user: &str,
-        _: HashMap<&str, &str>,
-    ) -> Result<Box<Credential>> {
-        self.build(target, service, user)
     }
 
     /// Return the underlying builder object with an `Any` type so that it can
