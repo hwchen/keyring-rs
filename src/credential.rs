@@ -55,7 +55,7 @@ pub trait CredentialApi {
     fn get_secret(&self) -> Result<Vec<u8>>;
 
     /// Get the attributes on this credential from the underlying store.
-    /// 
+    ///
     /// We provide a default (no-op) implementation of this method
     /// for backward compatibility with stores that don't implement it.
     fn get_attributes(&self) -> Result<HashMap<String, String>> {
