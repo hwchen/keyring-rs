@@ -339,7 +339,6 @@ impl WinCredential {
         user: &str,
     ) -> Result<WinCredential> {
         const VERSION: &str = env!("CARGO_PKG_VERSION");
-        let metadata = format!("keyring-rs v{VERSION} for service '{service}', user '{user}'");
         let credential = if let Some(target) = target {
             // if target.is_empty() {
             //     return Err(ErrorCode::Invalid(
@@ -354,7 +353,7 @@ impl WinCredential {
                 username: user.to_string(),
                 target_name: target.to_string(),
                 target_alias: String::new(),
-                comment: metadata,
+                comment: format!("{user}@{service}:{target} (keyring v{VERSION})"),
             }
         } else {
             Self {
@@ -369,7 +368,7 @@ impl WinCredential {
                 username: user.to_string(),
                 target_name: format!("{user}.{service}"),
                 target_alias: String::new(),
-                comment: metadata,
+                comment: format!("{user}@{service}:{user}.{service} (keyring v{VERSION})"),
             }
         };
         credential.validate_attributes(None, None)?;
