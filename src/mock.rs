@@ -4,7 +4,8 @@
 
 To facilitate testing of clients, this crate provides a Mock credential store
 that is platform-independent, provides no persistence, and allows the client
-to specify the return values (including errors) for each call.
+to specify the return values (including errors) for each call. The credentials
+in this store have no attributes at all.
 
 To use this credential store instead of the default, make this call during
 application startup _before_ creating any entries:
@@ -16,7 +17,7 @@ set_default_credential_builder(mock::default_credential_builder());
 You can then create entries as you usually do, and call their usual methods
 to set, get, and delete passwords.  There is no persistence other than
 in the entry itself, so getting a password before setting it will always result
-in a [NotFound](Error::NoEntry) error.
+in a [NoEntry](Error::NoEntry) error.
 
 If you want a method call on an entry to fail in a specific way, you can
 downcast the entry to a [MockCredential] and then call [set_error](MockCredential::set_error)
@@ -214,7 +215,7 @@ impl CredentialBuilderApi for MockCredentialBuilder {
     /// Since mocks don't persist between sessions,  all mocks
     /// start off without passwords.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        let credential = MockCredential::new_with_target(target, service, user).unwrap();
+        let credential = MockCredential::new_with_target(target, service, user)?;
         Ok(Box::new(credential))
     }
 
@@ -281,6 +282,11 @@ mod tests {
     #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        crate::tests::test_noop_get_update_attributes(entry_new);
     }
 
     #[test]

@@ -1,3 +1,25 @@
+## Version 3.3.0
+- Add support for credential-store attributes other than those used by this crate.  This allows the creation of credentials that are more compatible with 3rd-party clients, such as the OS-provided GUIs over credentials.
+- Make the textual descriptions of entries consistently follow the form `user@service` (or  `user@service:target` if a target was specified).
+
+## Version 3.2.1
+- Re-enable access to v1 credentials. The fixes of version 3.2 meant that legacy credentials with no target attribute couldn't be accessed.
+
+## Version 3.2.0
+- Improve secret-service handling of targets, so that searches on locked items distinguish items with different targets properly.
+
+## Version 3.1.0
+- enhance the CLI to allow empty user names and better info about `Ambiguous` credentials.
+
+## Version 3.0.5
+- updated docs and clean up dead code. No code changes.
+
+## Version 3.0.4
+- expose a cross-platform module alias via the `default` module.
+
+## Version 3.0.3
+- fix feature `linux-native`, which was causing compile errors.
+
 ## Version 3.0.2
 - add missing implementations for iOS `set_secret` and `get_secret`
 

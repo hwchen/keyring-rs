@@ -2,32 +2,32 @@
 
 # macOS Keychain credential store
 
-macOS credential stores are called keychains.
-The OS automatically creates three of them (or four if removable media is being used).
-Generic credentials on macOS can be identified by a large number of _key/value_ attributes;
-this module (currently) uses only the _account_ and _name_ attributes.
+All credentials on macOS are stored in secure stores called _keychains_.
+The OS automatically creates three of them (or four if removable media is being used),
+called _User_ (aka login), _Common_, _System_, and _Dynamic_.  The target
+attribute of an [Entry](crate::Entry) determines (case-insensitive) which keychain
+that entry's credential is created in or searched for.
+If the entry has no target, or the specified target doesn't name (case-insensitive)
+one of the four built-in keychains, the 'User' keychain is used.
 
-For a given service/user pair,
-this module targets a generic credential in the User (login) keychain
-whose _account_ is the user and whose _name_ is the service.
+For a given service/user pair, this module creates/searches for a credential
+in the target keychain whose _account_ attribute holds the user
+and whose _name_ attribute holds the service.
 Because of a quirk in the Mac keychain services API, neither the _account_
 nor the _name_ may be the empty string. (Empty strings are treated as
 wildcards when looking up credentials by attribute value.)
 
-In the _Keychain Access_ UI on Mac, generic credentials created by this module
+In the _Keychain Access_ UI on Mac, credentials created by this module
 show up in the passwords area (with their _where_ field equal to their _name_).
-_Note_ entries on Mac are also generic credentials and notes created by third-party
-applications can be accessed by this module
-if you know their _account_ value (not displayed by _Keychain Access_). But
-because the difference between a password and a note is platform-dependent,
-there's no way to _create_ a note in this module.
+What the Keychain Access lists under _Note_ entries on the Mac are
+also generic credentials, so existing _notes_ created by third-party
+applications can be accessed by this module if you know the value
+of their _account_ attribute (which is not displayed by _Keychain Access_).
 
-You can specify targeting a different keychain by passing the keychain's (case-insensitive)
-name as the target parameter to `Entry::new_with_target`.
-Any name other than one of the OS-supplied keychains (User, Common, System, and Dynamic)
-will be mapped to `User`.
+Credentials on macOS can have a large number of _key/value_ attributes,
+but this module controls the _account_ and _name_ attributes and
+ignores all the others. so clients can't use it to access or update any attributes.
  */
-
 use security_framework::base::Error;
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
@@ -353,5 +353,10 @@ mod tests {
             .delete_credential()
             .expect("Couldn't delete after get_credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        crate::tests::test_noop_get_update_attributes(entry_new);
     }
 }

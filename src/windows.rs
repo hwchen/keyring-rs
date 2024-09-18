@@ -21,6 +21,12 @@ So if you have a custom algorithm you want to use for computing the Windows targ
 you can specify the target name directly.  (You still need to provide a service and username,
 because they are used in the credential's metadata.)
 
+The [get_attributes](crate::Entry::get_attributes)
+call will return the values in the `username`, `comment`, and `target_alias` fields
+(using those strings as the attribute names),
+and the [update_attributes](crate::Entry::update_attributes)
+call allows setting those fields.
+
 ## Caveat
 
 Reads and writes of the same entry from multiple threads
@@ -31,6 +37,7 @@ different threads produces different results on different runs.
 */
 
 use byteorder::{ByteOrder, LittleEndian};
+use std::collections::HashMap;
 use std::iter::once;
 use std::mem::MaybeUninit;
 use std::str;
@@ -89,47 +96,7 @@ impl CredentialApi for WinCredential {
     /// there is no chance of ambiguity.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
         self.validate_attributes(Some(secret), None)?;
-        let mut username = to_wstr(&self.username);
-        let mut target_name = to_wstr(&self.target_name);
-        let mut target_alias = to_wstr(&self.target_alias);
-        let mut comment = to_wstr(&self.comment);
-        // Password strings are converted to UTF-16, because that's the native
-        // charset for Windows strings.  This allows editing of the password in
-        // the Windows native UI.  But the storage for the credential is actually
-        // a little-endian blob, because passwords can contain anything.
-        let mut blob = secret.to_vec();
-        let blob_len = blob.len() as u32;
-        let flags = CRED_FLAGS::default();
-        let cred_type = CRED_TYPE_GENERIC;
-        let persist = CRED_PERSIST_ENTERPRISE;
-        // Ignored by CredWriteW
-        let last_written = FILETIME {
-            dwLowDateTime: 0,
-            dwHighDateTime: 0,
-        };
-        let attribute_count = 0;
-        let attributes: *mut CREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
-        let mut credential = CREDENTIALW {
-            Flags: flags,
-            Type: cred_type,
-            TargetName: target_name.as_mut_ptr(),
-            Comment: comment.as_mut_ptr(),
-            LastWritten: last_written,
-            CredentialBlobSize: blob_len,
-            CredentialBlob: blob.as_mut_ptr(),
-            Persist: persist,
-            AttributeCount: attribute_count,
-            Attributes: attributes,
-            TargetAlias: target_alias.as_mut_ptr(),
-            UserName: username.as_mut_ptr(),
-        };
-        // raw pointer to credential, is coerced from &mut
-        let p_credential: *const CREDENTIALW = &mut credential;
-        // Call windows API
-        match unsafe { CredWriteW(p_credential, 0) } {
-            0 => Err(decode_error()),
-            _ => Ok(()),
-        }
+        self.save_credential(secret)
     }
 
     /// Look up the password for this entry, if any.
@@ -146,6 +113,39 @@ impl CredentialApi for WinCredential {
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
         self.extract_from_platform(extract_secret)
+    }
+
+    /// Get the attributes from the credential for this entry, if it exists.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
+    fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        let cred = self.extract_from_platform(Self::extract_credential)?;
+        let mut attributes: HashMap<String, String> = HashMap::new();
+        attributes.insert("comment".to_string(), cred.comment.clone());
+        attributes.insert("target_alias".to_string(), cred.target_alias.clone());
+        attributes.insert("username".to_string(), cred.username.clone());
+        Ok(attributes)
+    }
+
+    /// Update the attributes on the credential for this entry, if it exists.
+    ///
+    /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
+    /// credential in the store.
+    fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
+        let secret = self.extract_from_platform(extract_secret)?;
+        let mut cred = self.extract_from_platform(Self::extract_credential)?;
+        if let Some(comment) = attributes.get(&"comment") {
+            cred.comment = comment.to_string();
+        }
+        if let Some(target_alias) = attributes.get(&"target_alias") {
+            cred.target_alias = target_alias.to_string();
+        }
+        if let Some(username) = attributes.get(&"username") {
+            cred.username = username.to_string();
+        }
+        cred.validate_attributes(Some(&secret), None)?;
+        cred.save_credential(&secret)
     }
 
     /// Delete the underlying generic credential for this entry, if any.
@@ -227,6 +227,49 @@ impl WinCredential {
         Ok(())
     }
 
+    /// Write this credential into the underlying store as a Generic credential
+    ///
+    /// You must always have validated attributes before you call this!
+    fn save_credential(&self, secret: &[u8]) -> Result<()> {
+        let mut username = to_wstr(&self.username);
+        let mut target_name = to_wstr(&self.target_name);
+        let mut target_alias = to_wstr(&self.target_alias);
+        let mut comment = to_wstr(&self.comment);
+        let mut blob = secret.to_vec();
+        let blob_len = blob.len() as u32;
+        let flags = CRED_FLAGS::default();
+        let cred_type = CRED_TYPE_GENERIC;
+        let persist = CRED_PERSIST_ENTERPRISE;
+        // Ignored by CredWriteW
+        let last_written = FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let attribute_count = 0;
+        let attributes: *mut CREDENTIAL_ATTRIBUTEW = std::ptr::null_mut();
+        let mut credential = CREDENTIALW {
+            Flags: flags,
+            Type: cred_type,
+            TargetName: target_name.as_mut_ptr(),
+            Comment: comment.as_mut_ptr(),
+            LastWritten: last_written,
+            CredentialBlobSize: blob_len,
+            CredentialBlob: blob.as_mut_ptr(),
+            Persist: persist,
+            AttributeCount: attribute_count,
+            Attributes: attributes,
+            TargetAlias: target_alias.as_mut_ptr(),
+            UserName: username.as_mut_ptr(),
+        };
+        // raw pointer to credential, is coerced from &mut
+        let p_credential: *const CREDENTIALW = &mut credential;
+        // Call windows API
+        match unsafe { CredWriteW(p_credential, 0) } {
+            0 => Err(decode_error()),
+            _ => Ok(()),
+        }
+    }
+
     /// Construct a credential from this credential's underlying Generic credential.
     ///
     /// This can be useful for seeing modifications made by a third party.
@@ -297,7 +340,6 @@ impl WinCredential {
         user: &str,
     ) -> Result<WinCredential> {
         const VERSION: &str = env!("CARGO_PKG_VERSION");
-        let metadata = format!("keyring-rs v{VERSION} for service '{service}', user '{user}'");
         let credential = if let Some(target) = target {
             // if target.is_empty() {
             //     return Err(ErrorCode::Invalid(
@@ -312,7 +354,7 @@ impl WinCredential {
                 username: user.to_string(),
                 target_name: target.to_string(),
                 target_alias: String::new(),
-                comment: metadata,
+                comment: format!("{user}@{service}:{target} (keyring v{VERSION})"),
             }
         } else {
             Self {
@@ -327,7 +369,7 @@ impl WinCredential {
                 username: user.to_string(),
                 target_name: format!("{user}.{service}"),
                 target_alias: String::new(),
-                comment: metadata,
+                comment: format!("{user}@{service}:{user}.{service} (keyring v{VERSION})"),
             }
         };
         credential.validate_attributes(None, None)?;
@@ -622,6 +664,57 @@ mod tests {
     #[test]
     fn test_update() {
         crate::tests::test_update(entry_new);
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        let name = generate_random_string();
+        let cred = WinCredential::new_with_target(None, &name, &name)
+            .expect("Can't create credential for attribute test");
+        let entry = Entry::new_with_credential(Box::new(cred.clone()));
+        assert!(
+            matches!(entry.get_attributes(), Err(ErrorCode::NoEntry)),
+            "Read missing credential in attribute test",
+        );
+        let mut in_map: HashMap<&str, &str> = HashMap::new();
+        in_map.insert("label", "ignored label value");
+        in_map.insert("attribute name", "ignored attribute value");
+        in_map.insert("target_alias", "target alias value");
+        in_map.insert("comment", "comment value");
+        in_map.insert("username", "username value");
+        assert!(
+            matches!(entry.update_attributes(&in_map), Err(ErrorCode::NoEntry)),
+            "Updated missing credential in attribute test",
+        );
+        // create the credential and test again
+        entry
+            .set_password("test password for attributes")
+            .unwrap_or_else(|err| panic!("Can't set password for attribute test: {err:?}"));
+        let out_map = entry
+            .get_attributes()
+            .expect("Can't get attributes after create");
+        assert_eq!(out_map["target_alias"], cred.target_alias);
+        assert_eq!(out_map["comment"], cred.comment);
+        assert_eq!(out_map["username"], cred.username);
+        assert!(
+            matches!(entry.update_attributes(&in_map), Ok(())),
+            "Couldn't update attributes in attribute test",
+        );
+        let after_map = entry
+            .get_attributes()
+            .expect("Can't get attributes after update");
+        assert_eq!(after_map["target_alias"], in_map["target_alias"]);
+        assert_eq!(after_map["comment"], in_map["comment"]);
+        assert_eq!(after_map["username"], in_map["username"]);
+        assert!(!after_map.contains_key("label"));
+        assert!(!after_map.contains_key("attribute name"));
+        entry
+            .delete_credential()
+            .unwrap_or_else(|err| panic!("Can't delete credential for attribute test: {err:?}"));
+        assert!(
+            matches!(entry.get_attributes(), Err(ErrorCode::NoEntry)),
+            "Read deleted credential in attribute test",
+        );
     }
 
     #[test]

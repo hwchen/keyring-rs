@@ -3,13 +3,24 @@
 # secret-service credential store
 
 Items in the secret-service are identified by an arbitrary collection
-of attributes, and each has "label" for use in graphical editors.  This
-implementation uses the following attributes:
+of attributes.  This implementation controls the following attributes:
 
 - `target` (optional & taken from entry creation call, defaults to `default`)
 - `service` (required & taken from entry creation call)
-- `username` (required & taken from entry creation call)
-- `application` (optional & always set to `rust-keyring`)
+- `username` (required & taken from entry creation call's `user` parameter)
+
+In addition, when creating a new credential, this implementation assigns
+two additional attributes:
+
+- `application` (set to `rust-keyring-client`)
+- `label` (set to a string with the user, service, target, and keyring version at time of creation)
+
+Client code is allowed to retrieve and to set all attributes _except_ the
+three that are controlled by this implementation. (N.B. The `label` string
+is not actually an attribute; it's a required element in every item and is used
+by GUI tools as the name for the item. But this implementation treats the
+label as if it were any other non-controlled attribute, with the caveat that
+it will reject any attempt to set the label to an empty string.)
 
 Existing items are always searched for at the service level, which
 means all collections are searched. The search attributes used are
@@ -20,11 +31,11 @@ that were stored in the default collection, a fallback search is done
 for items in the default collection with no `target` attribute *if
 the original search for all three attributes returns no matches*.
 
-New items are always created with all three search attributes, and
-they are given a label that identifies the crate and version and
-attributes used in the entry. If a target other than `default` is
-specified for the entry, then a collection labeled with that target
-will be created (if necessary) to hold the new item.
+New items are created in the default collection,
+unless a target other than `default` is
+specified for the entry, in which case the item
+will be created in a collection (created if necessary)
+that is labeled with the specified target.
 
 Setting the password on an entry will always update the password on an
 existing item in preference to creating a new item.
@@ -179,6 +190,23 @@ impl CredentialApi for SsCredential {
         Ok(secrets[0].clone())
     }
 
+    /// Get attributes on a unique matching item, if it exists
+    ///
+    /// Same error conditions as [get_secret].
+    fn get_attributes(&self) -> Result<HashMap<String, String>> {
+        let attributes: Vec<HashMap<String, String>> =
+            self.map_matching_items(get_item_attributes, true)?;
+        Ok(attributes.into_iter().next().unwrap())
+    }
+
+    /// Update attributes on a unique matching item, if it exists
+    ///
+    /// Same error conditions as [get_secret].
+    fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
+        self.map_matching_items(|i| update_item_attributes(i, attributes), true)?;
+        Ok(())
+    }
+
     /// Deletes the unique matching item, if it exists.
     ///
     /// If there are no
@@ -227,7 +255,7 @@ impl SsCredential {
         Ok(Self {
             attributes,
             label: format!(
-                "keyring-rs v{} for target '{target}', service '{service}', user '{user}'",
+                "{user}@{service}:{target} (keyring v{})",
                 env!("CARGO_PKG_VERSION"),
             ),
             target: Some(target.to_string()),
@@ -496,10 +524,50 @@ pub fn get_item_password(item: &Item) -> Result<String> {
     decode_password(bytes)
 }
 
-//// Given an existing item, retrieve and decode its password.
+//// Given an existing item, retrieve its secret.
 pub fn get_item_secret(item: &Item) -> Result<Vec<u8>> {
     let secret = item.get_secret().map_err(decode_error)?;
     Ok(secret)
+}
+
+/// Given an existing item, retrieve its non-controlled attributes.
+pub fn get_item_attributes(item: &Item) -> Result<HashMap<String, String>> {
+    let mut attributes = item.get_attributes().map_err(decode_error)?;
+    attributes.remove("target");
+    attributes.remove("service");
+    attributes.remove("username");
+    attributes.insert("label".to_string(), item.get_label().map_err(decode_error)?);
+    Ok(attributes)
+}
+
+/// Given an existing item, retrieve its non-controlled attributes.
+pub fn update_item_attributes(item: &Item, attributes: &HashMap<&str, &str>) -> Result<()> {
+    let existing = item.get_attributes().map_err(decode_error)?;
+    let mut updated: HashMap<&str, &str> = HashMap::new();
+    for (k, v) in existing.iter() {
+        updated.insert(k, v);
+    }
+    for (k, v) in attributes.iter() {
+        if k.eq(&"target") || k.eq(&"service") || k.eq(&"username") {
+            continue;
+        }
+        if k.eq(&"label") {
+            if v.is_empty() {
+                return Err(ErrorCode::Invalid(
+                    "label".to_string(),
+                    "cannot be empty".to_string(),
+                ));
+            }
+            item.set_label(v).map_err(decode_error)?;
+            if updated.contains_key("label") {
+                updated.insert("label", v);
+            }
+        } else {
+            updated.insert(k, v);
+        }
+    }
+    item.set_attributes(updated).map_err(decode_error)?;
+    Ok(())
 }
 
 // Given an existing item, delete it.
@@ -542,6 +610,7 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 mod tests {
     use crate::credential::CredentialPersistence;
     use crate::{tests::generate_random_string, Entry, Error};
+    use std::collections::HashMap;
 
     use super::{default_credential_builder, SsCredential};
 
@@ -627,6 +696,66 @@ mod tests {
             .delete_credential()
             .expect("Couldn't delete get-credential");
         assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        let name = generate_random_string();
+        let credential = SsCredential::new_with_target(None, &name, &name)
+            .expect("Can't create credential for attribute test");
+        let create_label = credential.label.clone();
+        let entry = Entry::new_with_credential(Box::new(credential));
+        assert!(
+            matches!(entry.get_attributes(), Err(Error::NoEntry)),
+            "Read missing credential in attribute test",
+        );
+        let mut in_map: HashMap<&str, &str> = HashMap::new();
+        in_map.insert("label", "test label value");
+        in_map.insert("test attribute name", "test attribute value");
+        in_map.insert("target", "ignored target value");
+        in_map.insert("service", "ignored service value");
+        in_map.insert("username", "ignored username value");
+        assert!(
+            matches!(entry.update_attributes(&in_map), Err(Error::NoEntry)),
+            "Updated missing credential in attribute test",
+        );
+        // create the credential and test again
+        entry
+            .set_password("test password for attributes")
+            .unwrap_or_else(|err| panic!("Can't set password for attribute test: {err:?}"));
+        let out_map = entry
+            .get_attributes()
+            .expect("Can't get attributes after create");
+        assert_eq!(out_map["label"], create_label);
+        assert_eq!(out_map["application"], "rust-keyring");
+        assert!(!out_map.contains_key("target"));
+        assert!(!out_map.contains_key("service"));
+        assert!(!out_map.contains_key("username"));
+        assert!(
+            matches!(entry.update_attributes(&in_map), Ok(())),
+            "Couldn't update attributes in attribute test",
+        );
+        let after_map = entry
+            .get_attributes()
+            .expect("Can't get attributes after update");
+        assert_eq!(after_map["label"], in_map["label"]);
+        assert_eq!(
+            after_map["test attribute name"],
+            in_map["test attribute name"]
+        );
+        assert_eq!(out_map["application"], "rust-keyring");
+        in_map.insert("label", "");
+        assert!(
+            matches!(entry.update_attributes(&in_map), Err(Error::Invalid(_, _))),
+            "Was able to set empty label in attribute test",
+        );
+        entry
+            .delete_credential()
+            .unwrap_or_else(|err| panic!("Can't delete credential for attribute test: {err:?}"));
+        assert!(
+            matches!(entry.get_attributes(), Err(Error::NoEntry)),
+            "Read deleted credential in attribute test",
+        );
     }
 
     #[test]
