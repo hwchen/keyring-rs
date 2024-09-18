@@ -1,6 +1,6 @@
 /*!
 
-# Platorm-independent secure storage model
+# Platform-independent secure storage model
 
 This module defines a plug and play model for platform-specific credential stores.
 The model comprises two traits: [CredentialBuilderApi] for the underlying store
@@ -44,17 +44,25 @@ pub trait CredentialApi {
     /// This will persist the secret in the underlying store.
     fn set_secret(&self, password: &[u8]) -> Result<()>;
 
-    /// Retrieve a password (a string) from the credential, if one has been set.
+    /// Retrieve the password (a string) from the underlying credential.
     ///
-    /// This has no effect on the underlying store.
+    /// This has no effect on the underlying store. If there is no credential
+    /// for this entry, a [NoEntry](crate::Error::NoEntry) error is returned.
     fn get_password(&self) -> Result<String>;
 
-    /// Retrieve a secret (a byte array) from the credential, if one has been set.
+    /// Retrieve a secret (a byte array) from the credential.
     ///
-    /// This has no effect on the underlying store.
+    /// This has no effect on the underlying store. If there is no credential
+    /// for this entry, a [NoEntry](crate::Error::NoEntry) error is returned.
     fn get_secret(&self) -> Result<Vec<u8>>;
 
-    /// Get the attributes on this credential from the underlying store.
+    /// Get the secure store attributes on this entry's credential.
+    ///
+    /// Each credential store may support reading and updating different
+    /// named attributes; see the documentation on each of the stores
+    /// for details. Note that the keyring itself uses some of these
+    /// attributes to map entries to their underlying credential; these
+    /// _controlled_ attributes are not available for reading or updating.
     ///
     /// We provide a default (no-op) implementation of this method
     /// for backward compatibility with stores that don't implement it.
@@ -65,7 +73,14 @@ pub trait CredentialApi {
         Ok(HashMap::new())
     }
 
-    /// Update attributes on the underlying credential store.
+    /// Update the secure store attributes on this entry's credential.
+    ///
+    /// Each credential store may support reading and updating different
+    /// named attributes; see the documentation on each of the stores
+    /// for details. The implementation will ignore any attribute names
+    /// that you supply that are not available for update. Because the
+    /// names used by the different stores tend to be distinct, you can
+    /// write cross-platform code that will work correctly on each platform.
     ///
     /// We provide a default no-op implementation of this method
     /// for backward compatibility with stores that don't implement it.
