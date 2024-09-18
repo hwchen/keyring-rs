@@ -6,7 +6,7 @@ keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "3.2.1"
+version = "3.3.0"
 rust-version = "1.75"
 edition = "2021"
 exclude = [".github/"]
@@ -64,6 +64,7 @@ path = "examples/cli.rs"
 base64 = "0.22"
 clap = { version = "4", features = ["derive", "wrap_help"] }
 rpassword = "7"
+rprompt = "2"
 rand = "0.8"
 doc-comment = "0.3"
 whoami = "1"

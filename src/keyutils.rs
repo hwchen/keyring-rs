@@ -12,7 +12,8 @@ an explicit `target`, that value is used as the keyutils description.  Otherwise
 `keyring-rs:user@service` is used (where user and service come from the entry creation call).
 
 There is no notion of attribute other than the description supported by keyutils,
-so the [get_attributes](Entry::get_attributes) and [update_attributes](Entry::update_attributes)
+so the [get_attributes](crate::Entry::get_attributes)
+and [update_attributes](crate::Entry::update_attributes)
 calls are both no-ops for this credential store.
 
 # Persistence

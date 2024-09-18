@@ -13,7 +13,7 @@ In addition, when creating a new credential, this implementation assigns
 two additional attributes:
 
 - `application` (set to `rust-keyring-client`)
-- `label` (set to a string with the user, service, and keyring version at time of creation)
+- `label` (set to a string with the user, service, target, and keyring version at time of creation)
 
 Client code is allowed to retrieve and to set all attributes _except_ the
 three that are controlled by this implementation. (N.B. The `label` string

@@ -148,8 +148,8 @@ then retrieving that as a password will return a
 [BadEncoding](Error::BadEncoding) error.
 The returned error will have the raw bytes attached,
 so you can access them, but you can also just fetch
-them directly using [get_secret](Entry::get_password) rather than
-[get_password](Entry::get_secret).
+them directly using [get_secret](Entry::get_secret) rather than
+[get_password](Entry::get_password).
 
 While this crate's code is thread-safe, the underlying credential
 stores may not handle access from different threads reliably.

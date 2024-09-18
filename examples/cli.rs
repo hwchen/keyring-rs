@@ -107,7 +107,8 @@ pub enum Command {
 
         #[clap(value_parser)]
         /// The input to parse. If not specified, it will be
-        /// read interactively (without echo) from the terminal.
+        /// read interactively from the terminal. Password/secret
+        /// input will not be echoed.
         input: Option<String>,
     },
     /// Retrieve the (string) password from the secure store
@@ -123,18 +124,20 @@ pub enum Command {
 }
 
 #[derive(Debug, Args)]
-#[group(multiple = false)]
+#[group(multiple = false, required = true)]
 pub struct What {
-    #[clap(short, long, action)]
-    // The input is a password.
+    #[clap(short, long, action, help = "The input is a password")]
     password: bool,
 
-    #[clap(short, long, action)]
-    // The input is a base64-encoded secret.
+    #[clap(short, long, action, help = "The input is a base64-encoded secret")]
     secret: bool,
 
-    #[clap(short, long, action)]
-    // The input is comma-separated, key=val attribute pairs.
+    #[clap(
+        short,
+        long,
+        action,
+        help = "The input is comma-separated, key=val attribute pairs"
+    )]
     attributes: bool,
 }
 
@@ -148,7 +151,7 @@ enum Value {
 impl Cli {
     fn description(&self) -> String {
         if let Some(target) = &self.target {
-            format!("[{target}]{}@{}", &self.user, &self.service)
+            format!("{}@{}:{target}", &self.user, &self.service)
         } else {
             format!("{}@{}", &self.user, &self.service)
         }
@@ -209,7 +212,7 @@ impl Cli {
                     eprintln!("Set password for '{description}' to '{password}'");
                 }
                 Value::Attributes(attributes) => {
-                    eprintln!("Set attributes for '{description}' to:");
+                    eprintln!("The following attributes for '{description}' were sent for update:");
                     eprint_attributes(attributes);
                 }
                 _ => panic!("Can't set without a value"),
@@ -248,7 +251,7 @@ impl Cli {
 
     fn get_password_and_attributes(&self) -> Value {
         if let Command::Set { what, input } = &self.command {
-            if what.password || (!what.secret && !what.attributes) {
+            if what.password {
                 Value::Password(read_password(input))
             } else if what.secret {
                 Value::Secret(decode_secret(input))
@@ -313,7 +316,7 @@ fn parse_attributes(input: &Option<String>) -> HashMap<String, String> {
     let input = if let Some(input) = input {
         input.clone()
     } else {
-        rpassword::prompt_password("Attributes: ").unwrap_or_else(|_| String::new())
+        rprompt::prompt_reply("Attributes: ").unwrap_or_else(|_| String::new())
     };
     if input.is_empty() {
         eprintln!("You must specify at least one key=value attribute pair to set")

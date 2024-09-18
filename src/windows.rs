@@ -21,9 +21,10 @@ So if you have a custom algorithm you want to use for computing the Windows targ
 you can specify the target name directly.  (You still need to provide a service and username,
 because they are used in the credential's metadata.)
 
-The [get_attributes](Entry::get_attributes)
+The [get_attributes](crate::Entry::get_attributes)
 call will return the values in the `username`, `comment`, and `target_alias` fields
-(using those strings as the attribute names), and the [update_attributes](Entry::update_attributes)
+(using those strings as the attribute names),
+and the [update_attributes](crate::Entry::update_attributes)
 call allows setting those fields.
 
 ## Caveat
