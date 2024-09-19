@@ -191,8 +191,6 @@ impl CredentialApi for SsCredential {
     }
 
     /// Get attributes on a unique matching item, if it exists
-    ///
-    /// Same error conditions as [get_secret].
     fn get_attributes(&self) -> Result<HashMap<String, String>> {
         let attributes: Vec<HashMap<String, String>> =
             self.map_matching_items(get_item_attributes, true)?;
@@ -200,8 +198,6 @@ impl CredentialApi for SsCredential {
     }
 
     /// Update attributes on a unique matching item, if it exists
-    ///
-    /// Same error conditions as [get_secret].
     fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
         self.map_matching_items(|i| update_item_attributes(i, attributes), true)?;
         Ok(())
