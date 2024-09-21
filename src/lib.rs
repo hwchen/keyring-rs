@@ -64,9 +64,9 @@ example, the macOS Keychain credential store is only included if the `"apple-nat
 feature is specified (and the crate is built with a macOS target).
 
 If no specified credential store features apply to a given platform,
+or multiple credential store features apply to a given platform,
 this crate will use the (platform-independent) _mock_ credential store (see below)
-on that platform. Specifying multiple credential store features for a given
-platform is not supported, and will cause compile-time errors. There are no
+on that platform. There are no
 default features in this crate: you must specify explicitly which platform-specific
 credential stores you intend to use.
 
@@ -98,6 +98,10 @@ Here are the available credential store features:
   keystore. If you want to use openSSL encryption but those libraries are not
   installed on the user's machine, specify the `vendored` feature
   to statically link them with the built crate.
+
+You cannot specify both the `sync-secret-service` and `async-secret-service` features;
+this will produce a compile error. You must pick one or the other if you want to use
+the secret service for credential storage.
 
 ## Client-provided Credential Stores
 
@@ -168,17 +172,10 @@ use std::collections::HashMap;
 pub mod mock;
 
 //
-// no duplicate keystores on any platform
+// can't use both sync and async secret service
 //
-#[cfg(all(
-    not(doc),
-    any(
-        all(feature = "linux-native", feature = "sync-secret-service"),
-        all(feature = "linux-native", feature = "async-secret-service"),
-        all(feature = "sync-secret-service", feature = "async-secret-service")
-    )
-))]
-compile_error!("You can enable at most one keystore per target architecture");
+#[cfg(all(feature = "sync-secret-service", feature = "async-secret-service"))]
+compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
 // Pick the *nix keystore
@@ -189,10 +186,7 @@ pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(all(
-        doc,
-        any(feature = "sync-secret-service", feature = "async-secret-service")
-    ))
+    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
 ))]
 pub use keyutils as default;
 
@@ -203,17 +197,24 @@ pub use keyutils as default;
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service")
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
+    not(feature = "linux-native")
 ))]
 pub use secret_service as default;
 
 #[cfg(all(
     target_os = "linux",
-    not(any(
-        feature = "linux-native",
-        feature = "sync-secret-service",
-        feature = "async-secret-service"
-    ))
+    any(
+        not(any(
+            feature = "linux-native",
+            feature = "sync-secret-service",
+            feature = "async-secret-service"
+        )),
+        all(
+            feature = "linux-native",
+            any(feature = "sync-secret-service", feature = "async-secret-service"),
+        )
+    )
 ))]
 pub use mock as default;
 #[cfg(all(
