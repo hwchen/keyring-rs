@@ -29,7 +29,7 @@ vendored = ["dbus-secret-service?/vendored", "openssl?/vendored"]
 openssl = { version = "0.10.55", optional = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]  # see issue #190
-security-framework = { version = "2", optional = true }
+security-framework = { version = "3", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 secret-service = { version = "4", optional = true }
