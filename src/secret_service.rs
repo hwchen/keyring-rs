@@ -89,13 +89,16 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-#[cfg(not(feature = "async-secret-service"))]
+#[cfg(feature = "sync-secret-service")]
 use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
 #[cfg(feature = "async-secret-service")]
 use secret_service::{
     blocking::{Collection, Item, SecretService},
     EncryptionType, Error,
 };
+
+#[cfg(all(target_os = "linux", feature = "linux-native"))]
+use crate::keyutils::KeyutilsCredential;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{decode_password, Error as ErrorCode, Result};
@@ -113,6 +116,8 @@ pub struct SsCredential {
     pub attributes: HashMap<String, String>,
     pub label: String,
     target: Option<String>,
+    #[cfg(all(target_os = "linux", feature = "linux-native"))]
+    keyutils: Option<KeyutilsCredential>,
 }
 
 impl CredentialApi for SsCredential {
@@ -144,7 +149,14 @@ impl CredentialApi for SsCredential {
         let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
         match self.map_matching_items(|i| set_item_secret(i, secret), true) {
-            Ok(_) => return Ok(()),
+            Ok(_) => {
+                #[cfg(all(target_os = "linux", feature = "linux-native"))]
+                if let Some(keyutils) = &self.keyutils {
+                    let _ = keyutils.set_secret(secret);
+                }
+
+                return Ok(());
+            }
             Err(ErrorCode::NoEntry) => {}
             Err(err) => return Err(err),
         }
@@ -163,6 +175,12 @@ impl CredentialApi for SsCredential {
                 "text/plain",
             )
             .map_err(platform_failure)?;
+
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        if let Some(keyutils) = &self.keyutils {
+            let _ = keyutils.set_secret(secret);
+        }
+
         Ok(())
     }
 
@@ -174,6 +192,13 @@ impl CredentialApi for SsCredential {
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
     fn get_password(&self) -> Result<String> {
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        if let Some(keyutils) = &self.keyutils {
+            if let Ok(password) = keyutils.get_password() {
+                return Ok(password);
+            }
+        }
+
         let passwords: Vec<String> = self.map_matching_items(get_item_password, true)?;
         Ok(passwords[0].clone())
     }
@@ -186,7 +211,15 @@ impl CredentialApi for SsCredential {
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        if let Some(keyutils) = &self.keyutils {
+            if let Ok(secret) = keyutils.get_secret() {
+                return Ok(secret);
+            }
+        }
+
         let secrets: Vec<Vec<u8>> = self.map_matching_items(get_item_secret, true)?;
+
         Ok(secrets[0].clone())
     }
 
@@ -212,6 +245,12 @@ impl CredentialApi for SsCredential {
     /// error with a credential for each matching item.
     fn delete_credential(&self) -> Result<()> {
         self.map_matching_items(delete_item, true)?;
+
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        if let Some(keyutils) = &self.keyutils {
+            let _ = keyutils.delete_credential();
+        }
+
         Ok(())
     }
 
@@ -240,6 +279,10 @@ impl SsCredential {
         if let Some("") = target {
             return Err(empty_target());
         }
+
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        let keyutils = KeyutilsCredential::new_with_target(target, service, user).ok();
+
         let target = target.unwrap_or("default");
 
         let attributes = HashMap::from([
@@ -248,6 +291,7 @@ impl SsCredential {
             ("target".to_string(), target.to_string()),
             ("application".to_string(), "rust-keyring".to_string()),
         ]);
+
         Ok(Self {
             attributes,
             label: format!(
@@ -255,6 +299,8 @@ impl SsCredential {
                 env!("CARGO_PKG_VERSION"),
             ),
             target: Some(target.to_string()),
+            #[cfg(all(target_os = "linux", feature = "linux-native"))]
+            keyutils,
         })
     }
 
@@ -263,6 +309,9 @@ impl SsCredential {
     /// This emulates what keyring v1 did, and can be very handy when you need to
     /// access an old v1 credential that's in your secret service default collection.
     pub fn new_with_no_target(service: &str, user: &str) -> Result<Self> {
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        let keyutils = KeyutilsCredential::new_with_target(None, service, user).ok();
+
         let attributes = HashMap::from([
             ("service".to_string(), service.to_string()),
             ("username".to_string(), user.to_string()),
@@ -275,7 +324,31 @@ impl SsCredential {
                 env!("CARGO_PKG_VERSION"),
             ),
             target: None,
+            #[cfg(all(target_os = "linux", feature = "linux-native"))]
+            keyutils,
         })
+    }
+
+    /// Create a keyutils credential from an underlying item's attributes.
+    ///
+    /// The created credential will have all the attributes and label
+    /// of the underlying item, so you can examine them.
+    #[cfg(all(target_os = "linux", feature = "linux-native"))]
+    pub fn new_keyutils_from_attributes(
+        attributes: &HashMap<String, String>,
+    ) -> Result<KeyutilsCredential> {
+        let target = attributes.get("target").map(|target| target.as_str());
+        let service = attributes
+            .get("service")
+            .ok_or(decode_error(Error::NoResult))?;
+        let user = attributes
+            .get("username")
+            .ok_or(decode_error(Error::NoResult))?;
+
+        let keyutils = KeyutilsCredential::new_with_target(target, service.as_str(), user.as_str())
+            .map_err(|err| crate::Error::NoStorageAccess(Box::new(err)))?;
+
+        Ok(keyutils)
     }
 
     /// Create a credential from an underlying item.
@@ -284,11 +357,18 @@ impl SsCredential {
     /// of the underlying item, so you can examine them.
     pub fn new_from_item(item: &Item) -> Result<Self> {
         let attributes = item.get_attributes().map_err(decode_error)?;
+
+        #[cfg(all(target_os = "linux", feature = "linux-native"))]
+        let keyutils = Self::new_keyutils_from_attributes(&attributes).ok();
+
         let target = attributes.get("target").cloned();
+
         Ok(Self {
             attributes,
             label: item.get_label().map_err(decode_error)?,
             target,
+            #[cfg(all(target_os = "linux", feature = "linux-native"))]
+            keyutils,
         })
     }
 
@@ -844,7 +924,7 @@ mod tests {
     }
 
     fn delete_collection(name: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
+        #[cfg(feature = "sync-secret-service")]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
@@ -856,7 +936,7 @@ mod tests {
     }
 
     fn create_v1_entry(name: &str, password: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
+        #[cfg(feature = "sync-secret-service")]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
