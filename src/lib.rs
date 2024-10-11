@@ -172,8 +172,9 @@ pub mod mock;
 //
 
 #[cfg(all(
+    not(doc),
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    all(feature = "sync-secret-service", feature = "async-secret-service"),
+    all(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
 compile_error!("You can enable at most one secret service keystore");
 
@@ -182,28 +183,36 @@ pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(any(feature = "sync-secret-service", feature = "async-secret-service")),
+    not(all(
+        doc,
+        any(feature = "sync-secret-service", feature = "async-secret-service")
+    ))
 ))]
 pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service"),
+    any(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service"),
+    any(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
 pub use secret_service as default;
 
 #[cfg(all(
-    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+    target_os = "linux",
     not(any(
         feature = "linux-native",
         feature = "sync-secret-service",
-        feature = "async-secret-service",
-    )),
+        feature = "async-secret-service"
+    ))
+))]
+pub use mock as default;
+#[cfg(all(
+    any(target_os = "freebsd", target_os = "openbsd"),
+    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
 ))]
 pub use mock as default;
 
@@ -235,6 +244,16 @@ pub mod windows;
 pub use mock as default;
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub use windows as default;
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "windows",
+)))]
+pub use mock as default;
 
 pub mod credential;
 pub mod error;

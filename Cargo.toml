@@ -13,7 +13,6 @@ exclude = [".github/"]
 readme = "README.md"
 
 [features]
-default = []
 linux-native = ["dep:linux-keyutils"]
 apple-native = ["dep:security-framework"]
 windows-native = ["dep:windows-sys", "dep:byteorder"]

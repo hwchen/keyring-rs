@@ -89,7 +89,7 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-#[cfg(feature = "sync-secret-service")]
+#[cfg(not(feature = "async-secret-service"))]
 use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
 #[cfg(feature = "async-secret-service")]
 use secret_service::{
@@ -844,7 +844,7 @@ mod tests {
     }
 
     fn delete_collection(name: &str) {
-        #[cfg(feature = "sync-secret-service")]
+        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
@@ -856,7 +856,7 @@ mod tests {
     }
 
     fn create_v1_entry(name: &str, password: &str) {
-        #[cfg(feature = "sync-secret-service")]
+        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
