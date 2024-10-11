@@ -168,63 +168,49 @@ use std::collections::HashMap;
 pub mod mock;
 
 //
-// no duplicate keystores on any platform
-//
-#[cfg(all(
-    not(doc),
-    any(
-        all(feature = "linux-native", feature = "sync-secret-service"),
-        all(feature = "linux-native", feature = "async-secret-service"),
-        all(feature = "sync-secret-service", feature = "async-secret-service")
-    )
-))]
-compile_error!("You can enable at most one keystore per target architecture");
-
-//
 // Pick the *nix keystore
 //
+
+#[cfg(all(
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+    all(feature = "sync-secret-service", feature = "async-secret-service"),
+))]
+compile_error!("You can enable at most one secret service keystore");
 
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(all(
-        doc,
-        any(feature = "sync-secret-service", feature = "async-secret-service")
-    ))
+    not(any(feature = "sync-secret-service", feature = "async-secret-service")),
 ))]
 pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service")
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service")
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
 pub use secret_service as default;
 
 #[cfg(all(
-    target_os = "linux",
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     not(any(
         feature = "linux-native",
         feature = "sync-secret-service",
-        feature = "async-secret-service"
-    ))
-))]
-pub use mock as default;
-#[cfg(all(
-    any(target_os = "freebsd", target_os = "openbsd"),
-    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+        feature = "async-secret-service",
+    )),
 ))]
 pub use mock as default;
 
 //
-// pick the Apple keystore
+// Pick the Apple keystore
 //
+
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
 pub mod macos;
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
@@ -240,7 +226,7 @@ pub use ios as default;
 pub use mock as default;
 
 //
-// pick the Windows keystore
+// Pick the Windows keystore
 //
 
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
@@ -249,16 +235,6 @@ pub mod windows;
 pub use mock as default;
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub use windows as default;
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "windows",
-)))]
-pub use mock as default;
 
 pub mod credential;
 pub mod error;
@@ -549,7 +525,7 @@ mod tests {
     pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-        use rand::{distributions::Alphanumeric, thread_rng, Rng};
+        use rand::{distributions::Alphanumeric, thread_rng};
         thread_rng()
             .sample_iter(&Alphanumeric)
             .take(len)
