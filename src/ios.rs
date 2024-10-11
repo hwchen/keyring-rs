@@ -57,6 +57,9 @@ impl CredentialApi for IosCredential {
     /// Since there is only one credential with a given _account_ and _user_
     /// in any given keychain, there is no chance of ambiguity.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set ios secret");
+
         set_generic_password(&self.service, &self.account, secret).map_err(decode_error)?;
         Ok(())
     }
@@ -75,6 +78,9 @@ impl CredentialApi for IosCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get ios secret");
+
         get_generic_password(&self.service, &self.account).map_err(decode_error)
     }
 
@@ -83,6 +89,9 @@ impl CredentialApi for IosCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn delete_credential(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete ios credential");
+
         delete_generic_password(&self.service, &self.account).map_err(decode_error)?;
         Ok(())
     }
@@ -123,6 +132,9 @@ impl IosCredential {
     /// because empty attribute values act as wildcards in the
     /// Keychain Services API.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(target?, service, user, "create ios credential");
+
         if service.is_empty() {
             return Err(ErrorCode::Invalid(
                 "service".to_string(),
@@ -143,6 +155,7 @@ impl IosCredential {
                 ));
             }
         }
+
         Ok(Self {
             service: service.to_string(),
             account: user.to_string(),

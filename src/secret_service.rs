@@ -137,6 +137,9 @@ impl CredentialApi for SsCredential {
     /// When creating, the item is put into a collection named by the credential's `target`
     /// attribute.  
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set secret service secret");
+
         #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
         let session_type = EncryptionType::Dh;
         #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
@@ -174,6 +177,9 @@ impl CredentialApi for SsCredential {
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
     fn get_password(&self) -> Result<String> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get secret service password");
+
         let passwords: Vec<String> = self.map_matching_items(get_item_password, true)?;
         Ok(passwords[0].clone())
     }
@@ -186,6 +192,9 @@ impl CredentialApi for SsCredential {
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get secret service secret");
+
         let secrets: Vec<Vec<u8>> = self.map_matching_items(get_item_secret, true)?;
         Ok(secrets[0].clone())
     }
@@ -211,6 +220,9 @@ impl CredentialApi for SsCredential {
     /// returns an [Ambiguous](ErrorCode::Ambiguous)
     /// error with a credential for each matching item.
     fn delete_credential(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete secret service credential");
+
         self.map_matching_items(delete_item, true)?;
         Ok(())
     }
@@ -237,6 +249,9 @@ impl SsCredential {
     /// when [set_password](SsCredential::set_password) is
     /// called.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?target, service, user, "create secret service credential");
+
         if let Some("") = target {
             return Err(empty_target());
         }
@@ -263,6 +278,9 @@ impl SsCredential {
     /// This emulates what keyring v1 did, and can be very handy when you need to
     /// access an old v1 credential that's in your secret service default collection.
     pub fn new_with_no_target(service: &str, user: &str) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?target, service, user, "create secret service credential");
+
         let attributes = HashMap::from([
             ("service".to_string(), service.to_string()),
             ("username".to_string(), user.to_string()),
@@ -283,6 +301,9 @@ impl SsCredential {
     /// The created credential will have all the attributes and label
     /// of the underlying item, so you can examine them.
     pub fn new_from_item(item: &Item) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("create secret service credential");
+
         let attributes = item.get_attributes().map_err(decode_error)?;
         let target = attributes.get("target").cloned();
         Ok(Self {
@@ -295,6 +316,9 @@ impl SsCredential {
     /// Construct a credential for this credential's underlying matching item,
     /// if there is exactly one.
     pub fn new_from_matching_item(&self) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("create secret service credential");
+
         let credentials = self.map_matching_items(Self::new_from_item, true)?;
         Ok(credentials[0].clone())
     }
@@ -304,6 +328,9 @@ impl SsCredential {
     /// (This is useful if [get_password](SsCredential::get_password)
     /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn get_all_passwords(&self) -> Result<Vec<String>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get all secret service passwords");
+
         self.map_matching_items(get_item_password, false)
     }
 
@@ -312,6 +339,9 @@ impl SsCredential {
     /// (This is useful if [delete_credential](SsCredential::delete_credential)
     /// returns an [Ambiguous](ErrorCode::Ambiguous) error.)
     pub fn delete_all_passwords(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete all secret service passwords");
+
         self.map_matching_items(delete_item, false)?;
         Ok(())
     }

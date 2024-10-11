@@ -78,6 +78,9 @@ impl CredentialApi for WinCredential {
     /// Since there is only one credential with a given _target name_,
     /// there is no chance of ambiguity.
     fn set_password(&self, password: &str) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set windows password");
+
         self.validate_attributes(None, Some(password))?;
         // Password strings are converted to UTF-16, because that's the native
         // charset for Windows strings.  This allows interoperability with native
@@ -95,6 +98,9 @@ impl CredentialApi for WinCredential {
     /// Since there is only one credential with a given _target name_,
     /// there is no chance of ambiguity.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set windows secret");
+
         self.validate_attributes(Some(secret), None)?;
         self.save_credential(secret)
     }
@@ -104,6 +110,9 @@ impl CredentialApi for WinCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_password(&self) -> Result<String> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get windows password");
+
         self.extract_from_platform(extract_password)
     }
 
@@ -112,6 +121,9 @@ impl CredentialApi for WinCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get windows secret");
+
         self.extract_from_platform(extract_secret)
     }
 
@@ -153,6 +165,9 @@ impl CredentialApi for WinCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn delete_credential(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete windows credential");
+
         self.validate_attributes(None, None)?;
         let target_name = to_wstr(&self.target_name);
         let cred_type = CRED_TYPE_GENERIC;
@@ -339,6 +354,9 @@ impl WinCredential {
         service: &str,
         user: &str,
     ) -> Result<WinCredential> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?target, service, user, "create windows credential");
+
         const VERSION: &str = env!("CARGO_PKG_VERSION");
         let credential = if let Some(target) = target {
             // if target.is_empty() {

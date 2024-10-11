@@ -144,6 +144,9 @@ impl CredentialApi for KeyutilsCredential {
     }
 
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set keyutils secret");
+
         if secret.is_empty() {
             return Err(ErrorCode::Invalid(
                 "secret".to_string(),
@@ -178,6 +181,9 @@ impl CredentialApi for KeyutilsCredential {
     ///
     /// This requires a call to `Key::read`.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get keyutils secret");
+
         // Verify that the key exists and is valid
         let key = self
             .session
@@ -213,6 +219,9 @@ impl CredentialApi for KeyutilsCredential {
     /// by get_password if it's called within milliseconds
     /// in *the same process* that deleted the key.
     fn delete_credential(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete keyutils credential");
+
         // Verify that the key exists and is valid
         let key = self
             .session
@@ -255,6 +264,9 @@ impl KeyutilsCredential {
     /// If none is provided, then we concatenate the user and service in the string
     /// `keyring-rs:user@service`.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?target, service, user, "create keyutils credential");
+
         // Obtain the session keyring
         let session =
             KeyRing::from_special_id(KeyRingIdentifier::Session, false).map_err(decode_error)?;
@@ -273,6 +285,7 @@ impl KeyutilsCredential {
             Some(value) => value.to_string(),
             None => format!("keyring-rs:{user}@{service}"),
         };
+
         Ok(Self {
             session,
             persistent,

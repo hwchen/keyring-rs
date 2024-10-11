@@ -54,6 +54,9 @@ impl CredentialApi for MacCredential {
     /// Since there is only one credential with a given _account_ and _user_
     /// in any given keychain, there is no chance of ambiguity.
     fn set_password(&self, password: &str) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set macos password");
+
         get_keychain(self)?
             .set_generic_password(&self.service, &self.account, password.as_bytes())
             .map_err(decode_error)?;
@@ -66,6 +69,9 @@ impl CredentialApi for MacCredential {
     /// Since there is only one credential with a given _account_ and _user_
     /// in any given keychain, there is no chance of ambiguity.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("set macos secret");
+
         get_keychain(self)?
             .set_generic_password(&self.service, &self.account, secret)
             .map_err(decode_error)?;
@@ -77,6 +83,9 @@ impl CredentialApi for MacCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_password(&self) -> Result<String> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get macos password");
+
         let (password_bytes, _) =
             find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
                 .map_err(decode_error)?;
@@ -88,6 +97,9 @@ impl CredentialApi for MacCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn get_secret(&self) -> Result<Vec<u8>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("get macos secret");
+
         let (password_bytes, _) =
             find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
                 .map_err(decode_error)?;
@@ -99,6 +111,9 @@ impl CredentialApi for MacCredential {
     /// Returns a [NoEntry](ErrorCode::NoEntry) error if there is no
     /// credential in the store.
     fn delete_credential(&self) -> Result<()> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("delete macos credential");
+
         let (_, item) =
             find_generic_password(Some(&[get_keychain(self)?]), &self.service, &self.account)
                 .map_err(decode_error)?;
@@ -144,6 +159,9 @@ impl MacCredential {
     /// because empty attribute values act as wildcards in the
     /// Keychain Services API.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?target, service, user, "create macos credential");
+
         if service.is_empty() {
             return Err(ErrorCode::Invalid(
                 "service".to_string(),
