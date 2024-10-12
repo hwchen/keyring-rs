@@ -1,3 +1,6 @@
+## Version 3.4.0
+- Allow use of both secret-service and keyutils.
+
 ## Version 3.3.0
 - Add support for credential-store attributes other than those used by this crate.  This allows the creation of credentials that are more compatible with 3rd-party clients, such as the OS-provided GUIs over credentials.
 - Make the textual descriptions of entries consistently follow the form `user@service` (or  `user@service:target` if a target was specified).

@@ -3,11 +3,11 @@ name: CI
 on: [ workflow_dispatch, push, pull_request ]
 
 jobs:
-  ci_native:
+  ci_non_nix:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ macos-latest, windows-latest ]
 
     steps:
       - name: Fetch head
@@ -35,17 +35,19 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Build and Test
-        run: cargo test --features=apple-native,windows-native,linux-native --verbose
+        run: cargo test --features=apple-native,windows-native --verbose
 
       - name: Build the CLI release
-        run: cargo build --release --features=apple-native,windows-native,linux-native --example keyring-cli
+        run: cargo build --release --features=apple-native,windows-native --example keyring-cli
 
-  ci_secret_service:
+  ci_nix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features:
+          - "linux-native"
           - "sync-secret-service"
+          - "linux-native,sync-secret-service"
           - "sync-secret-service,crypto-rust"
           - "sync-secret-service,crypto-openssl"
           - "async-secret-service,tokio,crypto-rust"
