@@ -103,6 +103,14 @@ You cannot specify both the `sync-secret-service` and `async-secret-service` fea
 this will produce a compile error. You must pick one or the other if you want to use
 the secret service for credential storage.
 
+The Linux platform is the only one for which this crate supplies multiple keystores:
+secret-service and keyutils. The secret-service is the more widely used store, because
+it provides persistence of credentials beyond reboot (which keyutils does not). However,
+because secret-service relies on system UI for unlocking credentials, it often isn't
+available on headless Linux installations, so keyutils is provided for those situations.
+If you enable both the secret-service store and the keyutils store, the secret-service
+store will be used as the default.
+
 ## Client-provided Credential Stores
 
 In addition to the platform stores implemented by this crate, clients
@@ -178,11 +186,12 @@ pub mod mock;
 compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
-// Pick the *nix keystore
+// pick the *nix keystore
 //
 
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
+// use keyutils as default if secret-service is not available
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
@@ -195,31 +204,27 @@ pub use keyutils as default;
     any(feature = "sync-secret-service", feature = "async-secret-service")
 ))]
 pub mod secret_service;
+// use secret-service as default if it's available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
-    not(feature = "linux-native")
 ))]
 pub use secret_service as default;
 
-#[cfg(all(
-    target_os = "linux",
-    any(
+// fallback to mock if neither keyutils nor secret service is available
+#[cfg(any(
+    all(
+        target_os = "linux",
         not(any(
             feature = "linux-native",
             feature = "sync-secret-service",
             feature = "async-secret-service"
-        )),
-        all(
-            feature = "linux-native",
-            any(feature = "sync-secret-service", feature = "async-secret-service"),
-        )
+        ))
+    ),
+    all(
+        any(target_os = "freebsd", target_os = "openbsd"),
+        not(any(feature = "sync-secret-service", feature = "async-secret-service"))
     )
-))]
-pub use mock as default;
-#[cfg(all(
-    any(target_os = "freebsd", target_os = "openbsd"),
-    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
 ))]
 pub use mock as default;
 
