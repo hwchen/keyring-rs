@@ -13,12 +13,19 @@ exclude = [".github/"]
 readme = "README.md"
 
 [features]
+default-linux = ["linux-native", "secret-service"]
+default-linux-headless = ["linux-native"]
+default-bsd = ["secret-service"]
+default-apple = ["apple-native"]
+default-windows = ["windows-native"]
+
 linux-native = ["dep:linux-keyutils"]
 apple-native = ["dep:security-framework"]
 windows-native = ["dep:windows-sys", "dep:byteorder"]
 
-sync-secret-service = ["dep:dbus-secret-service"]
-async-secret-service = ["dep:secret-service", "dep:zbus"]
+secret-service = []
+sync-secret-service = ["secret-service", "dep:dbus-secret-service"]
+async-secret-service = ["secret-service", "dep:secret-service", "dep:zbus"]
 crypto-rust = ["dbus-secret-service?/crypto-rust", "secret-service?/crypto-rust"]
 crypto-openssl = ["dbus-secret-service?/crypto-openssl", "secret-service?/crypto-openssl"]
 tokio = ["zbus?/tokio"]
