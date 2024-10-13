@@ -186,6 +186,12 @@ pub mod mock;
 compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
+// can't use both default-linux and defaut-linux-headless
+//
+#[cfg(all(feature = "default-linux", feature = "default-linux-headless"))]
+compile_error!("This crate can use only one default-linux* feature");
+
+//
 // can't use secret service without explicit flavor
 //
 #[cfg(all(
