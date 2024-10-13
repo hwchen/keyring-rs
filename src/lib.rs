@@ -186,11 +186,11 @@ pub mod mock;
 compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
-// can't use both sync and async secret service
+// can't use secret service without explicit flavor
 //
 #[cfg(all(
     feature = "secret-service",
-    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+    not(any(feature = "sync-secret-service", feature = "async-secret-service")),
 ))]
 compile_error!("This crate cannot use the secret-service without an explicit flavor: sync-secret-service or async-secret-service");
 
@@ -226,11 +226,11 @@ pub use secret_service_with_keyutils as default;
 #[cfg(any(
     all(
         target_os = "linux",
-        not(any(feature = "default-linux", feature = "default-linux-headless"))
+        not(any(feature = "default-linux", feature = "default-linux-headless")),
     ),
     all(
         any(target_os = "freebsd", target_os = "openbsd"),
-        not(feature = "default-bsd")
+        not(feature = "default-bsd"),
     ),
 ))]
 pub use mock as default;
@@ -562,7 +562,7 @@ mod tests {
     pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-        use rand::{distributions::Alphanumeric, thread_rng, Rng};
+        use rand::{distributions::Alphanumeric, thread_rng};
         thread_rng()
             .sample_iter(&Alphanumeric)
             .take(len)

@@ -163,7 +163,6 @@ impl CredentialApi for SsCredential {
                 "text/plain",
             )
             .map_err(platform_failure)?;
-
         Ok(())
     }
 
@@ -241,7 +240,6 @@ impl SsCredential {
         if let Some("") = target {
             return Err(empty_target());
         }
-
         let target = target.unwrap_or("default");
 
         let attributes = HashMap::from([
@@ -250,7 +248,6 @@ impl SsCredential {
             ("target".to_string(), target.to_string()),
             ("application".to_string(), "rust-keyring".to_string()),
         ]);
-
         Ok(Self {
             attributes,
             label: format!(

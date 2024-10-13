@@ -88,7 +88,8 @@ impl CredentialApi for SsKeyutilsCredential {
 }
 
 impl KeyutilsCredential {
-    /// Create a keyutils credential from an underlying item's attributes.
+    /// Create a keyutils credential from an underlying secret service
+    /// item's attributes.
     ///
     /// The created credential will have all the attributes and label
     /// of the underlying item, so you can examine them.
