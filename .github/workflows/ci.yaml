@@ -45,8 +45,8 @@ jobs:
     strategy:
       matrix:
         features:
+          - "default-linux-headless"
           - "default-linux,sync-secret-service"
-          - "default-linux-headless,sync-secret-service"
           - "sync-secret-service,crypto-rust"
           - "sync-secret-service,crypto-openssl"
           - "async-secret-service,tokio,crypto-rust"
@@ -117,4 +117,4 @@ jobs:
           components: clippy
 
       - name: Clippy check
-        run: cargo clippy --features=default-linux -- -D warnings
+        run: cargo clippy --features=default-linux-headless -- -D warnings
