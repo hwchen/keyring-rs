@@ -197,7 +197,10 @@ compile_error!("This crate cannot use the secret-service without an explicit fla
 //
 // pick the *nix keystore
 //
-#[cfg(all(target_os = "linux", feature = "keyutils"))]
+#[cfg(all(
+    target_os = "linux",
+    any(feature = "linux-native", feature = "keyutils"),
+))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
@@ -226,7 +229,11 @@ pub use secret_service_with_keyutils as default;
 // fallback to mock if neither keyutils nor secret service is available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    not(any(feature = "keyutils", feature = "secret-service")),
+    not(any(
+        feature = "linux-native",
+        feature = "keyutils",
+        feature = "secret-service",
+    )),
 ))]
 pub use mock as default;
 
