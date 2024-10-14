@@ -35,18 +35,19 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Build and Test
-        run: cargo test --features=default-apple,default-windows --verbose
+        run: cargo test --features=apple-native,windows-native --verbose
 
       - name: Build the CLI release
-        run: cargo build --release --features=default-apple,default-windows --example keyring-cli
+        run: cargo build --release --features=apple-native,windows-native --example keyring-cli
 
   ci_nix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features:
-          - "default-linux-headless"
-          - "default-linux,sync-secret-service"
+          - "linux-native"
+          - "sync-secret-service"
+          - "linux-native,sync-secret-service"
           - "sync-secret-service,crypto-rust"
           - "sync-secret-service,crypto-openssl"
           - "async-secret-service,tokio,crypto-rust"
@@ -101,7 +102,7 @@ jobs:
           target: aarch64-apple-ios
 
       - name: Build iOS library
-        run: cargo build --target aarch64-apple-ios --features=default-apple --example=iostest
+        run: cargo build --target aarch64-apple-ios --features=apple-native --example=iostest
 
   msrv_native:
     runs-on: ubuntu-latest
@@ -117,4 +118,4 @@ jobs:
           components: clippy
 
       - name: Clippy check
-        run: cargo clippy --features=default-linux-headless -- -D warnings
+        run: cargo clippy --features=linux-native -- -D warnings
