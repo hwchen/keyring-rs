@@ -35,7 +35,9 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Build and Test
-        run: cargo test --features=apple-native,windows-native --verbose
+        env:
+          RUST_LOG: debug
+        run: cargo test --features=apple-native,windows-native --verbose -- --nocapture
 
       - name: Build the CLI release
         run: cargo build --release --features=apple-native,windows-native --example keyring-cli
@@ -85,8 +87,10 @@ jobs:
         run: gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
 
       - name: Run tests
+        env:
+          RUST_LOG: debug
         # run tests single-threaded to avoid dbus race conditions
-        run: cargo test --features=${{ matrix.features }} -- --test-threads=1
+        run: cargo test --features=${{ matrix.features }} -- --test-threads=1 --nocapture
 
   ios_native:
     runs-on: macos-latest

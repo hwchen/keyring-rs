@@ -1,10 +1,12 @@
-use common::generate_random_string;
+use common::{generate_random_string, init_logger};
 use keyring::{Entry, Error};
 
 mod common;
 
 #[test]
 fn test_missing_entry() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     assert!(
@@ -16,6 +18,8 @@ fn test_missing_entry() {
 #[test]
 #[cfg(all(target_os = "linux", not(feature = "linux-native")))]
 fn test_empty_password() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let in_pass = "";
@@ -36,6 +40,8 @@ fn test_empty_password() {
 
 #[test]
 fn test_round_trip_ascii_password() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";
@@ -58,6 +64,8 @@ fn test_round_trip_ascii_password() {
 
 #[test]
 fn test_round_trip_non_ascii_password() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "このきれいな花は桜です";
@@ -80,6 +88,8 @@ fn test_round_trip_non_ascii_password() {
 
 #[test]
 fn test_round_trip_random_secret() {
+    init_logger();
+
     use rand::{rngs::OsRng, Rng};
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
@@ -102,6 +112,8 @@ fn test_round_trip_random_secret() {
 
 #[test]
 fn test_update() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";

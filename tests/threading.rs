@@ -1,10 +1,12 @@
-use common::generate_random_string;
+use common::{generate_random_string, init_logger};
 use keyring::{Entry, Error};
 
 mod common;
 
 #[test]
 fn test_create_then_move() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).unwrap();
     let test = move || {
@@ -40,6 +42,8 @@ fn test_create_then_move() {
 
 #[test]
 fn test_simultaneous_create_then_move() {
+    init_logger();
+
     let mut handles = vec![];
     for i in 0..10 {
         let name = format!("{}-{}", generate_random_string(), i);
@@ -69,6 +73,8 @@ fn test_simultaneous_create_then_move() {
 #[test]
 #[cfg(not(target_os = "windows"))]
 fn test_create_set_then_move() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let password = "test ascii password";
@@ -96,6 +102,8 @@ fn test_create_set_then_move() {
 #[test]
 #[cfg(not(target_os = "windows"))]
 fn test_simultaneous_create_set_then_move() {
+    init_logger();
+
     let mut handles = vec![];
     for i in 0..10 {
         let name = format!("{}-{}", generate_random_string(), i);
@@ -124,6 +132,8 @@ fn test_simultaneous_create_set_then_move() {
 
 #[test]
 fn test_simultaneous_independent_create_set() {
+    init_logger();
+
     let mut handles = vec![];
     for i in 0..10 {
         let name = format!("thread_entry{i}");
@@ -153,6 +163,8 @@ fn test_simultaneous_independent_create_set() {
 #[test]
 #[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
 fn test_multiple_create_delete_single_thread() {
+    init_logger();
+
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
     let repeats = 10;
@@ -176,6 +188,8 @@ fn test_multiple_create_delete_single_thread() {
 #[test]
 #[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
 fn test_simultaneous_multiple_create_delete_single_thread() {
+    init_logger();
+
     let mut handles = vec![];
     for t in 0..10 {
         let name = generate_random_string();

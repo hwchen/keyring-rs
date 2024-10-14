@@ -26,8 +26,8 @@ async-io = ["zbus?/async-io"]
 vendored = ["dbus-secret-service?/vendored", "openssl?/vendored"]
 
 [dependencies]
+log = "0.4.22"
 openssl = { version = "0.10.55", optional = true }
-tracing = { version = "0.1.40", optional = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]  # see issue #190
 security-framework = { version = "3", optional = true }
@@ -64,10 +64,11 @@ path = "examples/cli.rs"
 [dev-dependencies]
 base64 = "0.22"
 clap = { version = "4", features = ["derive", "wrap_help"] }
+doc-comment = "0.3"
+env_logger = "0.11.5"
+rand = "0.8"
 rpassword = "7"
 rprompt = "2"
-rand = "0.8"
-doc-comment = "0.3"
 whoami = "1"
 
 [package.metadata.docs.rs]

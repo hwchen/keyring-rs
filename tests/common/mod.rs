@@ -18,3 +18,7 @@ pub fn generate_random_string_of_len(len: usize) -> String {
 pub fn generate_random_string() -> String {
     generate_random_string_of_len(30)
 }
+
+pub fn init_logger() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}

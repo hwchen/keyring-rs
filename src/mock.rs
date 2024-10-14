@@ -79,9 +79,6 @@ impl CredentialApi for MockCredential {
     /// and the password will _not_ be set.  The error will
     /// be cleared, so calling again will set the password.
     fn set_password(&self, password: &str) -> Result<()> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("set mock password");
-
         let mut inner = self.inner.lock().expect("Can't access mock data for set");
         let data = inner.get_mut();
         let err = data.error.take();
@@ -100,9 +97,6 @@ impl CredentialApi for MockCredential {
     /// and the password will _not_ be set.  The error will
     /// be cleared, so calling again will set the password.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("set mock secret");
-
         let mut inner = self.inner.lock().expect("Can't access mock data for set");
         let data = inner.get_mut();
         let err = data.error.take();
@@ -120,9 +114,6 @@ impl CredentialApi for MockCredential {
     /// If there is an error set in the mock, it will
     /// be returned instead of a password.
     fn get_password(&self) -> Result<String> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("get mock password");
-
         let mut inner = self.inner.lock().expect("Can't access mock data for get");
         let data = inner.get_mut();
         let err = data.error.take();
@@ -140,9 +131,6 @@ impl CredentialApi for MockCredential {
     /// If there is an error set in the mock, it will
     /// be returned instead of a password.
     fn get_secret(&self) -> Result<Vec<u8>> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("get mock secret");
-
         let mut inner = self.inner.lock().expect("Can't access mock data for get");
         let data = inner.get_mut();
         let err = data.error.take();
@@ -163,9 +151,6 @@ impl CredentialApi for MockCredential {
     /// If there is no password, a [NoEntry](Error::NoEntry) error
     /// will be returned.
     fn delete_credential(&self) -> Result<()> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!("delete mock credential");
-
         let mut inner = self
             .inner
             .lock()
@@ -202,11 +187,7 @@ impl MockCredential {
     ///
     /// Since mocks have no persistence between sessions,
     /// new mocks always have no password.
-    #[cfg_attr(not(feature = "tracing"), allow(unused_variables))]
-    fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
-        #[cfg(feature = "tracing")]
-        tracing::debug!(?target, service, user, "create mock credential");
-
+    fn new_with_target(_target: Option<&str>, _service: &str, _user: &str) -> Result<Self> {
         Ok(Default::default())
     }
 
