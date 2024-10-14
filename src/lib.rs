@@ -212,7 +212,7 @@ pub use keyutils as default;
 ))]
 pub mod secret_service;
 #[cfg(all(
-    any(target_os = "freebsd", target_os = "openbsd"),
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     feature = "secret-service",
     not(feature = "keyutils"),
 ))]
