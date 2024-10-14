@@ -21,7 +21,7 @@ use super::error::Result;
 
 #[derive(Debug, Clone)]
 pub struct SsKeyutilsCredential {
-    keyutils: Option<KeyutilsCredential>,
+    keyutils: KeyutilsCredential,
     ss: SsCredential,
 }
 
@@ -32,32 +32,30 @@ impl CredentialApi for SsKeyutilsCredential {
 
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
         self.ss.set_secret(secret)?;
-
-        if let Some(keyutils) = &self.keyutils {
-            let _ = keyutils.set_secret(secret);
-        }
-
+        let _ = self.keyutils.set_secret(secret);
         Ok(())
     }
 
     fn get_password(&self) -> Result<String> {
-        if let Some(keyutils) = &self.keyutils {
-            if let Ok(password) = keyutils.get_password() {
-                return Ok(password);
-            }
+        if let Ok(password) = self.keyutils.get_password() {
+            return Ok(password);
         }
 
-        self.ss.get_password()
+        let password = self.ss.get_password()?;
+        let _ = self.keyutils.set_password(&password);
+
+        Ok(password)
     }
 
     fn get_secret(&self) -> Result<Vec<u8>> {
-        if let Some(keyutils) = &self.keyutils {
-            if let Ok(secret) = keyutils.get_secret() {
-                return Ok(secret);
-            }
+        if let Ok(secret) = self.keyutils.get_secret() {
+            return Ok(secret);
         }
 
-        self.ss.get_secret()
+        let secret = self.ss.get_secret()?;
+        let _ = self.keyutils.set_secret(&secret);
+
+        Ok(secret)
     }
 
     fn get_attributes(&self) -> Result<HashMap<String, String>> {
@@ -70,11 +68,7 @@ impl CredentialApi for SsKeyutilsCredential {
 
     fn delete_credential(&self) -> Result<()> {
         self.ss.delete_credential()?;
-
-        if let Some(keyutils) = &self.keyutils {
-            let _ = keyutils.delete_credential();
-        }
-
+        let _ = self.keyutils.delete_credential();
         Ok(())
     }
 
@@ -114,25 +108,19 @@ impl KeyutilsCredential {
 impl SsKeyutilsCredential {
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         let ss = SsCredential::new_with_target(target, service, user)?;
-        let keyutils = KeyutilsCredential::new_with_target(target, service, user).ok();
+        let keyutils = KeyutilsCredential::new_with_target(target, service, user)?;
         Ok(Self { keyutils, ss })
     }
 
     pub fn new_with_no_target(service: &str, user: &str) -> Result<Self> {
-        let keyutils = KeyutilsCredential::new_with_target(None, service, user).ok();
+        let keyutils = KeyutilsCredential::new_with_target(None, service, user)?;
         let ss = SsCredential::new_with_no_target(service, user)?;
         Ok(Self { keyutils, ss })
     }
 
     pub fn new_from_item(item: &Item) -> Result<Self> {
         let ss = SsCredential::new_from_item(item)?;
-        let keyutils = KeyutilsCredential::new_from_item(item).ok();
-        Ok(Self { keyutils, ss })
-    }
-
-    pub fn new_from_matching_item(&self) -> Result<Self> {
-        let ss = self.ss.new_from_matching_item()?;
-        let keyutils = None;
+        let keyutils = KeyutilsCredential::new_from_item(item)?;
         Ok(Self { keyutils, ss })
     }
 

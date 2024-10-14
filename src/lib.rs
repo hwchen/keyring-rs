@@ -186,12 +186,6 @@ pub mod mock;
 compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
-// can't use both default-linux and defaut-linux-headless
-//
-#[cfg(all(feature = "default-linux", feature = "default-linux-headless"))]
-compile_error!("This crate can use only one default-linux* feature");
-
-//
 // can't use secret service without explicit flavor
 //
 #[cfg(all(
@@ -203,10 +197,13 @@ compile_error!("This crate cannot use the secret-service without an explicit fla
 //
 // pick the *nix keystore
 //
-
-#[cfg(all(target_os = "linux", feature = "linux-native"))]
+#[cfg(all(target_os = "linux", feature = "keyutils"))]
 pub mod keyutils;
-#[cfg(all(target_os = "linux", feature = "default-linux-headless"))]
+#[cfg(all(
+    target_os = "linux",
+    feature = "linux-native",
+    not(feature = "secret-service"),
+))]
 pub use keyutils as default;
 
 #[cfg(all(
@@ -216,28 +213,20 @@ pub use keyutils as default;
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "freebsd", target_os = "openbsd"),
-    feature = "default-bsd",
+    feature = "secret-service",
+    not(feature = "keyutils"),
 ))]
 pub use secret_service as default;
 
-#[cfg(all(
-    target_os = "linux",
-    all(feature = "linux-native", feature = "secret-service"),
-))]
+#[cfg(all(target_os = "linux", feature = "secret-service-with-keyutils"))]
 pub mod secret_service_with_keyutils;
-#[cfg(all(target_os = "linux", feature = "default-linux"))]
+#[cfg(all(target_os = "linux", feature = "secret-service-with-keyutils"))]
 pub use secret_service_with_keyutils as default;
 
 // fallback to mock if neither keyutils nor secret service is available
-#[cfg(any(
-    all(
-        target_os = "linux",
-        not(any(feature = "default-linux", feature = "default-linux-headless")),
-    ),
-    all(
-        any(target_os = "freebsd", target_os = "openbsd"),
-        not(feature = "default-bsd"),
-    ),
+#[cfg(all(
+    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+    not(any(feature = "keyutils", feature = "secret-service")),
 ))]
 pub use mock as default;
 
@@ -246,27 +235,26 @@ pub use mock as default;
 //
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
 pub mod macos;
-#[cfg(all(target_os = "macos", feature = "default-apple"))]
+#[cfg(all(target_os = "macos", feature = "apple-native"))]
 pub use macos as default;
-#[cfg(all(target_os = "macos", not(feature = "default-apple")))]
+#[cfg(all(target_os = "macos", not(feature = "apple-native")))]
 pub use mock as default;
 
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
 pub mod ios;
-#[cfg(all(target_os = "ios", feature = "default-apple"))]
+#[cfg(all(target_os = "ios", feature = "apple-native"))]
 pub use ios as default;
-#[cfg(all(target_os = "ios", not(feature = "default-apple")))]
+#[cfg(all(target_os = "ios", not(feature = "apple-native")))]
 pub use mock as default;
 
 //
 // pick the Windows keystore
 //
-
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub mod windows;
-#[cfg(all(target_os = "windows", not(feature = "default-windows")))]
+#[cfg(all(target_os = "windows", not(feature = "windows-native")))]
 pub use mock as default;
-#[cfg(all(target_os = "windows", feature = "default-windows"))]
+#[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub use windows as default;
 
 #[cfg(not(any(
