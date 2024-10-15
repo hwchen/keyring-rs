@@ -173,10 +173,11 @@ Service, accesses from multiple threads (and even the same thread very quickly)
 are not recommended, as they may cause the RPC mechanism to fail.
  */
 
-pub use credential::{Credential, CredentialBuilder};
-pub use error::{Error, Result};
 use log::debug;
 use std::collections::HashMap;
+
+pub use credential::{Credential, CredentialBuilder};
+pub use error::{Error, Result};
 
 pub mod mock;
 
@@ -329,9 +330,9 @@ impl Entry {
     /// will panic. If you encounter this, and especially if you can reproduce it, please report a bug with the
     /// details (and preferably a backtrace) so the developers can investigate.
     pub fn new(service: &str, user: &str) -> Result<Entry> {
-        debug!("creating entry with service {service} and user {user}");
+        debug!("creating entry with service {service}, user {user}, and no target");
         let entry = build_default_credential(None, service, user)?;
-        debug!("created entry with {:?}", entry.inner);
+        debug!("created entry {:?}", entry.inner);
         Ok(entry)
     }
 
@@ -339,9 +340,9 @@ impl Entry {
     ///
     /// The default credential builder is used.
     pub fn new_with_target(target: &str, service: &str, user: &str) -> Result<Entry> {
-        debug!("creating entry with service {service}, user {user} and target {target:?}");
+        debug!("creating entry with service {service}, user {user}, and target {target}");
         let entry = build_default_credential(Some(target), service, user)?;
-        debug!("created entry with {:?}", entry.inner);
+        debug!("created entry {:?}", entry.inner);
         Ok(entry)
     }
 
@@ -359,7 +360,7 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn set_password(&self, password: &str) -> Result<()> {
-        debug!("set entry password using {:?}", self.inner);
+        debug!("set password for entry {:?}", self.inner);
         self.inner.set_password(password)
     }
 
@@ -371,7 +372,7 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn set_secret(&self, secret: &[u8]) -> Result<()> {
-        debug!("set entry secret using {:?}", self.inner);
+        debug!("set secret for entry {:?}", self.inner);
         self.inner.set_secret(secret)
     }
 
@@ -385,7 +386,7 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn get_password(&self) -> Result<String> {
-        debug!("get entry password using {:?}", self.inner);
+        debug!("get password from entry {:?}", self.inner);
         self.inner.get_password()
     }
 
@@ -399,7 +400,7 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn get_secret(&self) -> Result<Vec<u8>> {
-        debug!("get entry secret using {:?}", self.inner);
+        debug!("get secret from entry {:?}", self.inner);
         self.inner.get_secret()
     }
 
@@ -417,7 +418,7 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn get_attributes(&self) -> Result<HashMap<String, String>> {
-        debug!("get attributes from {:?}", self.inner);
+        debug!("get attributes from entry {:?}", self.inner);
         self.inner.get_attributes()
     }
 
@@ -437,7 +438,10 @@ impl Entry {
     /// on some platforms, and then only if a third-party
     /// application wrote the ambiguous credential.
     pub fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
-        debug!("update attributes {attributes:?} from {:?}", self.inner);
+        debug!(
+            "update attributes for entry {:?} from map {attributes:?}",
+            self.inner
+        );
         self.inner.update_attributes(attributes)
     }
 
@@ -455,7 +459,7 @@ impl Entry {
     /// structure, which is controlled by Rust.  It only
     /// affects the underlying credential store.
     pub fn delete_credential(&self) -> Result<()> {
-        debug!("delete {:?}", self.inner);
+        debug!("delete entry {:?}", self.inner);
         self.inner.delete_credential()
     }
 
@@ -570,6 +574,8 @@ mod tests {
     pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
+        #[allow(unused_imports)]
+        use rand::Rng;
         use rand::{distributions::Alphanumeric, thread_rng};
         thread_rng()
             .sample_iter(&Alphanumeric)

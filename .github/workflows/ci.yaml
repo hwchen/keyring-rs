@@ -37,7 +37,7 @@ jobs:
       - name: Build and Test
         env:
           RUST_LOG: debug
-        run: cargo test --features=apple-native,windows-native --verbose -- --nocapture
+        run: cargo test --features=apple-native,windows-native --verbose
 
       - name: Build the CLI release
         run: cargo build --release --features=apple-native,windows-native --example keyring-cli
@@ -90,7 +90,7 @@ jobs:
         env:
           RUST_LOG: debug
         # run tests single-threaded to avoid dbus race conditions
-        run: cargo test --features=${{ matrix.features }} -- --test-threads=1 --nocapture
+        run: cargo test --features=${{ matrix.features }} -- --test-threads=1
 
   ios_native:
     runs-on: macos-latest
