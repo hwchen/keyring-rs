@@ -184,48 +184,72 @@ pub mod mock;
 //
 // can't use both sync and async secret service
 //
-#[cfg(all(feature = "sync-secret-service", feature = "async-secret-service"))]
-compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
+#[cfg(any(
+    all(feature = "sync-secret-service", feature = "async-secret-service"),
+    all(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )
+))]
+compile_error!("This crate cannot use both the sync and async versions of any credential store");
 
 //
 // pick the *nix keystore
 //
-
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
-// use keyutils as default if secret-service is not available
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+    not(feature = "sync-secret-service"),
+    not(feature = "async-secret-service"),
 ))]
 pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service")
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
 pub mod secret_service;
-// use secret-service as default if it's available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
+    not(any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )),
 ))]
 pub use secret_service as default;
+
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )
+))]
+pub mod keyutils_persistent;
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    ),
+))]
+pub use keyutils_persistent as default;
 
 // fallback to mock if neither keyutils nor secret service is available
 #[cfg(any(
     all(
         target_os = "linux",
-        not(any(
-            feature = "linux-native",
-            feature = "sync-secret-service",
-            feature = "async-secret-service"
-        ))
+        not(feature = "linux-native"),
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
     ),
     all(
         any(target_os = "freebsd", target_os = "openbsd"),
-        not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
     )
 ))]
 pub use mock as default;
@@ -250,7 +274,6 @@ pub use mock as default;
 //
 // pick the Windows keystore
 //
-
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub mod windows;
 #[cfg(all(target_os = "windows", not(feature = "windows-native")))]
