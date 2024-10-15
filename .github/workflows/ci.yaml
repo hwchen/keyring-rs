@@ -35,6 +35,8 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Build and Test
+        env:
+          RUST_LOG: debug
         run: cargo test --features=apple-native,windows-native --verbose
 
       - name: Build the CLI release
@@ -85,6 +87,8 @@ jobs:
         run: gnome-keyring-daemon --components=secrets --daemonize --unlock <<< 'foobar'
 
       - name: Run tests
+        env:
+          RUST_LOG: debug
         # run tests single-threaded to avoid dbus race conditions
         run: cargo test --features=${{ matrix.features }} -- --test-threads=1
 
