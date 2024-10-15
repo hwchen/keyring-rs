@@ -212,7 +212,10 @@ pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
-    not(feature = "keyutils"),
+    not(any(
+        feature = "sync-persistent-keyutils",
+        feature = "async-persistent-keyutils",
+    )),
 ))]
 pub use secret_service as default;
 

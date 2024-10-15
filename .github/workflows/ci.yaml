@@ -54,6 +54,12 @@ jobs:
           - "async-secret-service,async-io,crypto-rust"
           - "async-secret-service,tokio,crypto-openssl"
           - "async-secret-service,async-io,crypto-openssl"
+          - "sync-persistent-keyutils,crypto-rust"
+          - "sync-persistent-keyutils,crypto-openssl"
+          - "async-persistent-keyutils,tokio,crypto-rust"
+          - "async-persistent-keyutils,async-io,crypto-rust"
+          - "async-persistent-keyutils,tokio,crypto-openssl"
+          - "async-persistent-keyutils,async-io,crypto-openssl"
 
     steps:
       - name: Install CI dependencies
