@@ -13,13 +13,12 @@ exclude = [".github/"]
 readme = "README.md"
 
 [features]
-linux-native = ["keyutils"]
+linux-native = ["dep:linux-keyutils"]
 apple-native = ["dep:security-framework"]
 windows-native = ["dep:windows-sys", "dep:byteorder"]
 
-keyutils = ["dep:linux-keyutils"]
-sync-persistent-keyutils = ["keyutils", "sync-secret-service"]
-async-persistent-keyutils = ["keyutils", "async-secret-service"]
+sync-persistent-keyutils = ["dep:linux-keyutils", "sync-secret-service"]
+async-persistent-keyutils = ["dep:linux-keyutils", "async-secret-service"]
 sync-secret-service = ["dep:dbus-secret-service"]
 async-secret-service = ["dep:secret-service", "dep:zbus"]
 crypto-rust = ["dbus-secret-service?/crypto-rust", "secret-service?/crypto-rust"]

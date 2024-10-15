@@ -189,12 +189,19 @@ pub mod mock;
         feature = "async-persistent-keyutils",
     )
 ))]
-compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
+compile_error!("This crate cannot use both the sync and async versions of any credential store");
 
 //
 // pick the *nix keystore
 //
-#[cfg(all(target_os = "linux", feature = "keyutils"))]
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "linux-native",
+        feature = "sync-persistent-keyutils",
+        feature = "async-persistent-keyutils",
+    )
+))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
@@ -239,11 +246,9 @@ pub use keyutils_persistent as default;
 // fallback to mock if neither keyutils nor secret service is available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    not(any(
-        feature = "keyutils",
-        feature = "sync-secret-service",
-        feature = "async-secret-service",
-    )),
+    not(feature = "linux-native"),
+    not(feature = "sync-secret-service"),
+    not(feature = "async-secret-service"),
 ))]
 pub use mock as default;
 

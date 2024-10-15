@@ -5,14 +5,12 @@
 TODO
 
  */
-use std::collections::HashMap;
-
-use crate::credential::{
+use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
-use crate::keyutils::KeyutilsCredential;
-use crate::secret_service::SsCredential;
-use crate::{Error, Result};
+use super::error::{Error, Result};
+use super::keyutils::KeyutilsCredential;
+use super::secret_service::SsCredential;
 
 #[derive(Debug, Clone)]
 pub struct KeyutilsPersistentCredential {
@@ -59,24 +57,9 @@ impl CredentialApi for KeyutilsPersistentCredential {
         Ok(secret)
     }
 
-    fn get_attributes(&self) -> Result<HashMap<String, String>> {
-        let Ok(attributes) = self.ss.get_attributes() else {
-            return self.keyutils.get_attributes();
-        };
-
-        Ok(attributes)
-    }
-
-    fn update_attributes(&self, attributes: &HashMap<&str, &str>) -> Result<()> {
-        let Ok(()) = self.ss.update_attributes(attributes) else {
-            return self.keyutils.update_attributes(attributes);
-        };
-
-        Ok(())
-    }
-
     fn delete_credential(&self) -> Result<()> {
-        self.keyutils.delete_credential()?;
+        // TODO: log the error
+        let _ = self.keyutils.delete_credential();
         self.ss.delete_credential()?;
         Ok(())
     }
