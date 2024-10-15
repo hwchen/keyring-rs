@@ -38,8 +38,13 @@ impl CredentialApi for KeyutilsPersistentCredential {
     }
 
     fn get_password(&self) -> Result<String> {
-        if let Ok(password) = self.keyutils.get_password() {
-            return Ok(password);
+        match self.keyutils.get_password() {
+            Ok(password) => {
+                return Ok(password);
+            }
+            Err(err) => {
+                debug!("cannot get password from keyutils: {err}, trying from secret service")
+            }
         }
 
         let password = self.ss.get_password().map_err(ambigous_to_no_entry)?;
@@ -49,8 +54,13 @@ impl CredentialApi for KeyutilsPersistentCredential {
     }
 
     fn get_secret(&self) -> Result<Vec<u8>> {
-        if let Ok(secret) = self.keyutils.get_secret() {
-            return Ok(secret);
+        match self.keyutils.get_secret() {
+            Ok(secret) => {
+                return Ok(secret);
+            }
+            Err(err) => {
+                debug!("cannot get secret from keyutils: {err}, trying from secret service")
+            }
         }
 
         let secret = self.ss.get_secret().map_err(ambigous_to_no_entry)?;
@@ -63,6 +73,7 @@ impl CredentialApi for KeyutilsPersistentCredential {
         if let Err(err) = self.keyutils.delete_credential() {
             debug!("cannot delete keyutils credential: {err}");
         }
+
         self.ss.delete_credential()
     }
 

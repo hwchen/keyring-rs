@@ -239,11 +239,18 @@ pub mod keyutils_persistent;
 pub use keyutils_persistent as default;
 
 // fallback to mock if neither keyutils nor secret service is available
-#[cfg(all(
-    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    not(feature = "linux-native"),
-    not(feature = "sync-secret-service"),
-    not(feature = "async-secret-service"),
+#[cfg(any(
+    all(
+        target_os = "linux",
+        not(feature = "linux-native"),
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
+    ),
+    all(
+        any(target_os = "freebsd", target_os = "openbsd"),
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
+    )
 ))]
 pub use mock as default;
 
