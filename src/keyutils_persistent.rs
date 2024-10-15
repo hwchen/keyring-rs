@@ -5,6 +5,8 @@
 TODO
 
  */
+use log::debug;
+
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
@@ -58,10 +60,10 @@ impl CredentialApi for KeyutilsPersistentCredential {
     }
 
     fn delete_credential(&self) -> Result<()> {
-        // TODO: log the error
-        let _ = self.keyutils.delete_credential();
-        self.ss.delete_credential()?;
-        Ok(())
+        if let Err(err) = self.keyutils.delete_credential() {
+            debug!("cannot delete keyutils credential: {err}");
+        }
+        self.ss.delete_credential()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
