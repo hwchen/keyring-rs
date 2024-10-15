@@ -182,57 +182,64 @@ pub mod mock;
 //
 // can't use both sync and async secret service
 //
-#[cfg(all(feature = "sync-secret-service", feature = "async-secret-service"))]
-compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
-
-//
-// can't use secret service without explicit flavor
-//
-#[cfg(all(
-    feature = "secret-service",
-    not(any(feature = "sync-secret-service", feature = "async-secret-service")),
+#[cfg(any(
+    all(feature = "sync-secret-service", feature = "async-secret-service"),
+    all(
+        feature = "sync-persistent-keyutils",
+        feature = "async-persistent-keyutils",
+    )
 ))]
-compile_error!("This crate cannot use the secret-service without an explicit flavor: sync-secret-service or async-secret-service");
+compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
 
 //
 // pick the *nix keystore
 //
-#[cfg(all(
-    target_os = "linux",
-    any(feature = "linux-native", feature = "keyutils"),
-))]
+#[cfg(all(target_os = "linux", feature = "keyutils"))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(feature = "secret-service"),
+    not(feature = "sync-secret-service"),
+    not(feature = "async-secret-service"),
 ))]
 pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    feature = "secret-service",
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    feature = "secret-service",
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
     not(feature = "keyutils"),
 ))]
 pub use secret_service as default;
 
-#[cfg(all(target_os = "linux", feature = "secret-service-with-keyutils"))]
-pub mod secret_service_with_keyutils;
-#[cfg(all(target_os = "linux", feature = "secret-service-with-keyutils"))]
-pub use secret_service_with_keyutils as default;
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "sync-persistent-keyutils",
+        feature = "async-persistent-keyutils",
+    )
+))]
+pub mod keyutils_persistent;
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "sync-persistent-keyutils",
+        feature = "async-persistent-keyutils",
+    ),
+))]
+pub use keyutils_persistent as default;
 
 // fallback to mock if neither keyutils nor secret service is available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     not(any(
-        feature = "linux-native",
         feature = "keyutils",
-        feature = "secret-service",
+        feature = "sync-secret-service",
+        feature = "async-secret-service",
     )),
 ))]
 pub use mock as default;
@@ -563,6 +570,8 @@ mod tests {
     pub fn generate_random_string_of_len(len: usize) -> String {
         // from the Rust Cookbook:
         // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
+        #[allow(unused_imports)]
+        use rand::Rng;
         use rand::{distributions::Alphanumeric, thread_rng};
         thread_rng()
             .sample_iter(&Alphanumeric)

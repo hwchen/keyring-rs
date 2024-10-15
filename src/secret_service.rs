@@ -89,7 +89,7 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-#[cfg(feature = "sync-secret-service")]
+#[cfg(not(feature = "async-secret-service"))]
 use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
 #[cfg(feature = "async-secret-service")]
 use secret_service::{
@@ -424,7 +424,7 @@ impl SsCredential {
     /// of the credential much easier.  But since the secret service expects
     /// a map from &str to &str, we have this utility to transform the
     /// credential's map into one of the right form.
-    pub(crate) fn all_attributes(&self) -> HashMap<&str, &str> {
+    fn all_attributes(&self) -> HashMap<&str, &str> {
         self.attributes
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
@@ -433,7 +433,7 @@ impl SsCredential {
 
     /// Similar to [all_attributes](SsCredential::all_attributes),
     /// but this just selects the ones we search on
-    pub(crate) fn search_attributes(&self, omit_target: bool) -> HashMap<&str, &str> {
+    fn search_attributes(&self, omit_target: bool) -> HashMap<&str, &str> {
         let mut result: HashMap<&str, &str> = HashMap::new();
         if self.target.is_some() && !omit_target {
             result.insert("target", self.attributes["target"].as_str());
@@ -844,7 +844,7 @@ mod tests {
     }
 
     fn delete_collection(name: &str) {
-        #[cfg(feature = "sync-secret-service")]
+        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
@@ -856,7 +856,7 @@ mod tests {
     }
 
     fn create_v1_entry(name: &str, password: &str) {
-        #[cfg(feature = "sync-secret-service")]
+        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
         #[cfg(feature = "async-secret-service")]
         use secret_service::{blocking::SecretService, EncryptionType};
