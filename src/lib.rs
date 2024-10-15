@@ -187,8 +187,8 @@ pub mod mock;
 #[cfg(any(
     all(feature = "sync-secret-service", feature = "async-secret-service"),
     all(
-        feature = "sync-persistent-keyutils",
-        feature = "async-persistent-keyutils",
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
     )
 ))]
 compile_error!("This crate cannot use both the sync and async versions of any credential store");
@@ -196,14 +196,7 @@ compile_error!("This crate cannot use both the sync and async versions of any cr
 //
 // pick the *nix keystore
 //
-#[cfg(all(
-    target_os = "linux",
-    any(
-        feature = "linux-native",
-        feature = "sync-persistent-keyutils",
-        feature = "async-persistent-keyutils",
-    )
-))]
+#[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
@@ -222,8 +215,8 @@ pub mod secret_service;
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
     not(any(
-        feature = "sync-persistent-keyutils",
-        feature = "async-persistent-keyutils",
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
     )),
 ))]
 pub use secret_service as default;
@@ -231,16 +224,16 @@ pub use secret_service as default;
 #[cfg(all(
     target_os = "linux",
     any(
-        feature = "sync-persistent-keyutils",
-        feature = "async-persistent-keyutils",
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
     )
 ))]
 pub mod keyutils_persistent;
 #[cfg(all(
     target_os = "linux",
     any(
-        feature = "sync-persistent-keyutils",
-        feature = "async-persistent-keyutils",
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
     ),
 ))]
 pub use keyutils_persistent as default;
