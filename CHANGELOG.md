@@ -1,3 +1,7 @@
+## Version 3.5.0
+- Add debug logging of internal operations (thanks to @soywod).
+- Revert iOS security-framework dependency to v2 (see #225).
+
 ## Version 3.4.0
 - Allow use of both secret-service and keyutils.
 
