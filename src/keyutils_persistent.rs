@@ -1,11 +1,33 @@
 /*!
 
-# keyutils-persistent credential store
+# Linux (keyutils) store with Secret Service backing
 
-This store is a combination of the [keyutils](crate::keyutils) store
-backed up with a persistent [secret-service](crate::secret_service)
-store.
+This store, contributed by [@soywod](https://github.com/soywod),
+uses the [keyutils module](crate::keyutils) as a cache
+available to headless processes, while using the
+[secret-service module](crate::secret_service)
+to provide credential storage beyond reboot.
+The expected usage pattern
+for this module is as follows:
 
+- Processes that run on headless systems are built with `keyutils` support via the
+  `linux-native` feature of this crate. After each reboot, these processes
+  are either launched after the keyutils cache has been reloaded from the secret service,
+  or (if launched immediately) they wait until the keyutils cache has been reloaded.
+- A headed "configuration" process is built with this module that allows its user
+  to configure the credentials needed by the headless processes. After each reboot,
+  this process unlocks the secret service (see both the keyutils and secret-service
+  module for information about how this can be done headlessly, if desired) and then
+  accesses each of the configured credentials (which loads them into keyutils). At
+  that point the headless clients can be started (or become active, if already started).
+
+This store works by creating a keyutils entry and a secret-service entry for
+each of its entries. Because keyutils entries don't have attributes, entries
+in this store don't expose attributes either. Because keyutils entries can't
+store empty passwords/secrets, this store's entries can't either.
+
+See the documentation for the `keyutils` and `secret-service` modules if you
+want details about how the underlying storage is handled.
  */
 
 use log::debug;
@@ -15,7 +37,7 @@ use super::credential::{
 };
 use super::error::{Error, Result};
 use super::keyutils::KeyutilsCredential;
-use super::secret_service::SsCredential;
+use super::secret_service::{SsCredential, SsCredentialBuilder};
 
 /// Representation of a keyutils-persistent credential.
 ///
@@ -36,13 +58,14 @@ impl CredentialApi for KeyutilsPersistentCredential {
     /// Set a secret in the underlying store
     ///
     /// It sets first the secret in keyutils, then in
-    /// secret-service. If the late one fails, keyutils secret change
+    /// secret-service. If the latter set fails, the former
     /// is reverted.
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
         let prev_secret = self.keyutils.get_secret();
         self.keyutils.set_secret(secret)?;
 
         if let Err(err) = self.ss.set_secret(secret) {
+            debug!("Failed set of secret-service: {err}; reverting keyutils");
             match prev_secret {
                 Ok(ref secret) => self.keyutils.set_secret(secret),
                 Err(Error::NoEntry) => self.keyutils.delete_credential(),
@@ -66,11 +89,11 @@ impl CredentialApi for KeyutilsPersistentCredential {
                 return Ok(password);
             }
             Err(err) => {
-                debug!("cannot get password from keyutils: {err}, trying from secret service")
+                debug!("Failed get from keyutils: {err}; trying secret service")
             }
         }
 
-        let password = self.ss.get_password().map_err(ambigous_to_no_entry)?;
+        let password = self.ss.get_password().map_err(ambiguous_to_no_entry)?;
         self.keyutils.set_password(&password)?;
 
         Ok(password)
@@ -87,11 +110,11 @@ impl CredentialApi for KeyutilsPersistentCredential {
                 return Ok(secret);
             }
             Err(err) => {
-                debug!("cannot get secret from keyutils: {err}, trying from secret service")
+                debug!("Failed get from keyutils: {err}; trying secret service")
             }
         }
 
-        let secret = self.ss.get_secret().map_err(ambigous_to_no_entry)?;
+        let secret = self.ss.get_secret().map_err(ambiguous_to_no_entry)?;
         self.keyutils.set_secret(&secret)?;
 
         Ok(secret)
@@ -121,9 +144,8 @@ impl CredentialApi for KeyutilsPersistentCredential {
 impl KeyutilsPersistentCredential {
     /// Create the platform credential for a Keyutils entry.
     ///
-    /// An explicit target string is interpreted as the KeyRing to use for the entry.
-    /// If none is provided, then we concatenate the user and service in the string
-    /// `keyring-rs:user@service`.
+    /// This just passes the arguments to the underlying two stores
+    /// and wraps their results with an entry that holds both.
     pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
         let ss = SsCredential::new_with_target(target, service, user)?;
         let keyutils = KeyutilsCredential::new_with_target(target, service, user)?;
@@ -144,7 +166,7 @@ pub fn default_credential_builder() -> Box<CredentialBuilder> {
 }
 
 impl CredentialBuilderApi for KeyutilsPersistentCredentialBuilder {
-    /// Build an [KeyutilsPersistentCredential] for the given target, service, and user.
+    /// Build a [KeyutilsPersistentCredential] for the given target, service, and user.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
         Ok(Box::new(SsCredential::new_with_target(
             target, service, user,
@@ -152,19 +174,21 @@ impl CredentialBuilderApi for KeyutilsPersistentCredentialBuilder {
     }
 
     /// Return the underlying builder object with an `Any` type so that it can
-    /// be downgraded to an [KeyutilsPersistentCredentialBuilder] for platform-specific processing.
+    /// be downgraded to a [KeyutilsPersistentCredentialBuilder] for platform-specific processing.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 
-    /// This keystore keeps credentials thanks to the inner secret-service store.
+    /// Return the persistence of this store.
+    ///
+    /// This store's persistence derives from that of the secret service.
     fn persistence(&self) -> CredentialPersistence {
-        CredentialPersistence::UntilDelete
+        SsCredentialBuilder {}.persistence()
     }
 }
 
 /// Replace any Ambiguous error with a NoEntry one
-fn ambigous_to_no_entry(err: Error) -> Error {
+fn ambiguous_to_no_entry(err: Error) -> Error {
     if let Error::Ambiguous(_) = err {
         return Error::NoEntry;
     };
@@ -174,18 +198,9 @@ fn ambigous_to_no_entry(err: Error) -> Error {
 
 #[cfg(test)]
 mod tests {
-    use crate::credential::CredentialPersistence;
     use crate::{Entry, Error};
 
-    use super::{default_credential_builder, KeyutilsPersistentCredential};
-
-    #[test]
-    fn test_persistence() {
-        assert!(matches!(
-            default_credential_builder().persistence(),
-            CredentialPersistence::UntilDelete
-        ))
-    }
+    use super::KeyutilsPersistentCredential;
 
     fn entry_new(service: &str, user: &str) -> Entry {
         crate::tests::entry_from_constructor(
