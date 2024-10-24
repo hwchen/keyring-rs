@@ -402,7 +402,7 @@ impl SsCredential {
         let attributes = self.search_attributes(true);
         let search = collection.search_items(attributes).map_err(decode_error)?;
         if require_unique {
-            if search.len() == 0 && require_unique {
+            if search.is_empty() && require_unique {
                 return Err(ErrorCode::NoEntry);
             } else if search.len() > 1 {
                 let mut creds: Vec<Box<Credential>> = vec![];
@@ -520,7 +520,7 @@ pub fn get_item_password(item: &Item) -> Result<String> {
     decode_password(bytes)
 }
 
-//// Given an existing item, retrieve its secret.
+/// Given an existing item, retrieve its secret.
 pub fn get_item_secret(item: &Item) -> Result<Vec<u8>> {
     let secret = item.get_secret().map_err(decode_error)?;
     Ok(secret)
