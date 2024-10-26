@@ -1,3 +1,6 @@
+## Version 3.6.0
+- Add combination keystore of keyutils and secret service (thanks to @soywod).
+
 ## Version 3.5.0
 - Add debug logging of internal operations (thanks to @soywod).
 - Revert iOS security-framework dependency to v2 (see #225).
