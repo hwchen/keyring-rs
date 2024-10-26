@@ -56,14 +56,14 @@ This crate allows clients to "bring their own credential store" by providing tra
 
 This crate provides built-in implementations of the following platform-specific credential stores:
 
-* _Linux_: The DBus-based Secret Service and the kernel keyutils.
+* _Linux_: The DBus-based Secret Service, the kernel keyutils, and a combo of the two.
 * _FreeBSD_, _OpenBSD_: The DBus-based Secret Service.
 * _macOS_, _iOS_: The local keychain.
 * _Windows_: The Windows Credential Manager.
 
 To enable the stores you want, you use features: there is one feature for each possibly-included credential store. If you specify a feature (e.g., `dbus-secret-service`) _and_ your target platform (e.g., `freebsd`) supports that credential store, it will be included as the default credential store in that build. That way you can have a build command that specifies a single credential store for each of your target platforms, and use that same build command for all targets.
 
-If you don't enable any credential stores that are supported on a given platform, or you enable multiple credential stores for some platform, the _mock_ keystore will be the default on that platform. See the [developer docs](https://docs.rs/keyring/) for details of which features control the inclusion of which credential stores (and which platforms each credential store targets).
+If you don't enable any credential stores that are supported on a given platform, the _mock_ keystore will be the default on that platform. See the [developer docs](https://docs.rs/keyring/) for details of which features control the inclusion of which credential stores.
 
 ### Platform-specific issues
 

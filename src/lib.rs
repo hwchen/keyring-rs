@@ -64,7 +64,6 @@ example, the macOS Keychain credential store is only included if the `"apple-nat
 feature is specified (and the crate is built with a macOS target).
 
 If no specified credential store features apply to a given platform,
-or multiple credential store features apply to a given platform,
 this crate will use the (platform-independent) _mock_ credential store (see below)
 on that platform. There are no
 default features in this crate: you must specify explicitly which platform-specific
@@ -77,6 +76,18 @@ Here are the available credential store features:
 - `windows-native`: Provides access to the Windows Credential Store on Windows.
 
 - `linux-native`: Provides access to the `keyutils` storage on Linux.
+
+- `linux-native-sync-persistent`: Uses both `keyutils` and `sync-secret-service`
+  (see below) for storage. See the docs for the `keyutils_persistent`
+  module for a full explanation of why both are used. Because this
+  store uses the `sync-secret-service`, you can use additional features related
+  to that store (described below).
+
+- `linux-native-async-persistent`: Uses both `keyutils` and `async-secret-service`
+  (see below) for storage. See the docs for the `keyutils_persistent`
+  module for a full explanation of why both are used.
+  Because this store uses the `async-secret-service`, you
+  must specify the additional features required by that store (described below).
 
 - `sync-secret-service`: Provides access to the DBus-based
   [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
@@ -99,17 +110,13 @@ Here are the available credential store features:
   installed on the user's machine, specify the `vendored` feature
   to statically link them with the built crate.
 
-You cannot specify both the `sync-secret-service` and `async-secret-service` features;
-this will produce a compile error. You must pick one or the other if you want to use
-the secret service for credential storage.
-
 The Linux platform is the only one for which this crate supplies multiple keystores:
-secret-service and keyutils. The secret-service is the more widely used store, because
-it provides persistence of credentials beyond reboot (which keyutils does not). However,
-because secret-service relies on system UI for unlocking credentials, it often isn't
-available on headless Linux installations, so keyutils is provided for those situations.
-If you enable both the secret-service store and the keyutils store, the secret-service
-store will be used as the default.
+native (keyutils), sync or async secret service, and sync or async "combo" (both
+keyutils and secret service). You cannot specify use of both sync and async
+keystores; this will lead to a compile error.  If you enable a combo keystore on Linux,
+that will be the default keystore. If you don't enable a
+combo keystore on Linux, but you do enable both the native and secret service keystores,
+the secret service will be the default.
 
 ## Client-provided Credential Stores
 
@@ -184,48 +191,72 @@ pub mod mock;
 //
 // can't use both sync and async secret service
 //
-#[cfg(all(feature = "sync-secret-service", feature = "async-secret-service"))]
-compile_error!("This crate cannot use the secret-service both synchronously and asynchronously");
+#[cfg(any(
+    all(feature = "sync-secret-service", feature = "async-secret-service"),
+    all(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )
+))]
+compile_error!("This crate cannot use both the sync and async versions of any credential store");
 
 //
 // pick the *nix keystore
 //
-
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
 pub mod keyutils;
-// use keyutils as default if secret-service is not available
 #[cfg(all(
     target_os = "linux",
     feature = "linux-native",
-    not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+    not(feature = "sync-secret-service"),
+    not(feature = "async-secret-service"),
 ))]
 pub use keyutils as default;
 
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service")
+    any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
 pub mod secret_service;
-// use secret-service as default if it's available
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
+    not(any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )),
 ))]
 pub use secret_service as default;
+
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    )
+))]
+pub mod keyutils_persistent;
+#[cfg(all(
+    target_os = "linux",
+    any(
+        feature = "linux-native-sync-persistent",
+        feature = "linux-native-async-persistent",
+    ),
+))]
+pub use keyutils_persistent as default;
 
 // fallback to mock if neither keyutils nor secret service is available
 #[cfg(any(
     all(
         target_os = "linux",
-        not(any(
-            feature = "linux-native",
-            feature = "sync-secret-service",
-            feature = "async-secret-service"
-        ))
+        not(feature = "linux-native"),
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
     ),
     all(
         any(target_os = "freebsd", target_os = "openbsd"),
-        not(any(feature = "sync-secret-service", feature = "async-secret-service"))
+        not(feature = "sync-secret-service"),
+        not(feature = "async-secret-service"),
     )
 ))]
 pub use mock as default;
@@ -250,7 +281,6 @@ pub use mock as default;
 //
 // pick the Windows keystore
 //
-
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 pub mod windows;
 #[cfg(all(target_os = "windows", not(feature = "windows-native")))]
