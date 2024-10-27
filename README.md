@@ -1,7 +1,7 @@
 ## Keyring-rs
 
 [![build](https://github.com/hwchen/keyring-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/hwchen/keyring-rs/actions)
-[![dependencies](https://deps.rs/repo/github/hwchen/keyring-rs/status.svg)](https://github.com/hwchen/keyring-rs)
+[![dependencies](https://deps.rs/repo/github/hwchen/keyring-rs/status.svg)](https://deps.rs/repo/github/hwchen/keyring-rs)
 [![crates.io](https://img.shields.io/crates/v/keyring.svg?style=flat-square)](https://crates.io/crates/keyring)
 [![docs.rs](https://docs.rs/keyring/badge.svg)](https://docs.rs/keyring)
 
