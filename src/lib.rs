@@ -1,3 +1,4 @@
+#![feature(doc_cfg)]
 /*!
 
 # Keyring
@@ -204,6 +205,7 @@ compile_error!("This crate cannot use both the sync and async versions of any cr
 // pick the *nix keystore
 //
 #[cfg(all(target_os = "linux", feature = "linux-native"))]
+#[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils;
 #[cfg(all(
     target_os = "linux",
@@ -217,6 +219,7 @@ pub use keyutils as default;
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
+#[doc(cfg(all(target_os = "linux, freebsd, openbsd")))]
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
@@ -235,6 +238,7 @@ pub use secret_service as default;
         feature = "linux-native-async-persistent",
     )
 ))]
+#[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils_persistent;
 #[cfg(all(
     target_os = "linux",
@@ -265,6 +269,7 @@ pub use mock as default;
 // pick the Apple keystore
 //
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
+#[doc(cfg(all(target_os = "macos")))]
 pub mod macos;
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
 pub use macos as default;
@@ -272,6 +277,7 @@ pub use macos as default;
 pub use mock as default;
 
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
+#[doc(cfg(all(target_os = "ios")))]
 pub mod ios;
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
 pub use ios as default;
@@ -282,6 +288,7 @@ pub use mock as default;
 // pick the Windows keystore
 //
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
+#[doc(cfg(all(target_os = "windows")))]
 pub mod windows;
 #[cfg(all(target_os = "windows", not(feature = "windows-native")))]
 pub use mock as default;
