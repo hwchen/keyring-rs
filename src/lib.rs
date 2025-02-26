@@ -206,7 +206,7 @@ compile_error!("This crate cannot use both the sync and async versions of any cr
 //
 #[cfg(any(
     all(target_os = "linux", feature = "linux-native"),
-    all(feature = "linux-native-sync-persistent", doc)
+    all(target_os = "linux", feature = "linux-native-sync-persistent", doc)
 ))]
 #[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils;
@@ -218,9 +218,12 @@ pub mod keyutils;
 ))]
 pub use keyutils as default;
 
-#[cfg(all(
-    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service"),
+#[cfg(any(
+    all(
+        any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
+        any(feature = "sync-secret-service", feature = "async-secret-service"),
+    ),
+    all(target_os = "linux", feature = "linux-native-sync-persistent", doc),
 ))]
 #[doc(cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
 pub mod secret_service;
@@ -242,7 +245,7 @@ pub use secret_service as default;
             feature = "linux-native-async-persistent",
         )
     ),
-    all(feature = "linux-native-sync-persistent", doc),
+    all(target_os = "linux", feature = "linux-native-sync-persistent", doc),
 ))]
 #[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils_persistent;
