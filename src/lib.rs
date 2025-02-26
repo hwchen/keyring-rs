@@ -204,7 +204,10 @@ compile_error!("This crate cannot use both the sync and async versions of any cr
 //
 // pick the *nix keystore
 //
-#[cfg(all(target_os = "linux", feature = "linux-native"))]
+#[cfg(any(
+    all(target_os = "linux", feature = "linux-native"),
+    all(feature = "linux-native-sync-persistent", doc)
+))]
 #[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils;
 #[cfg(all(
@@ -219,7 +222,7 @@ pub use keyutils as default;
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
     any(feature = "sync-secret-service", feature = "async-secret-service"),
 ))]
-#[doc(cfg(all(target_os = "linux, freebsd, openbsd")))]
+#[doc(cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))]
 pub mod secret_service;
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
@@ -231,12 +234,15 @@ pub mod secret_service;
 ))]
 pub use secret_service as default;
 
-#[cfg(all(
-    target_os = "linux",
-    any(
-        feature = "linux-native-sync-persistent",
-        feature = "linux-native-async-persistent",
-    )
+#[cfg(any(
+    all(
+        target_os = "linux",
+        any(
+            feature = "linux-native-sync-persistent",
+            feature = "linux-native-async-persistent",
+        )
+    ),
+    all(feature = "linux-native-sync-persistent", doc),
 ))]
 #[doc(cfg(all(target_os = "linux")))]
 pub mod keyutils_persistent;
