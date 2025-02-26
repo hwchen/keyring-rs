@@ -129,3 +129,23 @@ jobs:
 
       - name: Clippy check
         run: cargo clippy --features=linux-native -- -D warnings
+
+  doc_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v4
+
+      - name: Install rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
+          target: 
+            - x86_64-unknown-linux-gnu
+            - aarch64-apple-darwin
+            - aarch64-apple-ios
+            - x86_64-pc-windows-msvc
+
+      - name: docs bulid check
+        run: bash build-xplat-docs.sh
