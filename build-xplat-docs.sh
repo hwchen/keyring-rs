@@ -9,5 +9,5 @@ TARGETS=(
 )
 
 for TARGET in "${TARGETS[@]}"; do
-    cargo +nightly doc --no-deps --features "$FEATURES" --target "$TARGET" -Zbuild-std $OPEN_DOCS
+    RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --no-deps --features "$FEATURES" --target "$TARGET" -Zbuild-std $OPEN_DOCS
 done

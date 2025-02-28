@@ -143,5 +143,5 @@ jobs:
           toolchain: nightly
           targets: x86_64-unknown-linux-gnu, aarch64-apple-darwin, aarch64-apple-ios, x86_64-pc-windows-msvc
 
-      - name: docs bulid check
+      - name: docs build check
         run: bash build-xplat-docs.sh
