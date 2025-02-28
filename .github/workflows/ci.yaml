@@ -137,11 +137,12 @@ jobs:
       - name: Fetch head
         uses: actions/checkout@v4
 
-      - name: Install rust stable
+      - name: Install rust nightly
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
           targets: x86_64-unknown-linux-gnu, aarch64-apple-darwin, aarch64-apple-ios, x86_64-pc-windows-msvc
+          components: rust-src
 
       - name: docs build check
-        run: bash build-xplat-docs.sh
+        run: bash test-docsrs-build.sh
