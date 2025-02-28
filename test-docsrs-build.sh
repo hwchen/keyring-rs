@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 FEATURES="apple-native, windows-native, linux-native-sync-persistent, crypto-rust"
 TARGETS=(
     "x86_64-unknown-linux-gnu"
