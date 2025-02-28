@@ -1,0 +1,40 @@
+name: Docs Build
+
+on: [ workflow_dispatch, push, pull_request ]
+
+jobs:
+  doc_build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          targets: x86_64-unknown-linux-gnu, aarch64-apple-darwin, aarch64-apple-ios, x86_64-pc-windows-msvc
+          components: rust-src
+
+      - name: Build docs
+        run: |
+          FEATURES="apple-native, windows-native, linux-native-sync-persistent, crypto-rust"
+          TARGETS=(
+            "x86_64-unknown-linux-gnu"
+            "aarch64-apple-darwin"
+            "aarch64-apple-ios"
+            "x86_64-pc-windows-msvc"
+          )
+
+          for TARGET in "${TARGETS[@]}"; do
+              echo "Building docs for $TARGET"
+              RUSTDOCFLAGS="--cfg docsrs" \
+                cargo +nightly doc --no-deps --features "$FEATURES" --target "$TARGET" -Zbuild-std
+          done
+

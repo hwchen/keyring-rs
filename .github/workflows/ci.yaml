@@ -129,25 +129,3 @@ jobs:
 
       - name: Clippy check
         run: cargo clippy --features=linux-native -- -D warnings
-
-  doc_build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Fetch head
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libdbus-1-dev pkg-config
-
-      - name: Install rust nightly
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-          targets: x86_64-unknown-linux-gnu, aarch64-apple-darwin, aarch64-apple-ios, x86_64-pc-windows-msvc
-          components: rust-src
-
-      - name: docs build check
-        run: bash test-docsrs-build.sh
