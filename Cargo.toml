@@ -77,4 +77,6 @@ rprompt = "2"
 whoami = "1.5"
 
 [package.metadata.docs.rs]
-features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"]
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "aarch64-apple-ios", "x86_64-pc-windows-msvc"]
+features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"]

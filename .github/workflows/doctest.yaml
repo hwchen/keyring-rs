@@ -1,0 +1,38 @@
+name: Docs Build
+
+on: [ workflow_dispatch, pull_request ]
+
+jobs:
+  doc_build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: 
+          - x86_64-unknown-linux-gnu
+          - aarch64-apple-darwin
+          - aarch64-apple-ios
+          - x86_64-pc-windows-msvc
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (linux only)
+        if: ${{ matrix.target == 'x86_64-unknown-linux-gnu' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Install Rust nightly
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+          toolchain: nightly
+          components: rust-src
+
+      - name: Build docs
+        run: |
+          FEATURES="apple-native, windows-native, linux-native-sync-persistent, crypto-rust"
+          RUSTDOCFLAGS="--cfg docsrs" \
+            cargo +nightly doc --no-deps --features "$FEATURES" --target ${{ matrix.target }} -Zbuild-std
+
