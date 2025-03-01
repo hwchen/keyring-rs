@@ -1,4 +1,4 @@
-use common::{generate_random_string, init_logger};
+use common::{generate_random_bytes_of_len, generate_random_string, init_logger};
 use keyring::{Entry, Error};
 
 mod common;
@@ -90,15 +90,16 @@ fn test_round_trip_non_ascii_password() {
 fn test_round_trip_random_secret() {
     init_logger();
 
-    use rand::{rngs::OsRng, Rng};
     let name = generate_random_string();
     let entry = Entry::new(&name, &name).expect("Can't create entry");
-    let mut secret: [u8; 16] = [0; 16];
-    OsRng.fill(&mut secret);
-    entry.set_secret(&secret).expect("Can't set random secret");
+    let secret = generate_random_bytes_of_len(24);
+    entry
+        .set_secret(secret.as_slice())
+        .expect("Can't set random secret");
     let stored_secret = entry.get_secret().expect("Can't get random secret");
     assert_eq!(
-        &stored_secret, &secret,
+        &stored_secret,
+        secret.as_slice(),
         "Retrieved and set random secrets don't match"
     );
     entry

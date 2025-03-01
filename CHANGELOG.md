@@ -1,3 +1,10 @@
+## Version 3.6.2
+- Have docs.rs build docs for all modules on all platforms (thanks to @unkcpz - see #235).
+- Switch to `fastrand` for tests (see #237).
+
+## Version 3.6.1
+- Updated dependencies; no code changes.
+
 ## Version 3.6.0
 - Add combination keystore of keyutils and secret service (thanks to @soywod).
 
