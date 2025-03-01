@@ -525,7 +525,6 @@ doc_comment::doctest!("../README.md", readme);
 #[allow(dead_code)]
 mod tests {
     use super::{credential::CredentialApi, Entry, Error, Result};
-    use rand::Rng;
     use std::collections::HashMap;
 
     /// Create a platform-specific credential given the constructor, service, and user
@@ -612,20 +611,19 @@ mod tests {
     /// the conflicts, and then do any needed cleanup once everything
     /// is working correctly.  So we export this function for tests to use.
     pub fn generate_random_string_of_len(len: usize) -> String {
-        // from the Rust Cookbook:
-        // https://rust-lang-nursery.github.io/rust-cookbook/algorithms/randomness.html
-        #[allow(unused_imports)]
-        use rand::Rng;
-        use rand::{distributions::Alphanumeric, thread_rng};
-        thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(len)
-            .map(char::from)
-            .collect()
+        use fastrand;
+        use std::iter::repeat_with;
+        repeat_with(fastrand::alphanumeric).take(len).collect()
     }
 
     pub fn generate_random_string() -> String {
         generate_random_string_of_len(30)
+    }
+
+    fn generate_random_bytes_of_len(len: usize) -> Vec<u8> {
+        use fastrand;
+        use std::iter::repeat_with;
+        repeat_with(|| fastrand::u8(..)).take(len).collect()
     }
 
     pub fn test_empty_service_and_user<F>(f: F)
@@ -684,9 +682,8 @@ mod tests {
     {
         let name = generate_random_string();
         let entry = f(&name, &name);
-        let mut secret: [u8; 16] = [0; 16];
-        rand::rngs::OsRng.fill(&mut secret);
-        test_round_trip_secret("non-ascii password", &entry, &secret);
+        let secret = generate_random_bytes_of_len(24);
+        test_round_trip_secret("non-ascii password", &entry, secret.as_slice());
     }
 
     pub fn test_update<F>(f: F)
