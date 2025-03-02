@@ -386,7 +386,7 @@ impl Entry {
         Ok(entry)
     }
 
-    /// Create an entry that uses the given platform credential for storage.
+    /// Create an entry from a credential that may be in any credential store.
     pub fn new_with_credential(credential: Box<Credential>) -> Entry {
         debug!("create entry from {credential:?}");
         Entry { inner: credential }
@@ -524,7 +524,7 @@ doc_comment::doctest!("../README.md", readme);
 // Since iOS doesn't use any of these generics, we allow dead code.
 #[allow(dead_code)]
 mod tests {
-    use super::{credential::CredentialApi, Entry, Error, Result};
+    use super::{Entry, Error, Result, credential::CredentialApi};
     use std::collections::HashMap;
 
     /// Create a platform-specific credential given the constructor, service, and user
