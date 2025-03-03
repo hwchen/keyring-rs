@@ -38,18 +38,18 @@ security-framework = { version = "3", optional = true }
 security-framework = { version = "2", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-secret-service = { version = "4", optional = true }
+secret-service = { version = "5", optional = true }
 zbus = { version = "4", optional = true }
 linux-keyutils = { version = "0.2", features = ["std"], optional = true }
 dbus-secret-service = { version = "4.0.0-rc.2", optional = true }
 
 [target.'cfg(target_os = "freebsd")'.dependencies]
-secret-service = { version = "4", optional = true }
+secret-service = { version = "5", optional = true }
 zbus = { version = "4", optional = true }
 dbus-secret-service = { version = "4.0.1", optional = true }
 
 [target.'cfg(target_os = "openbsd")'.dependencies]
-secret-service = { version = "4", optional = true }
+secret-service = { version = "5", optional = true }
 zbus = { version = "4", optional = true }
 dbus-secret-service = { version = "4.0.0-rc.1", optional = true }
 
