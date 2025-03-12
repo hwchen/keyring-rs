@@ -7,21 +7,6 @@ The model comprises two traits: [CredentialBuilderApi] for the underlying store
 and [CredentialApi] for the entries in the store.  These traits must be implemented
 in a thread-safe way, a requirement captured in the [CredentialBuilder] and
 [Credential] types that wrap them.
-
-Note that you must have an instance of a credential builder in
-your hands in order to call the [CredentialBuilder] API. At any given
-point in time
-
-```rust
-use keyring::{default, credential};
-
-let persistence = default::default_credential_builder().persistence();
-if  matches!(persistence, credential::CredentialPersistence::UntilDelete) {
-    println!("The default credential builder persists credentials on disk!")
-} else {
-    println!("The default credential builder doesn't persist credentials on disk!")
-}
-```
  */
 use std::any::Any;
 use std::collections::HashMap;
@@ -189,6 +174,8 @@ impl CredentialBuilderApi for NopCredentialBuilder {
     }
 }
 
+// Return a credential builder that always fails. This is the builder
+// used if none of the crate-supplied keystores were included in the build.
 pub fn nop_credential_builder() -> Box<CredentialBuilder> {
     Box::new(NopCredentialBuilder)
 }

@@ -2,11 +2,11 @@
 authors = ["Walther Chen <walther.chen@gmail.com>", "Daniel Brotsky <dev@brotsky.com>"]
 description = "Cross-platform library for managing passwords/credentials"
 homepage = "https://github.com/hwchen/keyring-rs"
-keywords = ["password", "credential", "keychain", "keyring", "cross-platform"]
+keywords = ["password", "credential", "keychain", "secret-service", "cross-platform"]
 license = "MIT OR Apache-2.0"
 name = "keyring"
 repository = "https://github.com/hwchen/keyring-rs.git"
-version = "5.0.0"
+version = "4.0.0-alpha.1"
 rust-version = "1.85"
 edition = "2024"
 exclude = [".github/"]
@@ -14,11 +14,18 @@ readme = "README.md"
 
 [features]
 default = ["apple-native", "secret-service", "windows-native"]
+
+## Use the built-in Keychain Services on macOS and iOS
 apple-native = ["dep:security-framework"]
+## Use the secret-service on *nix.
 secret-service = ["dep:dbus-secret-service"]
+## Use the built-in credential store on Windows
 windows-native = ["dep:windows-sys", "dep:byteorder"]
 
+## Link any external required libraries statically
 vendored = ["dbus-secret-service?/vendored"]
+## Encrypt values when passing them to/from the keystore, if supported.
+encrypted = []
 
 [dependencies]
 log = "0.4"

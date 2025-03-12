@@ -16,7 +16,7 @@ fn test_missing_entry() {
 }
 
 #[test]
-#[cfg(all(target_os = "linux", not(feature = "linux-native")))]
+#[cfg(target_os = "linux")]
 fn test_empty_password() {
     init_logger();
 

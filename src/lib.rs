@@ -82,8 +82,9 @@ default feature set:
 
 - `secret-service`: Provides access to the DBus-based
   [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
-  storage on Linux, FreeBSD, and OpenBSD.  This is a _synchronous_ keystore that provides
-  support for encrypting secrets when they are transferred across the bus.
+  storage on Linux, FreeBSD, and OpenBSD.  This keystore provides
+  support for encrypting secrets when they are transferred across the bus,
+  specify the `encrypted` feature if you want to use this support.
   By default, this keystore requires that the DBus library be
   installed on the user's machine,
   but you can avoid this requirement by specifying the `vendored` feature
