@@ -1,6 +1,6 @@
 use keyring::{Entry, Error};
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn test() {
     test_invalid_parameter();
     test_empty_keyring();

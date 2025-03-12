@@ -27,7 +27,7 @@ use security_framework::passwords::{
 };
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
-use super::error::{decode_password, Error as ErrorCode, Result};
+use super::error::{Error as ErrorCode, Result, decode_password};
 
 /// The representation of a generic Keychain credential.
 ///
@@ -110,7 +110,7 @@ impl IosCredential {
         Ok(self.clone())
     }
 
-    /// Create a credential representing a Mac keychain entry.
+    /// Create a credential representing an iOS keychain entry.
     ///
     /// The target string is ignored, because there's only one keychain.
     ///

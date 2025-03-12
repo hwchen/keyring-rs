@@ -10,8 +10,7 @@ in this store have no attributes at all.
 To use this credential store instead of the default, make this call during
 application startup _before_ creating any entries:
 ```rust
-# use keyring::{set_default_credential_builder, mock};
-set_default_credential_builder(mock::default_credential_builder());
+keyring::set_default_credential_builder(keyring::mock::default_credential_builder());
 ```
 
 You can then create entries as you usually do, and call their usual methods
@@ -40,7 +39,7 @@ use std::sync::Mutex;
 use super::credential::{
     Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi, CredentialPersistence,
 };
-use super::error::{decode_password, Error, Result};
+use super::error::{Error, Result, decode_password};
 
 /// The concrete mock credential
 ///
@@ -237,9 +236,9 @@ pub fn default_credential_builder() -> Box<CredentialBuilder> {
 
 #[cfg(test)]
 mod tests {
-    use super::{default_credential_builder, MockCredential};
+    use super::{MockCredential, default_credential_builder};
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
+    use crate::{Entry, Error, tests::generate_random_string};
 
     #[test]
     fn test_persistence() {

@@ -33,7 +33,7 @@ use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain}
 use security_framework::os::macos::passwords::find_generic_password;
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
-use super::error::{decode_password, Error as ErrorCode, Result};
+use super::error::{Error as ErrorCode, Result, decode_password};
 
 /// The representation of a generic Keychain credential.
 ///
@@ -174,7 +174,7 @@ pub struct MacCredentialBuilder {}
 
 /// Returns an instance of the Mac credential builder.
 ///
-/// On Mac,
+/// On Mac, with default features enabled,
 /// this is called once when an entry is first created.
 pub fn default_credential_builder() -> Box<CredentialBuilder> {
     Box::new(MacCredentialBuilder {})
@@ -268,9 +268,9 @@ pub fn decode_error(err: Error) -> ErrorCode {
 #[cfg(test)]
 mod tests {
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
+    use crate::{Entry, Error, tests::generate_random_string};
 
-    use super::{default_credential_builder, MacCredential};
+    use super::{MacCredential, default_credential_builder};
 
     #[test]
     fn test_persistence() {

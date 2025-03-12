@@ -1,3 +1,11 @@
+## Version 4.0
+- Remove all keystores but apple-native, windows-native, and secret-service.
+- Remove use of the async secret-service crate.
+- Remove ability to use openssl crypto with secret-service.
+- Rework the feature set.
+- Rework the way the "default" credential builder is set.
+- Move to Rust edition 2024, MSRV 1.85
+
 ## Version 3.6.2
 - Have docs.rs build docs for all modules on all platforms (thanks to @unkcpz - see #235).
 - Switch to `fastrand` for tests (see #237).

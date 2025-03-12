@@ -44,15 +44,6 @@ versions of this crate, that may already
 have created items that match the entry, and thus reduces the chance
 of ambiguity in later searches.
 
-## Tokio runtime caution
-
-If you are using the `async-secret-service` with this crate,
-and specifying `tokio` as your runtime, be careful:
-if you make keyring calls on the main thread, you will likely deadlock (see\
-[this issue on GitHub](https://github.com/hwchen/keyring-rs/issues/132)
-for details).  You need to spawn a separate thread on which
-you make your keyring calls to avoid this.
-
 ## Headless usage
 
 If you must use the secret-service on a headless linux box,
@@ -89,16 +80,10 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-#[cfg(not(feature = "async-secret-service"))]
 use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
-#[cfg(feature = "async-secret-service")]
-use secret_service::{
-    blocking::{Collection, Item, SecretService},
-    EncryptionType, Error,
-};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
-use super::error::{decode_password, Error as ErrorCode, Result};
+use super::error::{Error as ErrorCode, Result, decode_password};
 
 /// The representation of an item in the secret-service.
 ///
@@ -137,11 +122,6 @@ impl CredentialApi for SsCredential {
     /// When creating, the item is put into a collection named by the credential's `target`
     /// attribute.  
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
-        #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
-        let session_type = EncryptionType::Dh;
-        #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
-        let session_type = EncryptionType::Plain;
-        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
         match self.map_matching_items(|i| set_item_secret(i, secret), true) {
             Ok(_) => return Ok(()),
@@ -152,6 +132,11 @@ impl CredentialApi for SsCredential {
         // an item, the credential must have an explicit target.  All entries created with
         // the [new] or [new_with_target] commands will have explicit targets.  But entries
         // created to wrap 3rd-party items that don't have `target` attributes may not.
+        #[cfg(feature = "encrypted")]
+        let session_type = EncryptionType::Dh;
+        #[cfg(not(feature = "encrypted"))]
+        let session_type = EncryptionType::Plain;
+        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         let name = self.target.as_ref().ok_or_else(empty_target)?;
         let collection = get_collection(&ss, name).or_else(|_| create_collection(&ss, name))?;
         collection
@@ -331,9 +316,9 @@ impl SsCredential {
         F: Fn(&Item) -> Result<T>,
         T: Sized,
     {
-        #[cfg(any(feature = "crypto-rust", feature = "crypto-openssl"))]
+        #[cfg(feature = "encrypted")]
         let session_type = EncryptionType::Dh;
-        #[cfg(not(any(feature = "crypto-rust", feature = "crypto-openssl")))]
+        #[cfg(not(feature = "encrypted"))]
         let session_type = EncryptionType::Plain;
         let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         let attributes: HashMap<&str, &str> = self.search_attributes(false).into_iter().collect();
@@ -605,10 +590,10 @@ fn wrap(err: Error) -> Box<dyn std::error::Error + Send + Sync> {
 #[cfg(test)]
 mod tests {
     use crate::credential::CredentialPersistence;
-    use crate::{tests::generate_random_string, Entry, Error};
+    use crate::{Entry, Error, tests::generate_random_string};
     use std::collections::HashMap;
 
-    use super::{default_credential_builder, SsCredential};
+    use super::{EncryptionType, SecretService, SsCredential, default_credential_builder};
 
     #[test]
     fn test_persistence() {
@@ -844,11 +829,6 @@ mod tests {
     }
 
     fn delete_collection(name: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
-        use dbus_secret_service::{EncryptionType, SecretService};
-        #[cfg(feature = "async-secret-service")]
-        use secret_service::{blocking::SecretService, EncryptionType};
-
         let ss =
             SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
         let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
@@ -856,10 +836,7 @@ mod tests {
     }
 
     fn create_v1_entry(name: &str, password: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
-        #[cfg(feature = "async-secret-service")]
-        use secret_service::{blocking::SecretService, EncryptionType};
 
         let cred = SsCredential::new_with_no_target(name, name)
             .expect("Can't create credential with no target");

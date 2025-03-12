@@ -4,7 +4,7 @@
 # Keyring
 
 This is a cross-platform library that does storage and retrieval of passwords
-(or other secrets) in an underlying platform-specific secure store.
+(or other secrets) in an underlying platform-specific secure credential store.
 A top-level introduction to the library's usage, as well as a small code sample,
 may be found in [the library's entry on crates.io](https://crates.io/crates/keyring).
 Currently supported platforms are
@@ -17,36 +17,44 @@ macOS, and iOS.
 ## Design
 
 This crate implements a very simple, platform-independent concrete object called an _entry_.
-Each entry is identified by a <_service name_, _user name_> pair of UTF-8 strings,
-optionally augmented by a _target_ string (which can be used to distinguish two entries
-that have the same _service name_ and _user name_).
+Each entry is identified by a <_service name_, _user name_> pair of UTF-8 strings.
 Entries support setting, getting, and forgetting (aka deleting) passwords (UTF-8 strings)
-and binary secrets (byte arrays).
+and binary secrets (byte arrays). Each created entry provides security and persistence
+of its secret by wrapping a credential held in a platform-specific, secure credential store.
 
-Entries provide persistence for their passwords by wrapping credentials held in platform-specific
-credential stores.  The implementations of these platform-specific stores are captured
-in two types (with associated traits):
+The cross-platform API for creating an _entry_ supports specifying an (optional)
+UTF-8 _target_ attribute on entries, but the meaning of this
+attribute is credential-store (and thus platform) specific,
+and should not be thought of as part of the credential's identification. See the
+documentation of each credential store to understand the
+effect of specifying the _target_ attribute on entries in that store,
+as well as which values are allowed for _target_ by that store.
+
+The abstract behavior of entries and credential stores are captured
+by two types (with associated traits):
 
 - a _credential builder_, represented by the [CredentialBuilder] type
   (and [CredentialBuilderApi](credential::CredentialBuilderApi) trait).  Credential
-  builders are given the identifying information provided for an entry and map
+  builders are given the identifying information (and target, if any)
+  provided for an entry and map
   it to the identifying information for a platform-specific credential.
 - a _credential_, represented by the [Credential] type
   (and [CredentialApi](credential::CredentialApi) trait).  The platform-specific credential
-  identified by a builder for an entry is what provides the secure storage
+  identified by the builder for an entry is what provides the secure storage
   for that entry's password/secret.
 
 ## Crate-provided Credential Stores
 
-This crate runs on several different platforms, and it provides one
-or more implementations of credential stores on each platform.
+This crate runs on several different platforms, and on each one
+it provides (by default) an implementation of a default credential store used
+on that platform (see [builtin_credential_builder]).
 These implementations work by mapping the data used to identify an entry
 to data used to identify platform-specific storage objects.
 For example, on macOS, the service and user provided for an entry
 are mapped to the service and user attributes that identify a
 generic credential in the macOS keychain.
 
-Typically, platform-specific stores (called _keystores_ in this crate)
+Typically, platform-specific credential stores (called _keystores_ in this crate)
 have a richer model of a credential than
 the one used by this crate to identify entries.
 These keystores expose their specific model in the
@@ -59,70 +67,38 @@ its concrete type.
 
 ### Credential store features
 
-Each of the platform-specific credential stores is associated with one or more features.
-These features control whether that store is included when the crate is built.  For
-example, the macOS Keychain credential store is only included if the `"apple-native"`
-feature is specified (and the crate is built with a macOS target).
+Each of the platform-specific credential stores is associated a feature.
+This feature controls whether that store is included when the crate is built
+for its specific platform.  For example, the macOS Keychain credential store
+implementation is only included if the `"apple-native"` feature is specified and the crate
+is built with a macOS target.
 
-If no specified credential store features apply to a given platform,
-this crate will use the (platform-independent) _mock_ credential store (see below)
-on that platform. There are no
-default features in this crate: you must specify explicitly which platform-specific
-credential stores you intend to use.
-
-Here are the available credential store features:
+The available credential store features, listed here, are all included in the
+default feature set:
 
 - `apple-native`: Provides access to the Keychain credential store on macOS and iOS.
 
 - `windows-native`: Provides access to the Windows Credential Store on Windows.
 
-- `linux-native`: Provides access to the `keyutils` storage on Linux.
-
-- `linux-native-sync-persistent`: Uses both `keyutils` and `sync-secret-service`
-  (see below) for storage. See the docs for the `keyutils_persistent`
-  module for a full explanation of why both are used. Because this
-  store uses the `sync-secret-service`, you can use additional features related
-  to that store (described below).
-
-- `linux-native-async-persistent`: Uses both `keyutils` and `async-secret-service`
-  (see below) for storage. See the docs for the `keyutils_persistent`
-  module for a full explanation of why both are used.
-  Because this store uses the `async-secret-service`, you
-  must specify the additional features required by that store (described below).
-
-- `sync-secret-service`: Provides access to the DBus-based
+- `secret-service`: Provides access to the DBus-based
   [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
-  storage on Linux, FreeBSD, and OpenBSD.  This is a _synchronous_ keystore that provides
-  support for encrypting secrets when they are transferred across the bus. If you wish
-  to use this encryption support, additionally specify one (and only one) of the
-  `crypto-rust` or `crypto-openssl` features (to choose the implementation libraries
-  used for the encryption). By default, this keystore requires that the DBus library be
-  installed on the user's machine (and the openSSL library if you specify it for
-  encryption), but you can avoid this requirement by specifying the `vendored` feature
-  (which will cause the build to include those libraries statically).
+  storage on Linux, FreeBSD, and OpenBSD.  This keystore provides
+  support for encrypting secrets when they are transferred across the bus,
+  specify the `encrypted` feature if you want to use this support.
+  By default, this keystore requires that the DBus library be
+  installed on the user's machine,
+  but you can avoid this requirement by specifying the `vendored` feature
+  (which will cause the build to include a static build of the dbus library).
 
-- `async-secret-service`: Provides access to the DBus-based
-  [Secret Service](https://specifications.freedesktop.org/secret-service/latest/)
-  storage on Linux, FreeBSD, and OpenBSD.  This is an _asynchronous_ keystore that
-  always encrypts secrets when they are transferred across the bus. You _must_ specify
-  both an async runtime feature (either `tokio` or `async-io`) and a cryptographic
-  implementation (either `crypto-rust` or `crypto-openssl`) when using this
-  keystore. If you want to use openSSL encryption but those libraries are not
-  installed on the user's machine, specify the `vendored` feature
-  to statically link them with the built crate.
-
-The Linux platform is the only one for which this crate supplies multiple keystores:
-native (keyutils), sync or async secret service, and sync or async "combo" (both
-keyutils and secret service). You cannot specify use of both sync and async
-keystores; this will lead to a compile error.  If you enable a combo keystore on Linux,
-that will be the default keystore. If you don't enable a
-combo keystore on Linux, but you do enable both the native and secret service keystores,
-the secret service will be the default.
+If you suppress the default feature set when building this crate, and you
+don't separately specify one of the included keystore features for your platform,
+then no keystore will be built in, and calls to [Entry::new] and [Entry::new_with_target]
+will fail unless the client brings their own keystore (see next section).
 
 ## Client-provided Credential Stores
 
-In addition to the platform stores implemented by this crate, clients
-are free to provide their own secure stores and use those.  There are
+In addition to the keystores implemented by this crate, clients
+are free to provide their own keystores and use those.  There are
 two mechanisms provided for this:
 
 - Clients can give their desired credential builder to the crate
@@ -143,7 +119,11 @@ In addition to the platform-specific credential stores, this crate
 always provides a mock credential store that clients can use to
 test their code in a platform independent way.  The mock credential
 store allows for pre-setting errors as well as password values to
-be returned from [Entry] method calls.
+be returned from [Entry] method calls. If you want to use the mock
+credential store as your default in tests, make this call:
+```
+keyring::set_default_credential_builder(keyring::mock::default_credential_builder())
+```
 
 ## Interoperability with Third Parties
 
@@ -153,8 +133,8 @@ in other languages.  If you want to interoperate with these third party
 credential writers, then you will need to understand the details of how the
 target, service, and user of this crate's generic model
 are used to identify credentials in the platform-specific store.
-These details are in the implementation of this crate's secure-storage
-modules, and are documented in the headers of those modules.
+These details are in the implementation of this crate's keystores,
+and are documented in the headers of those modules.
 
 (_N.B._ Since the included credential store implementations are platform-specific,
 you may need to use the Platform drop-down on [docs.rs](https://docs.rs/keyring) to
@@ -190,83 +170,17 @@ pub use error::{Error, Result};
 pub mod mock;
 
 //
-// can't use both sync and async secret service
-//
-#[cfg(any(
-    all(feature = "sync-secret-service", feature = "async-secret-service"),
-    all(
-        feature = "linux-native-sync-persistent",
-        feature = "linux-native-async-persistent",
-    )
-))]
-compile_error!("This crate cannot use both the sync and async versions of any credential store");
-
-//
 // pick the *nix keystore
 //
-#[cfg(all(target_os = "linux", feature = "linux-native"))]
-#[cfg_attr(docsrs, doc(cfg(target_os = "linux")))]
-pub mod keyutils;
-#[cfg(all(
-    target_os = "linux",
-    feature = "linux-native",
-    not(feature = "sync-secret-service"),
-    not(feature = "async-secret-service"),
-))]
-pub use keyutils as default;
-
 #[cfg(all(
     any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service"),
+    feature = "secret-service"
 ))]
 #[cfg_attr(
     docsrs,
     doc(cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd")))
 )]
 pub mod secret_service;
-#[cfg(all(
-    any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"),
-    any(feature = "sync-secret-service", feature = "async-secret-service"),
-    not(any(
-        feature = "linux-native-sync-persistent",
-        feature = "linux-native-async-persistent",
-    )),
-))]
-pub use secret_service as default;
-
-#[cfg(all(
-    target_os = "linux",
-    any(
-        feature = "linux-native-sync-persistent",
-        feature = "linux-native-async-persistent",
-    )
-))]
-#[cfg_attr(docsrs, doc(cfg(target_os = "linux")))]
-pub mod keyutils_persistent;
-#[cfg(all(
-    target_os = "linux",
-    any(
-        feature = "linux-native-sync-persistent",
-        feature = "linux-native-async-persistent",
-    ),
-))]
-pub use keyutils_persistent as default;
-
-// fallback to mock if neither keyutils nor secret service is available
-#[cfg(any(
-    all(
-        target_os = "linux",
-        not(feature = "linux-native"),
-        not(feature = "sync-secret-service"),
-        not(feature = "async-secret-service"),
-    ),
-    all(
-        any(target_os = "freebsd", target_os = "openbsd"),
-        not(feature = "sync-secret-service"),
-        not(feature = "async-secret-service"),
-    )
-))]
-pub use mock as default;
 
 //
 // pick the Apple keystore
@@ -274,18 +188,10 @@ pub use mock as default;
 #[cfg(all(target_os = "macos", feature = "apple-native"))]
 #[cfg_attr(docsrs, doc(cfg(target_os = "macos")))]
 pub mod macos;
-#[cfg(all(target_os = "macos", feature = "apple-native"))]
-pub use macos as default;
-#[cfg(all(target_os = "macos", not(feature = "apple-native")))]
-pub use mock as default;
 
 #[cfg(all(target_os = "ios", feature = "apple-native"))]
 #[cfg_attr(docsrs, doc(cfg(target_os = "ios")))]
 pub mod ios;
-#[cfg(all(target_os = "ios", feature = "apple-native"))]
-pub use ios as default;
-#[cfg(all(target_os = "ios", not(feature = "apple-native")))]
-pub use mock as default;
 
 //
 // pick the Windows keystore
@@ -293,20 +199,6 @@ pub use mock as default;
 #[cfg(all(target_os = "windows", feature = "windows-native"))]
 #[cfg_attr(docsrs, doc(cfg(target_os = "windows")))]
 pub mod windows;
-#[cfg(all(target_os = "windows", not(feature = "windows-native")))]
-pub use mock as default;
-#[cfg(all(target_os = "windows", feature = "windows-native"))]
-pub use windows as default;
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "windows",
-)))]
-pub use mock as default;
 
 pub mod credential;
 pub mod error;
@@ -336,6 +228,59 @@ pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
     guard.inner = Some(new);
 }
 
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
+/// The default built-in credential store on *nix is the Secret Service.
+pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+    if cfg!(feature = "secret-service") {
+        secret_service::default_credential_builder()
+    } else {
+        credential::nop_credential_builder()
+    }
+}
+
+#[cfg(target_os = "macos")]
+/// The default built-in credential store on macOS is the Keychain Service.
+pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+    if cfg!(feature = "apple-native") {
+        macos::default_credential_builder()
+    } else {
+        credential::nop_credential_builder()
+    }
+}
+
+#[cfg(target_os = "ios")]
+/// The default built-in credential store on iOS is the Keychain Service.
+pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+    if cfg!(feature = "apple-native") {
+        ios::default_credential_builder()
+    } else {
+        credential::nop_credential_builder()
+    }
+}
+
+#[cfg(target_os = "windows")]
+/// The default built-in credential store on Windows is the Credential Manager.
+pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+    if cfg!(feature = "windows-native") {
+        windows::default_credential_builder()
+    } else {
+        credential::nop_credential_builder()
+    }
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "windows"
+)))]
+/// There is no default builtin credential store on this platform; you must bring your own.
+pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+    credential::nop_credential_builder()
+}
+
 fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> Result<Entry> {
     static DEFAULT: std::sync::OnceLock<Box<CredentialBuilder>> = std::sync::OnceLock::new();
     let guard = DEFAULT_BUILDER
@@ -344,7 +289,7 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
     let builder = guard
         .inner
         .as_ref()
-        .unwrap_or_else(|| DEFAULT.get_or_init(|| default::default_credential_builder()));
+        .unwrap_or_else(|| DEFAULT.get_or_init(|| builtin_credential_builder()));
     let credential = builder.build(target, service, user)?;
     Ok(Entry { inner: credential })
 }
@@ -386,7 +331,7 @@ impl Entry {
         Ok(entry)
     }
 
-    /// Create an entry that uses the given platform credential for storage.
+    /// Create an entry from a credential that may be in any credential store.
     pub fn new_with_credential(credential: Box<Credential>) -> Entry {
         debug!("create entry from {credential:?}");
         Entry { inner: credential }
@@ -524,7 +469,7 @@ doc_comment::doctest!("../README.md", readme);
 // Since iOS doesn't use any of these generics, we allow dead code.
 #[allow(dead_code)]
 mod tests {
-    use super::{credential::CredentialApi, Entry, Error, Result};
+    use super::{Entry, Error, Result, credential::CredentialApi};
     use std::collections::HashMap;
 
     /// Create a platform-specific credential given the constructor, service, and user

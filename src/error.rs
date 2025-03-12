@@ -27,7 +27,7 @@ pub enum Error {
     /// be retrieved from the attached platform error.
     PlatformFailure(Box<dyn std::error::Error + Send + Sync>),
     /// This indicates that the underlying secure storage
-    /// holding saved items could not be accessed.  Typically this
+    /// holding saved items could not be accessed.  Typically, this
     /// is because of access rules in the platform; for example, it
     /// might be that the credential store is locked.  The underlying
     /// platform error will typically give the reason.
@@ -54,6 +54,9 @@ pub enum Error {
     /// This indicates that there is more than one credential found in the store
     /// that matches the entry.  Its value is a vector of the matching credentials.
     Ambiguous(Vec<Box<Credential>>),
+    /// This indicates that there was no default credential builder to use;
+    /// the client must set one before creating entries.
+    NoDefaultCredentialBuilder,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -79,6 +82,12 @@ impl std::fmt::Display for Error {
                     f,
                     "Entry is matched by {} credentials: {items:?}",
                     items.len(),
+                )
+            }
+            Error::NoDefaultCredentialBuilder => {
+                write!(
+                    f,
+                    "No default credential builder is available; set one before creating entries"
                 )
             }
         }

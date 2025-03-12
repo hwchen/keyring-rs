@@ -32,7 +32,6 @@ jobs:
 
       - name: Build docs
         run: |
-          FEATURES="apple-native, windows-native, linux-native-sync-persistent, crypto-rust"
           RUSTDOCFLAGS="--cfg docsrs" \
             cargo +nightly doc --no-deps --features "$FEATURES" --target ${{ matrix.target }} -Zbuild-std
 

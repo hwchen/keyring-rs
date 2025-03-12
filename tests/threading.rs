@@ -161,7 +161,7 @@ fn test_simultaneous_independent_create_set() {
 }
 
 #[test]
-#[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn test_multiple_create_delete_single_thread() {
     init_logger();
 
@@ -186,7 +186,7 @@ fn test_multiple_create_delete_single_thread() {
 }
 
 #[test]
-#[cfg(any(target_os = "macos", target_os = "windows", feature = "linux-native"))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn test_simultaneous_multiple_create_delete_single_thread() {
     init_logger();
 
