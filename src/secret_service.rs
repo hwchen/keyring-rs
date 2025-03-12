@@ -80,13 +80,7 @@ issue for more details and possible workarounds.
  */
 use std::collections::HashMap;
 
-#[cfg(not(feature = "async-secret-service"))]
 use dbus_secret_service::{Collection, EncryptionType, Error, Item, SecretService};
-#[cfg(feature = "async-secret-service")]
-use secret_service::{
-    EncryptionType, Error,
-    blocking::{Collection, Item, SecretService},
-};
 
 use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
 use super::error::{Error as ErrorCode, Result, decode_password};
@@ -128,11 +122,6 @@ impl CredentialApi for SsCredential {
     /// When creating, the item is put into a collection named by the credential's `target`
     /// attribute.  
     fn set_secret(&self, secret: &[u8]) -> Result<()> {
-        #[cfg(feature = "encrypted")]
-        let session_type = EncryptionType::Dh;
-        #[cfg(not(feature = "encrypted"))]
-        let session_type = EncryptionType::Plain;
-        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         // first try to find a unique, existing, matching item and set its password
         match self.map_matching_items(|i| set_item_secret(i, secret), true) {
             Ok(_) => return Ok(()),
@@ -143,6 +132,11 @@ impl CredentialApi for SsCredential {
         // an item, the credential must have an explicit target.  All entries created with
         // the [new] or [new_with_target] commands will have explicit targets.  But entries
         // created to wrap 3rd-party items that don't have `target` attributes may not.
+        #[cfg(feature = "encrypted")]
+        let session_type = EncryptionType::Dh;
+        #[cfg(not(feature = "encrypted"))]
+        let session_type = EncryptionType::Plain;
+        let ss = SecretService::connect(session_type).map_err(platform_failure)?;
         let name = self.target.as_ref().ok_or_else(empty_target)?;
         let collection = get_collection(&ss, name).or_else(|_| create_collection(&ss, name))?;
         collection
@@ -599,7 +593,7 @@ mod tests {
     use crate::{Entry, Error, tests::generate_random_string};
     use std::collections::HashMap;
 
-    use super::{SsCredential, default_credential_builder};
+    use super::{EncryptionType, SecretService, SsCredential, default_credential_builder};
 
     #[test]
     fn test_persistence() {
@@ -835,10 +829,6 @@ mod tests {
     }
 
     fn delete_collection(name: &str) {
-        #[cfg(feature = "encrypted")]
-        let session_type = EncryptionType::Dh;
-        #[cfg(not(feature = "encrypted"))]
-        let session_type = EncryptionType::Plain;
         let ss =
             SecretService::connect(EncryptionType::Plain).expect("Can't connect to secret service");
         let collection = super::get_collection(&ss, name).expect("Can't find collection to delete");
@@ -846,10 +836,7 @@ mod tests {
     }
 
     fn create_v1_entry(name: &str, password: &str) {
-        #[cfg(not(feature = "async-secret-service"))]
         use dbus_secret_service::{EncryptionType, SecretService};
-        #[cfg(feature = "async-secret-service")]
-        use secret_service::{EncryptionType, blocking::SecretService};
 
         let cred = SsCredential::new_with_no_target(name, name)
             .expect("Can't create credential with no target");
