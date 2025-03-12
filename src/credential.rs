@@ -9,12 +9,8 @@ in a thread-safe way, a requirement captured in the [CredentialBuilder] and
 [Credential] types that wrap them.
 
 Note that you must have an instance of a credential builder in
-your hands in order to call the [CredentialBuilder] API.  Because each credential
-builder implementation lives in a platform-specific module, the cross-platform way to
-get your hands on the one currently being used to create entries is to ask
-for the builder from the `default` module alias.  For example, to
-determine whether the credential builder currently being used
-persists its credentials across machine reboots, you might use a snippet like this:
+your hands in order to call the [CredentialBuilder] API. At any given
+point in time
 
 ```rust
 use keyring::{default, credential};
@@ -176,3 +172,23 @@ impl std::fmt::Debug for CredentialBuilder {
 
 /// A thread-safe implementation of the [CredentialBuilder API](CredentialBuilderApi).
 pub type CredentialBuilder = dyn CredentialBuilderApi + Send + Sync;
+
+struct NopCredentialBuilder;
+
+impl CredentialBuilderApi for NopCredentialBuilder {
+    fn build(&self, _: Option<&str>, _: &str, _: &str) -> Result<Box<Credential>> {
+        Err(super::Error::NoDefaultCredentialBuilder)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn persistence(&self) -> CredentialPersistence {
+        CredentialPersistence::EntryOnly
+    }
+}
+
+pub fn nop_credential_builder() -> Box<CredentialBuilder> {
+    Box::new(NopCredentialBuilder)
+}

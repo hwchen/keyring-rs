@@ -13,9 +13,8 @@ exclude = [".github/"]
 readme = "README.md"
 
 [features]
+default = ["apple-native", "secret-service", "windows-native"]
 apple-native = ["dep:security-framework"]
-linux-native = ["dep:linux-keyutils"]
-linux-native-persistent = ["linux-native", "secret-service"]
 secret-service = ["dep:dbus-secret-service"]
 windows-native = ["dep:windows-sys", "dep:byteorder"]
 
@@ -28,7 +27,6 @@ log = "0.4"
 security-framework = { version = "3", optional = true }
 
 [target.'cfg(any(target_os = "linux",target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-linux-keyutils = { version = "0.2", features = ["std"], optional = true }
 dbus-secret-service = { version = "4", features = ["crypto-rust"], optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -57,4 +55,4 @@ whoami = "1.5"
 [package.metadata.docs.rs]
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "aarch64-apple-ios", "x86_64-pc-windows-msvc"]
-features = ["apple-native", "windows-native", "linux-native-sync-persistent", "crypto-rust"]
+features = ["apple-native", "windows-native", "secret-service", "crypto-rust"]
