@@ -3,12 +3,18 @@
 # macOS Keychain credential store
 
 All credentials on macOS are stored in secure stores called _keychains_.
-The OS automatically creates three of them (or four if removable media is being used),
-called _User_ (aka login), _Common_, _System_, and _Dynamic_.  The target
-attribute of an [Entry](crate::Entry) determines (case-insensitive) which keychain
-that entry's credential is created in or searched for.
+The OS automatically creates three of them that live on filesystem,
+called _User_ (aka login), _Common_, and _System_. In addition, removable
+media can contain a keychain which can be registered under the name _Dynamic_.
+Finally, on Apple Silicon devices, there is a more highly protected keychain
+(called the _Data Protection_ or simply _Protected_ keychain). This is the same
+keychain that is used by apps on iOS; so this module actually returns
+iOS credentials for entries in the Data Protection keychain.
+
+The target attribute of an [Entry](crate::Entry) determines (case-insensitive)
+which keychain that entry's credential is created in or searched for.
 If the entry has no target, or the specified target doesn't name (case-insensitive)
-one of the four built-in keychains, the 'User' keychain is used.
+one of the keychains listed above, the 'User' keychain is used.
 
 For a given service/user pair, this module creates/searches for a credential
 in the target keychain whose _account_ attribute holds the user
@@ -28,12 +34,12 @@ Credentials on macOS can have a large number of _key/value_ attributes,
 but this module controls the _account_ and _name_ attributes and
 ignores all the others. so clients can't use it to access or update any attributes.
  */
+use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
+use super::error::{Error as ErrorCode, Result, decode_password};
+use crate::ios::IosCredential;
 use security_framework::base::Error;
 use security_framework::os::macos::keychain::{SecKeychain, SecPreferencesDomain};
 use security_framework::os::macos::passwords::find_generic_password;
-
-use super::credential::{Credential, CredentialApi, CredentialBuilder, CredentialBuilderApi};
-use super::error::{Error as ErrorCode, Result, decode_password};
 
 /// The representation of a generic Keychain credential.
 ///
@@ -133,8 +139,6 @@ impl MacCredential {
 
     /// Create a credential representing a Mac keychain entry.
     ///
-    /// A target string is interpreted as the keychain to use for the entry.
-    ///
     /// Creating a credential does not put anything into the keychain.
     /// The keychain entry will be created
     /// when [set_password](MacCredential::set_password) is
@@ -143,7 +147,11 @@ impl MacCredential {
     /// This will fail if the service or user strings are empty,
     /// because empty attribute values act as wildcards in the
     /// Keychain Services API.
-    pub fn new_with_target(target: Option<&str>, service: &str, user: &str) -> Result<Self> {
+    pub fn new_with_target(
+        target: Option<MacKeychainDomain>,
+        service: &str,
+        user: &str,
+    ) -> Result<Self> {
         if service.is_empty() {
             return Err(ErrorCode::Invalid(
                 "service".to_string(),
@@ -157,7 +165,7 @@ impl MacCredential {
             ));
         }
         let domain = if let Some(target) = target {
-            target.parse()?
+            target
         } else {
             MacKeychainDomain::User
         };
@@ -182,10 +190,25 @@ pub fn default_credential_builder() -> Box<CredentialBuilder> {
 
 impl CredentialBuilderApi for MacCredentialBuilder {
     /// Build a [MacCredential] for the given target, service, and user.
+    ///
+    /// If a target is specified but not recognized as a keychain name,
+    /// the User keychain is selected.
     fn build(&self, target: Option<&str>, service: &str, user: &str) -> Result<Box<Credential>> {
-        Ok(Box::new(MacCredential::new_with_target(
-            target, service, user,
-        )?))
+        let domain: MacKeychainDomain = if let Some(target) = target {
+            target.parse().unwrap_or(MacKeychainDomain::User)
+        } else {
+            MacKeychainDomain::User
+        };
+        match domain {
+            MacKeychainDomain::Protected => Ok(Box::new(IosCredential::new_with_target(
+                None, service, user,
+            )?)),
+            _ => Ok(Box::new(MacCredential::new_with_target(
+                Some(domain),
+                service,
+                user,
+            )?)),
+        }
     }
 
     /// Return the underlying builder object with an `Any` type so that it can
@@ -202,6 +225,7 @@ pub enum MacKeychainDomain {
     System,
     Common,
     Dynamic,
+    Protected,
 }
 
 impl std::fmt::Display for MacKeychainDomain {
@@ -211,6 +235,7 @@ impl std::fmt::Display for MacKeychainDomain {
             MacKeychainDomain::System => "System".fmt(f),
             MacKeychainDomain::Common => "Common".fmt(f),
             MacKeychainDomain::Dynamic => "Dynamic".fmt(f),
+            MacKeychainDomain::Protected => "Protected".fmt(f),
         }
     }
 }
@@ -229,9 +254,11 @@ impl std::str::FromStr for MacKeychainDomain {
             "system" => Ok(MacKeychainDomain::System),
             "common" => Ok(MacKeychainDomain::Common),
             "dynamic" => Ok(MacKeychainDomain::Dynamic),
+            "protected" => Ok(MacKeychainDomain::Protected),
+            "data protection" => Ok(MacKeychainDomain::Protected),
             _ => Err(ErrorCode::Invalid(
                 "target".to_string(),
-                format!("'{s}' is not User, System, Common, or Dynamic"),
+                format!("'{s}' is not User, System, Common, Dynamic, or Protected"),
             )),
         }
     }
@@ -243,6 +270,7 @@ fn get_keychain(cred: &MacCredential) -> Result<SecKeychain> {
         MacKeychainDomain::System => SecPreferencesDomain::System,
         MacKeychainDomain::Common => SecPreferencesDomain::Common,
         MacKeychainDomain::Dynamic => SecPreferencesDomain::Dynamic,
+        MacKeychainDomain::Protected => panic!("Protected is not a keychain domain on macOS"),
     };
     match SecKeychain::default_for_domain(domain) {
         Ok(keychain) => Ok(keychain),
@@ -281,7 +309,11 @@ mod tests {
     }
 
     fn entry_new(service: &str, user: &str) -> Entry {
-        crate::tests::entry_from_constructor(MacCredential::new_with_target, service, user)
+        crate::tests::entry_from_constructor(
+            |_, s, u| MacCredential::new_with_target(None, s, u),
+            service,
+            user,
+        )
     }
 
     #[test]
@@ -295,11 +327,6 @@ mod tests {
         assert!(
             matches!(credential, Err(Error::Invalid(_, _))),
             "Created entry with empty user"
-        );
-        let credential = MacCredential::new_with_target(Some(""), "service", "user");
-        assert!(
-            matches!(credential, Err(Error::Invalid(_, _))),
-            "Created entry with empty target"
         );
     }
 
@@ -358,5 +385,33 @@ mod tests {
     #[test]
     fn test_get_update_attributes() {
         crate::tests::test_noop_get_update_attributes(entry_new);
+    }
+
+    #[test]
+    fn test_select_keychain() {
+        for name in ["unknown", "user", "common", "system", "dynamic"] {
+            let cred = Entry::new_with_target(name, name, name)
+                .expect("couldn't create credential")
+                .inner;
+            let mac_cred: &MacCredential = cred
+                .as_any()
+                .downcast_ref()
+                .expect("credential not a MacCredential");
+            if name == "unknown" {
+                assert!(
+                    matches!(mac_cred.domain, super::MacKeychainDomain::User),
+                    "wrong domain for unknown specifier"
+                )
+            }
+        }
+        for name in ["data protection", "protected"] {
+            let cred = Entry::new_with_target(name, name, name)
+                .expect("couldn't create credential")
+                .inner;
+            let _: &super::IosCredential = cred
+                .as_any()
+                .downcast_ref()
+                .expect("credential not an iOS credential");
+        }
     }
 }

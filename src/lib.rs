@@ -189,8 +189,8 @@ pub mod secret_service;
 #[cfg_attr(docsrs, doc(cfg(target_os = "macos")))]
 pub mod macos;
 
-#[cfg(all(target_os = "ios", feature = "apple-native"))]
-#[cfg_attr(docsrs, doc(cfg(target_os = "ios")))]
+#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "apple-native"))]
+#[cfg_attr(docsrs, doc(cfg(any(target_os = "macos", target_os = "ios"))))]
 pub mod ios;
 
 //
@@ -505,8 +505,7 @@ mod tests {
         }
     }
 
-    /// A basic round-trip unit test given an entry and a password.
-    pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
+    fn test_round_trip_no_delete(case: &str, entry: &Entry, in_pass: &str) {
         entry
             .set_password(in_pass)
             .unwrap_or_else(|err| panic!("Can't set password for {case}: {err:?}"));
@@ -516,7 +515,12 @@ mod tests {
         assert_eq!(
             in_pass, out_pass,
             "Passwords don't match for {case}: set='{in_pass}', get='{out_pass}'",
-        );
+        )
+    }
+
+    /// A basic round-trip unit test given an entry and a password.
+    pub fn test_round_trip(case: &str, entry: &Entry, in_pass: &str) {
+        test_round_trip_no_delete(case, entry, in_pass);
         entry
             .delete_credential()
             .unwrap_or_else(|err| panic!("Can't delete password for {case}: {err:?}"));
@@ -637,7 +641,7 @@ mod tests {
     {
         let name = generate_random_string();
         let entry = f(&name, &name);
-        test_round_trip("initial ascii password", &entry, "test ascii password");
+        test_round_trip_no_delete("initial ascii password", &entry, "test ascii password");
         test_round_trip(
             "updated non-ascii password",
             &entry,
