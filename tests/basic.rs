@@ -62,6 +62,31 @@ fn test_round_trip_ascii_password() {
     )
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn test_round_trip_protected_keychain() {
+    init_logger();
+
+    let name = generate_random_string();
+    let entry = Entry::new_with_target("protected", &name, &name).expect("Can't create entry");
+    let password = "test protected ascii password";
+    entry
+        .set_password(password)
+        .expect("Can't set protected ascii password");
+    let stored_password = entry.get_password().expect("Can't get ascii password");
+    assert_eq!(
+        stored_password, password,
+        "Retrieved and set protected ascii passwords don't match"
+    );
+    entry
+        .delete_credential()
+        .expect("Can't delete protected ascii password");
+    assert!(
+        matches!(entry.get_password(), Err(Error::NoEntry)),
+        "Able to read a deleted protected ascii password"
+    )
+}
+
 #[test]
 fn test_round_trip_non_ascii_password() {
     init_logger();

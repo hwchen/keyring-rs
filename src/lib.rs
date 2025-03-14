@@ -189,8 +189,8 @@ pub mod secret_service;
 #[cfg_attr(docsrs, doc(cfg(target_os = "macos")))]
 pub mod macos;
 
-#[cfg(all(target_os = "ios", feature = "apple-native"))]
-#[cfg_attr(docsrs, doc(cfg(target_os = "ios")))]
+#[cfg(all(any(target_os = "macos", target_os = "ios"), feature = "apple-native"))]
+#[cfg_attr(docsrs, doc(cfg(any(target_os = "macos", target_os = "ios"))))]
 pub mod ios;
 
 //

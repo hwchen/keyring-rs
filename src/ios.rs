@@ -136,7 +136,7 @@ impl IosCredential {
             ));
         }
         if let Some(target) = target {
-            if target.to_ascii_lowercase() != "default" {
+            if !target.eq_ignore_ascii_case("default") {
                 return Err(ErrorCode::Invalid(
                     "target".to_string(),
                     "only 'default' is allowed".to_string(),
@@ -186,5 +186,100 @@ fn decode_error(err: Error) -> ErrorCode {
         -25292 => ErrorCode::NoStorageAccess(Box::new(err)), // errSecReadOnly
         -25300 => ErrorCode::NoEntry,                        // errSecItemNotFound
         _ => ErrorCode::PlatformFailure(Box::new(err)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{IosCredential, default_credential_builder};
+    use crate::credential::CredentialPersistence;
+    use crate::{Entry, Error, tests::generate_random_string};
+
+    #[test]
+    fn test_persistence() {
+        assert!(matches!(
+            default_credential_builder().persistence(),
+            CredentialPersistence::UntilDelete
+        ))
+    }
+
+    fn entry_new(service: &str, user: &str) -> Entry {
+        crate::tests::entry_from_constructor(IosCredential::new_with_target, service, user)
+    }
+
+    #[test]
+    fn test_invalid_parameter() {
+        let credential = IosCredential::new_with_target(None, "", "user");
+        assert!(
+            matches!(credential, Err(Error::Invalid(_, _))),
+            "Created credential with empty service"
+        );
+        let credential = IosCredential::new_with_target(None, "service", "");
+        assert!(
+            matches!(credential, Err(Error::Invalid(_, _))),
+            "Created entry with empty user"
+        );
+        let credential = IosCredential::new_with_target(Some(""), "service", "user");
+        assert!(
+            matches!(credential, Err(Error::Invalid(_, _))),
+            "Created entry with empty target"
+        );
+    }
+
+    #[test]
+    fn test_missing_entry() {
+        crate::tests::test_missing_entry(entry_new);
+    }
+
+    #[test]
+    fn test_empty_password() {
+        crate::tests::test_empty_password(entry_new);
+    }
+
+    #[test]
+    fn test_round_trip_ascii_password() {
+        crate::tests::test_round_trip_ascii_password(entry_new);
+    }
+
+    #[test]
+    fn test_round_trip_non_ascii_password() {
+        crate::tests::test_round_trip_non_ascii_password(entry_new);
+    }
+
+    #[test]
+    fn test_round_trip_random_secret() {
+        crate::tests::test_round_trip_random_secret(entry_new);
+    }
+
+    #[test]
+    fn test_update() {
+        crate::tests::test_update(entry_new);
+    }
+
+    #[test]
+    fn test_get_credential() {
+        let name = generate_random_string();
+        let entry = entry_new(&name, &name);
+        let credential: &IosCredential = entry
+            .get_credential()
+            .downcast_ref()
+            .expect("Not a mac credential");
+        assert!(
+            credential.get_credential().is_err(),
+            "Platform credential shouldn't exist yet!"
+        );
+        entry
+            .set_password("test get_credential")
+            .expect("Can't set password for get_credential");
+        assert!(credential.get_credential().is_ok());
+        entry
+            .delete_credential()
+            .expect("Couldn't delete after get_credential");
+        assert!(matches!(entry.get_password(), Err(Error::NoEntry)));
+    }
+
+    #[test]
+    fn test_get_update_attributes() {
+        crate::tests::test_noop_get_update_attributes(entry_new);
     }
 }
