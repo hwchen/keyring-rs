@@ -228,56 +228,27 @@ pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
     guard.inner = Some(new);
 }
 
-#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
-/// The default built-in credential store on *nix is the Secret Service.
-pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "secret-service") {
-        secret_service::default_credential_builder()
-    } else {
-        credential::nop_credential_builder()
-    }
-}
-
-#[cfg(target_os = "macos")]
-/// The default built-in credential store on macOS is the Keychain Service.
-pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "apple-native") {
-        macos::default_credential_builder()
-    } else {
-        credential::nop_credential_builder()
-    }
-}
-
-#[cfg(target_os = "ios")]
-/// The default built-in credential store on iOS is the Keychain Service.
-pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "apple-native") {
-        ios::default_credential_builder()
-    } else {
-        credential::nop_credential_builder()
-    }
-}
-
-#[cfg(target_os = "windows")]
-/// The default built-in credential store on Windows is the Credential Manager.
-pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "windows-native") {
-        windows::default_credential_builder()
-    } else {
-        credential::nop_credential_builder()
-    }
-}
-
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "ios",
-    target_os = "windows"
-)))]
-/// There is no default builtin credential store on this platform; you must bring your own.
-pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
+pub fn default_credential_builder() -> Box<CredentialBuilder> {
+    #[cfg(any(
+        all(target_os = "linux", feature = "secret-service"),
+        all(target_os = "freebsd", feature = "secret-service"),
+        all(target_os = "openbsd", feature = "secret-service")
+    ))]
+    return secret_service::default_credential_builder();
+    #[cfg(all(target_os = "macos", feature = "apple-native"))]
+    return macos::default_credential_builder();
+    #[cfg(all(target_os = "ios", feature = "apple-native"))]
+    return ios::default_credential_builder();
+    #[cfg(all(target_os = "windows", feature = "windows-native"))]
+    return windows::default_credential_builder();
+    #[cfg(not(any(
+        all(target_os = "linux", feature = "secret-service"),
+        all(target_os = "freebsd", feature = "secret-service"),
+        all(target_os = "openbsd", feature = "secret-service"),
+        all(target_os = "macos", feature = "apple-native"),
+        all(target_os = "ios", feature = "apple-native"),
+        all(target_os = "windows", feature = "windows-native"),
+    )))]
     credential::nop_credential_builder()
 }
 
@@ -289,7 +260,7 @@ fn build_default_credential(target: Option<&str>, service: &str, user: &str) -> 
     let builder = guard
         .inner
         .as_ref()
-        .unwrap_or_else(|| DEFAULT.get_or_init(|| builtin_credential_builder()));
+        .unwrap_or_else(|| DEFAULT.get_or_init(|| default_credential_builder()));
     let credential = builder.build(target, service, user)?;
     Ok(Entry { inner: credential })
 }
