@@ -231,9 +231,12 @@ pub fn set_default_credential_builder(new: Box<CredentialBuilder>) {
 #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))]
 /// The default built-in credential store on *nix is the Secret Service.
 pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "secret-service") {
+    #[cfg(feature = "secret-service")]
+    {
         secret_service::default_credential_builder()
-    } else {
+    }
+    #[cfg(not(feature = "secret-service"))]
+    {
         credential::nop_credential_builder()
     }
 }
@@ -241,9 +244,12 @@ pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
 #[cfg(target_os = "macos")]
 /// The default built-in credential store on macOS is the Keychain Service.
 pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "apple-native") {
+    #[cfg(feature = "apple-native")]
+    {
         macos::default_credential_builder()
-    } else {
+    }
+    #[cfg(not(feature = "apple-native"))]
+    {
         credential::nop_credential_builder()
     }
 }
@@ -251,9 +257,12 @@ pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
 #[cfg(target_os = "ios")]
 /// The default built-in credential store on iOS is the Keychain Service.
 pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "apple-native") {
+    #[cfg(feature = "apple-native")]
+    {
         ios::default_credential_builder()
-    } else {
+    }
+    #[cfg(not(feature = "apple-native"))]
+    {
         credential::nop_credential_builder()
     }
 }
@@ -261,9 +270,12 @@ pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
 #[cfg(target_os = "windows")]
 /// The default built-in credential store on Windows is the Credential Manager.
 pub fn builtin_credential_builder() -> Box<CredentialBuilder> {
-    if cfg!(feature = "windows-native") {
+    #[cfg(feature = "windows-native")]
+    {
         windows::default_credential_builder()
-    } else {
+    }
+    #[cfg(not(feature = "windows-native"))]
+    {
         credential::nop_credential_builder()
     }
 }
