@@ -33,7 +33,7 @@ jobs:
           toolchain: stable
 
       - name: Build
-        run: cargo build --release --example keyring-cli
+        run: cargo build --release --features=vendored --example keyring-cli
 
       - name: Post keyring-cli executable
         uses: svenstaro/upload-release-action@v2
