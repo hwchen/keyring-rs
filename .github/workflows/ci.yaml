@@ -105,7 +105,7 @@ jobs:
         run: cargo build --no-default-features
 
       - name: Build the CLI release
-        run: cargo build --release --example keyring-cli
+        run: cargo build --features=${{ matrix.features }} --release --example keyring-cli
 
   ios_native:
     runs-on: macos-latest
