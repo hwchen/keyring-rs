@@ -39,6 +39,9 @@ jobs:
           RUST_LOG: debug
         run: cargo test --verbose
 
+      - name: Build with no features
+        run: cargo build --no-default-features
+
       - name: Build the CLI release
         run: cargo build --release --example keyring-cli
 
@@ -97,6 +100,12 @@ jobs:
           RUST_LOG: debug
         # run tests single-threaded to avoid dbus race conditions
         run: cargo test --features=${{ matrix.features }} -- --test-threads=1
+
+      - name: Build with no features
+        run: cargo build --no-default-features
+
+      - name: Build the CLI release
+        run: cargo build --features=${{ matrix.features }} --release --example keyring-cli
 
   ios_native:
     runs-on: macos-latest
